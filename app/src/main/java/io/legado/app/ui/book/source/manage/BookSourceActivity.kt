@@ -289,8 +289,6 @@ class BookSourceActivity : VMBaseActivity<ActivityBookSourceBinding, BookSourceV
                         debugMessages = debugMessagesState,
                         isChecking = isCheckingState.value,
                         reorderEnabled = sort == BookSourceSort.Default &&
-                            (searchQueryState.value.isBlank()
-                                || searchQueryState.value.startsWith("group:")) &&
                             !groupSourcesByDomain,
                         onReorder = { reordered ->
                             val ordered = if (sortAscending) reordered else reordered.asReversed()
