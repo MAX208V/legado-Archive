@@ -951,7 +951,12 @@ object ReadBookConfig {
             "tipColor" to tipColor,
             "tipDividerColor" to tipDividerColor,
             "headerMode" to headerMode,
-            "footerMode" to footerMode
+            "footerMode" to footerMode,
+            "wallpaperRotationEnabled" to wallpaperRotationEnabled,
+            "wallpaperRotationIntervalSec" to wallpaperRotationIntervalSec,
+            "wallpaperRotationImageList" to wallpaperRotationImageList,
+            "pagOverlayPath" to pagOverlayPath,
+            "pagOverlayEnabled" to pagOverlayEnabled
         )
 
     }

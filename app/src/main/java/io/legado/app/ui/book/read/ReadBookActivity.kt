@@ -213,6 +213,7 @@ import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -5195,10 +5196,7 @@ class ReadBookActivity : BaseReadBookActivity(),
                 val imageName = images[nextIndex]
                 // 切换壁纸
                 ReadBookConfig.durConfig.setCurBg(1, imageName)
-                ReadBookConfig.upBg(binding.readView.curPage.width, binding.readView.curPage.height)
-                binding.readView.curPage.upBg()
-                binding.readView.nextPage.upBg()
-                binding.readView.prevPage.upBg()
+                binding.readView.upBg()
             }
         }
     }

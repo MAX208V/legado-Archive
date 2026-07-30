@@ -860,7 +860,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
 
     private fun showWallpaperImageSelectDialog(
         allImages: List<String>,
-        selectedImages: MutableState<List<String>>
+        selectedImages: MutableState<ArrayList<String>>
     ) {
         val currentSelected = ReadBookConfig.durConfig.wallpaperRotationImageList.toHashSet()
         val labels = allImages.map { it.substringBeforeLast(".") }
@@ -909,7 +909,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 refreshTick++
                 (activity as? ReadBookActivity)?.refreshPagOverlay()
             } catch (e: Exception) {
-                context.toastOnUi(e.stackTraceStr)
+                requireContext().toastOnUi(e.stackTraceStr)
             }
         }
     }
