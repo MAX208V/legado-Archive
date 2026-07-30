@@ -118,6 +118,13 @@ class PageView(context: Context) : FrameLayout(context) {
         upBg()
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // 视图 attach 后重新触发 PAG/GIF 加载（init 时 view 尚未 attach）
+        upAnimatedBg()
+        upPagOverlay()
+    }
+
     override fun onDetachedFromWindow() {
         clearAdvancedTitleLoadingState(binding.advancedTitleLottie)
         clearAdvancedTitleLoadingState(binding.advancedTitleLottiePair)
@@ -1105,11 +1112,6 @@ class PageView(context: Context) : FrameLayout(context) {
         val curBgType = config.curBgType()
         val isGif = curBgStr.endsWith(".gif", ignoreCase = true)
         val animatedView = binding.animatedBgView
-        // 视图已分离时不触发 Glide 加载
-        if (!isAttachedToWindow) {
-            animatedView.visibility = GONE
-            return
-        }
         if (!isGif) {
             try {
                 Glide.with(this).clear(animatedView)
@@ -1154,10 +1156,6 @@ class PageView(context: Context) : FrameLayout(context) {
      * 加载并播放 PAG 叠加动画
      */
     fun upPagOverlay() {
-        if (!isAttachedToWindow) {
-            binding.pagOverlay.visibility = GONE
-            return
-        }
         val config = ReadBookConfig.durConfig
         if (!config.pagOverlayEnabled || config.pagOverlayPath.isBlank()) {
             clearPagOverlay()
