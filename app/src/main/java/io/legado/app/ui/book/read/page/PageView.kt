@@ -1105,8 +1105,15 @@ class PageView(context: Context) : FrameLayout(context) {
         val curBgType = config.curBgType()
         val isGif = curBgStr.endsWith(".gif", ignoreCase = true)
         val animatedView = binding.animatedBgView
+        // 视图已分离时不触发 Glide 加载
+        if (!isAttachedToWindow) {
+            animatedView.visibility = GONE
+            return
+        }
         if (!isGif) {
-            Glide.with(this).clear(animatedView)
+            try {
+                Glide.with(this).clear(animatedView)
+            } catch (_: Exception) { }
             animatedView.visibility = GONE
             return
         }
@@ -1114,7 +1121,7 @@ class PageView(context: Context) : FrameLayout(context) {
             val loadPath = when (curBgType) {
                 1 -> "file:///android_asset/bg/$curBgStr"
                 else -> if (curBgStr.contains(File.separator)) curBgStr
-                        else "file:///android_asset/bg/$curBgStr" // fallback to assets
+                        else "file:///android_asset/bg/$curBgStr"
             }
             animatedView.visibility = VISIBLE
             ImageLoader.load(context, loadPath)
@@ -1130,7 +1137,9 @@ class PageView(context: Context) : FrameLayout(context) {
      * 停止并释放 GIF 动图背景
      */
     private fun clearAnimatedBg() {
-        Glide.with(this).clear(binding.animatedBgView)
+        try {
+            Glide.with(this).clear(binding.animatedBgView)
+        } catch (_: Exception) { }
         binding.animatedBgView.visibility = GONE
     }
 
@@ -1145,6 +1154,10 @@ class PageView(context: Context) : FrameLayout(context) {
      * 加载并播放 PAG 叠加动画
      */
     fun upPagOverlay() {
+        if (!isAttachedToWindow) {
+            binding.pagOverlay.visibility = GONE
+            return
+        }
         val config = ReadBookConfig.durConfig
         if (!config.pagOverlayEnabled || config.pagOverlayPath.isBlank()) {
             clearPagOverlay()
