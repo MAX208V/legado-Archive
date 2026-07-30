@@ -145,6 +145,10 @@ cn.hutool.core.util.**{*;}
 -keep class org.eclipse.tm4e.** { *; }
 -keep class org.joni.** { *; }
 
+# PAG (Portable Animated Graphics)
+-keep class org.libpag.** { *; }
+-keep class androidx.exifinterface.** { *; }
+
 # GSYVideoPlayer
 -keep class com.shuyu.gsyvideoplayer.** { *; }
 -dontwarn com.shuyu.gsyvideoplayer.**

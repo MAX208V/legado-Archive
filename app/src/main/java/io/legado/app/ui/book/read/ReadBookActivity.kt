@@ -736,10 +736,12 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readAloudPlayerPanel.post {
             consumeGlobalReadAloudPanelOpen()
         }
+        startWallpaperRotation()
     }
 
     override fun onPause() {
         super.onPause()
+        stopWallpaperRotation()
         binding.readAloudPlayerPanel.setForegroundActive(false)
         autoPageStop()
         backupJob?.cancel()
@@ -2500,6 +2502,11 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         if (values.contains(3)) {
             readView.upBgAlpha()
+        }
+        // 壁纸轮换/PAG配置变更时刷新
+        if (values.any { it == 9 || it == 10 }) {
+            startWallpaperRotation()
+            refreshPagOverlay()
         }
         if (needStyle) {
             readView.upStyle()
@@ -5167,6 +5174,47 @@ class ReadBookActivity : BaseReadBookActivity(),
                 keepScreenOn(false)
             }
         }
+    }
+
+    // ── 壁纸轮换 ──
+
+    private var wallpaperRotationJob: Job? = null
+
+    private fun startWallpaperRotation() {
+        stopWallpaperRotation()
+        val config = ReadBookConfig.durConfig
+        if (!config.wallpaperRotationEnabled || config.wallpaperRotationImageList.isEmpty()) return
+        val images = config.wallpaperRotationImageList
+        val intervalMs = (config.wallpaperRotationIntervalSec * 1000L).coerceAtLeast(5000L)
+        wallpaperRotationJob = lifecycleScope.launch {
+            while (isActive) {
+                delay(intervalMs)
+                val index = ReadBookConfig.rotationCurrentIndex
+                val nextIndex = (index + 1) % images.size
+                ReadBookConfig.rotationCurrentIndex = nextIndex
+                val imageName = images[nextIndex]
+                // 切换壁纸
+                ReadBookConfig.durConfig.setCurBg(1, imageName)
+                ReadBookConfig.upBg(binding.readView.curPage.width, binding.readView.curPage.height)
+                binding.readView.curPage.upBg()
+                binding.readView.nextPage.upBg()
+                binding.readView.prevPage.upBg()
+            }
+        }
+    }
+
+    private fun stopWallpaperRotation() {
+        wallpaperRotationJob?.cancel()
+        wallpaperRotationJob = null
+    }
+
+    /**
+     * 刷新页面上的 PAG 叠加动画
+     */
+    internal fun refreshPagOverlay() {
+        binding.readView.curPage.refreshPagOverlay()
+        binding.readView.nextPage.refreshPagOverlay()
+        binding.readView.prevPage.refreshPagOverlay()
     }
 
     companion object {

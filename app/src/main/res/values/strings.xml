@@ -1205,6 +1205,12 @@
     <string name="background_image">Background image</string>
     <string name="read_scroll_follow_background">Scroll Follow Background</string>
     <string name="read_scroll_follow_background_summary">In vertical scrolling reading mode, the background image scrolls with the content and repeats downward.</string>
+    <string name="wallpaper_rotation">Wallpaper Rotation</string>
+    <string name="wallpaper_rotation_interval">Auto switch every %d seconds</string>
+    <string name="wallpaper_rotation_interval_label">Rotation Interval</string>
+    <string name="select_rotation_images">Select Images for Rotation</string>
+    <string name="pag_overlay">PAG Overlay Animation</string>
+    <string name="select_pag_file">Choose PAG File</string>
     <string name="background_image_blurring">Background image blurring</string>
     <string name="background_image_blurring_radius">Blurring radius</string>
     <string name="background_image_hint">Disabled when 0, enable range from 1 to 25\nThe greater the radius, the stronger the effect of blurring</string>
@@ -2478,4 +2484,10 @@ Selected text or question:
     <string name="shibboleth_invalid">Invalid import code</string>
     <string name="shibboleth_expired">This import code has expired</string>
     <string name="shibboleth_import_confirm">The import code will download configuration from the Internet. Continue only if you trust its source.</string>
+    <string name="wallpaper_rotation">Wallpaper rotation</string>
+    <string name="wallpaper_rotation_interval">Rotates every %1$d seconds</string>
+    <string name="wallpaper_rotation_interval_label">Rotation interval</string>
+    <string name="select_rotation_images">Select rotation images</string>
+    <string name="pag_overlay">PAG animation overlay</string>
+    <string name="select_pag_file">Select PAG file</string>
 </resources>

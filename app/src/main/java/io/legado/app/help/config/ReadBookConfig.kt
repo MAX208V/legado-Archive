@@ -58,6 +58,7 @@ object ReadBookConfig {
     var isComic: Boolean = false
     var bg: Drawable? = null
     var bgMeanColor: Int = 0
+    var pagDrawable: Drawable? = null
     val textColor: Int get() = durConfig.curTextColor()
     val textAccentColor: Int get() = durConfig.curTextAccentColor()
     var isNineBgImg = false
@@ -114,6 +115,22 @@ object ReadBookConfig {
             bgMeanColor = drawable.color
         }
         bg = drawable
+    }
+
+    var rotationCurrentIndex: Int = 0
+    var rotationJob: kotlinx.coroutines.Job? = null
+
+    fun stopRotation() {
+        rotationJob?.cancel()
+        rotationJob = null
+    }
+
+    fun upPagBg(width: Int, height: Int) {
+        val pagPath = durConfig.pagOverlayPath
+        if (pagPath.isNotBlank() && durConfig.pagOverlayEnabled) {
+            // PAG 动态加载由 PageView 通过 Glide/PAGView 处理
+            // 此处仅记录状态
+        }
     }
 
     fun save() {
@@ -613,7 +630,14 @@ object ReadBookConfig {
         var tipColor: Int = 0,
         var tipDividerColor: Int = -1,
         var headerMode: Int = 0,
-        var footerMode: Int = 0
+        var footerMode: Int = 0,
+        // 壁纸轮换
+        var wallpaperRotationEnabled: Boolean = false,
+        var wallpaperRotationIntervalSec: Int = 60,
+        var wallpaperRotationImageList: ArrayList<String> = arrayListOf(),
+        // PAG叠加动画
+        var pagOverlayPath: String = "",
+        var pagOverlayEnabled: Boolean = false
     ) {
 
         @Transient

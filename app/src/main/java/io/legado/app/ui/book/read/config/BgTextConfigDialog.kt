@@ -76,11 +76,13 @@ import io.legado.app.model.ReadBook
 import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.file.HandleFileContract
+import androidx.compose.runtime.MutableState
 import io.legado.app.ui.widget.compose.AppDialogStyle
 import io.legado.app.ui.widget.compose.AppThemedStepperSlider
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
 import io.legado.app.ui.widget.compose.rememberAppDialogStyle
 import io.legado.app.ui.widget.compose.showComposeChoiceListDialog
+import io.legado.app.ui.widget.compose.showComposeMultiChoiceDialog
 import io.legado.app.ui.widget.compose.showComposeTextInputDialog
 import io.legado.app.ui.widget.compose.toMiuixPalette
 import io.legado.app.utils.FileDoc
@@ -303,6 +305,122 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 scrollFollowBg = it
                 ReadBookConfig.durConfig.setCurReadScrollFollowBackground(it)
                 postReadConfigChanged(1, 5)
+            }
+            // 壁纸轮换
+            WallpaperRotationSection(style)
+            // PAG叠加动画
+            PagOverlaySection(style)
+        }
+    }
+
+    @Composable
+    private fun WallpaperRotationSection(style: AppDialogStyle) {
+        var rotationEnabled by rememberSaveable(refreshTick) {
+            mutableStateOf(ReadBookConfig.durConfig.wallpaperRotationEnabled)
+        }
+        var rotationInterval by rememberSaveable(refreshTick) {
+            mutableIntStateOf(ReadBookConfig.durConfig.wallpaperRotationIntervalSec)
+        }
+        ReaderSwitchRow(
+            title = stringResource(R.string.wallpaper_rotation),
+            checked = rotationEnabled,
+            style = style,
+            summary = if (rotationEnabled) {
+                stringResource(R.string.wallpaper_rotation_interval, rotationInterval)
+            } else null
+        ) {
+            rotationEnabled = it
+            ReadBookConfig.durConfig.wallpaperRotationEnabled = it
+            postReadConfigChanged(9, 10)
+        }
+        if (rotationEnabled) {
+            // 轮换间隔
+            SliderRow(
+                title = stringResource(R.string.wallpaper_rotation_interval_label),
+                value = rotationInterval,
+                range = 15..300,
+                style = style,
+                valueText = "${rotationInterval}秒"
+            ) {
+                rotationInterval = it
+                ReadBookConfig.durConfig.wallpaperRotationIntervalSec = it
+            }
+            // 选择轮换图片
+            val presetImages = remember { requireContext().assets.list("bg")?.toList().orEmpty() }
+            val selectedImages = rememberSaveable(refreshTick) {
+                mutableStateOf(ReadBookConfig.durConfig.wallpaperRotationImageList)
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showWallpaperImageSelectDialog(presetImages, selectedImages) }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.select_rotation_images),
+                    color = style.primaryText,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${selectedImages.value.size}/${presetImages.size}",
+                    color = style.accent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+
+    @Composable
+    private fun PagOverlaySection(style: AppDialogStyle) {
+        var pagEnabled by rememberSaveable(refreshTick) {
+            mutableStateOf(ReadBookConfig.durConfig.pagOverlayEnabled)
+        }
+        var pagPath by rememberSaveable(refreshTick) {
+            mutableStateOf(ReadBookConfig.durConfig.pagOverlayPath)
+        }
+        ReaderSwitchRow(
+            title = stringResource(R.string.pag_overlay),
+            checked = pagEnabled,
+            style = style,
+            summary = if (pagPath.isNotBlank()) pagPath.substringAfterLast("/") else null
+        ) {
+            pagEnabled = it
+            ReadBookConfig.durConfig.pagOverlayEnabled = it
+            if (!it) {
+                (activity as? ReadBookActivity)?.refreshPagOverlay()
+            }
+            postReadConfigChanged(10)
+        }
+        if (pagEnabled) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { selectPagFileAction() }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.select_pag_file),
+                    color = style.primaryText,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = pagPath.substringAfterLast("/").ifBlank { "未选择" },
+                    color = style.accent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(100.dp)
+                )
             }
         }
     }
@@ -737,6 +855,62 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 .getOrDefault(Color(0xFF015A86))
         } else {
             Color(0xFF015A86)
+        }
+    }
+
+    private fun showWallpaperImageSelectDialog(
+        allImages: List<String>,
+        selectedImages: MutableState<List<String>>
+    ) {
+        val currentSelected = ReadBookConfig.durConfig.wallpaperRotationImageList.toHashSet()
+        val labels = allImages.map { it.substringBeforeLast(".") }
+        val checkedIndices = allImages.indices.filter { it in currentSelected.map { i -> allImages.indexOf(i) } }.toSet()
+        showComposeMultiChoiceDialog(
+            title = getString(R.string.select_rotation_images),
+            labels = labels,
+            checkedIndices = checkedIndices,
+            positiveText = getString(android.R.string.ok),
+            negativeText = getString(android.R.string.cancel),
+            onPositive = { checkedArray ->
+                val newSelected = allImages.filterIndexed { index, _ ->
+                    index < checkedArray.size && checkedArray[index]
+                }
+                selectedImages.value = newSelected
+                ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(newSelected)
+            },
+            onDismissAction = {
+                refreshTick++
+            }
+        )
+    }
+
+    private val selectPagFile = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri -> setPagFromUri(uri) }
+    }
+
+    private fun selectPagFileAction() {
+        selectPagFile.launch {
+            mode = HandleFileContract.PAG
+        }
+    }
+
+    private fun setPagFromUri(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val inputStream = requireContext().contentResolver.openInputStream(uri) ?: return@launch
+                val pagDir = File(requireContext().externalFiles, "pag")
+                pagDir.mkdirs()
+                val fileName = "${System.currentTimeMillis()}.pag"
+                val destFile = File(pagDir, fileName)
+                destFile.outputStream().use { output ->
+                    inputStream.copyTo(output)
+                }
+                ReadBookConfig.durConfig.pagOverlayPath = destFile.absolutePath
+                refreshTick++
+                (activity as? ReadBookActivity)?.refreshPagOverlay()
+            } catch (e: Exception) {
+                context.toastOnUi(e.stackTraceStr)
+            }
         }
     }
 

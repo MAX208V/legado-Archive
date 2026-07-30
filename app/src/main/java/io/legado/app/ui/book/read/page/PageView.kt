@@ -51,8 +51,10 @@ import io.legado.app.utils.decodeBase64DataUrlBytes
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.gone
 import io.legado.app.utils.SvgUtils
+import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.setOnApplyWindowInsetsListenerCompat
 import io.legado.app.utils.setTextIfNotEqual
+import java.io.File
 import splitties.views.backgroundColor
 import java.io.ByteArrayInputStream
 import java.util.Date
@@ -122,6 +124,7 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.advancedTitleLottiePair.cancelAnimation()
         binding.contentTextView.setScrollFollowBackground(null, 255)
         binding.vwRoot.background = null
+        clearPagOverlay()
         synchronized(styledLottieJsonCache) {
             styledLottieJsonCache.clear()
         }
@@ -177,6 +180,7 @@ class PageView(context: Context) : FrameLayout(context) {
         }
         upTime()
         upBattery(battery)
+        upPagOverlay()
         invalidateTextRenderCache()
     }
 
@@ -1086,6 +1090,60 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.contentTextView.getSelectedReadPosition()
 
     val selectStartPos get() = binding.contentTextView.selectStart
+
+    /**
+     * 刷新 PAG叠加动画（从当前配置重新加载）
+     */
+    fun refreshPagOverlay() {
+        upPagOverlay()
+    }
+
+    /**
+     * 加载并播放 PAG 叠加动画
+     */
+    fun upPagOverlay() {
+        val config = ReadBookConfig.durConfig
+        if (!config.pagOverlayEnabled || config.pagOverlayPath.isBlank()) {
+            clearPagOverlay()
+            return
+        }
+        val pagView = binding.pagOverlay
+        try {
+            val path = config.pagOverlayPath
+            if (path.startsWith("file://") || path.contains(File.separator)) {
+                pagView.setPath(path)
+            } else {
+                // 从 assets/bg/ 下加载 PAG 文件
+                val assetPath = "bg" + File.separator + path
+                val tempFile = File(context.cacheDir, "pag_asset_${path.hashCode()}.pag")
+                if (!tempFile.exists()) {
+                    context.assets.open(assetPath).use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+                pagView.setPath(tempFile.absolutePath)
+            }
+            pagView.setRepeatCount(-1) // 无限循环
+            if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
+            pagView.play()
+        } catch (e: Exception) {
+            e.printOnDebug()
+            pagView.visibility = GONE
+        }
+    }
+
+    /**
+     * 停止并清除 PAG 叠加动画
+     */
+    fun clearPagOverlay() {
+        val pagView = binding.pagOverlay
+        try {
+            if (pagView.isPlaying) pagView.stop()
+        } catch (_: Exception) { }
+        pagView.visibility = GONE
+    }
 
     private companion object {
         const val ADVANCED_TITLE_SIZE_FACTOR = 1.25f

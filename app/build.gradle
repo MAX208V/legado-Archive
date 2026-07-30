@@ -288,6 +288,9 @@ dependencies {
     implementation(libs.glide.okhttp)
     ksp(libs.glide.ksp)
 
+    //PAG (Portable Animated Graphics)
+    implementation(libs.pag.libpag)
+
     //Svg
     implementation(libs.androidsvg)
     //Glide svg plugin

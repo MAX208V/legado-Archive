@@ -27,6 +27,10 @@ class HandleFileContract :
         if (handleFileParam.mode == IMAGE) {
             handleFileParam.allowExtensions = arrayOf("jpg", "png", "bmp", "webp")
         }
+        if (handleFileParam.mode == PAG) {
+            handleFileParam.allowExtensions = arrayOf("pag")
+            handleFileParam.title = handleFileParam.title ?: "选择PAG动画"
+        }
         handleFileParam.let {
             requestCode = it.requestCode
             intent.putExtra("mode", it.mode)
@@ -62,6 +66,7 @@ class HandleFileContract :
         const val DIR_SYS = 2
         const val EXPORT = 3
         const val IMAGE = 4
+        const val PAG = 5
     }
 
     @Suppress("ArrayInDataClass")

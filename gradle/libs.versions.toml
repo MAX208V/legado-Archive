@@ -65,6 +65,9 @@ commonsText = "1.13.1"
 #noinspection GradleDependency
 rhino = "1.8.1"
 
+#noinspection GradleDependency
+pag = "4.5.81"
+
 #noinspection GradleDependency,NewerVersionAvailable
 media3 = "1.8.0"
 #noinspection GradleDependency
@@ -214,6 +217,7 @@ mozilla-rhino = { module = "org.mozilla:rhino", version.ref = "rhino" }
 
 renderscript-intrinsics-replacement-toolkit = { module = "com.github.TomasValenta:renderscript-intrinsics-replacement-toolkit", version = "8eaa829ddd" }
 zxing-lite = { module = "com.github.jenly1314:zxing-lite", version.ref = "zxingLite" }
+pag-libpag = { module = "com.tencent.tav:libpag", version.ref = "pag" }
 
 [bundles]
 coroutines = ["kotlinx-coroutines-core", "kotlinx-coroutines-android"]
