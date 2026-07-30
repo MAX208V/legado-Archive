@@ -89,6 +89,7 @@ class HandleFileActivity :
             }
 
             HandleFileContract.IMAGE -> getImageActions()
+            HandleFileContract.PAG -> getFileActions()
             else -> arrayListOf()
         }
         intent.getJsonArray<SelectItem<Int>>("otherActions")?.let {
@@ -132,6 +133,19 @@ class HandleFileActivity :
 
                     HandleFileContract.IMAGE -> {
                         selectImage.launch()
+                    }
+
+                    HandleFileContract.PAG -> kotlin.runCatching {
+                        selectDoc.launch(typesOfExtensions(allowExtensions))
+                    }.onFailure {
+                        AppLog.put(getString(R.string.open_sys_dir_picker_error), it, true)
+                        checkPermissions {
+                            FilePickerDialog.show(
+                                supportFragmentManager,
+                                mode = HandleFileContract.FILE,
+                                allowExtensions = allowExtensions
+                            )
+                        }
                     }
 
                     10 -> checkPermissions {
