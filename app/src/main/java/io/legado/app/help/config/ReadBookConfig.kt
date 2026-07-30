@@ -883,11 +883,12 @@ object ReadBookConfig {
                         val afd = appCtx.assets.openFd(path)
                         ImageDecoder.createSource(afd)
                     } else {
-                        ImageDecoder.createSource(File(path))
+                        val bytes = java.io.File(path).readBytes()
+                        ImageDecoder.createSource(bytes)
                     }
                     ImageDecoder.decodeDrawable(source) { decoder, _, _ ->
                         decoder.setTargetSize(width, height)
-                        decoder.isAnimating = true
+                        decoder.setAnimating(true)
                     }
                 } catch (e: Exception) {
                     e.printOnDebug()
