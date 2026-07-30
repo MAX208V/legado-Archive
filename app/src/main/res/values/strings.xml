@@ -2484,10 +2484,4 @@ Selected text or question:
     <string name="shibboleth_invalid">Invalid import code</string>
     <string name="shibboleth_expired">This import code has expired</string>
     <string name="shibboleth_import_confirm">The import code will download configuration from the Internet. Continue only if you trust its source.</string>
-    <string name="wallpaper_rotation">Wallpaper rotation</string>
-    <string name="wallpaper_rotation_interval">Rotates every %1$d seconds</string>
-    <string name="wallpaper_rotation_interval_label">Rotation interval</string>
-    <string name="select_rotation_images">Select rotation images</string>
-    <string name="pag_overlay">PAG animation overlay</string>
-    <string name="select_pag_file">Select PAG file</string>
 </resources>
