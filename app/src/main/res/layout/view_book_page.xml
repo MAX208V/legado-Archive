@@ -90,6 +90,19 @@
         app:layout_constraintStart_toStartOf="@id/content_text_view"
         app:layout_constraintEnd_toEndOf="@id/content_text_view" />
 
+    <ImageView
+        android:id="@+id/animated_bg_view"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        android:clickable="false"
+        android:focusable="false"
+        android:scaleType="centerCrop"
+        app:layout_constraintTop_toTopOf="@id/content_text_view"
+        app:layout_constraintBottom_toBottomOf="@id/content_text_view"
+        app:layout_constraintStart_toStartOf="@id/content_text_view"
+        app:layout_constraintEnd_toEndOf="@id/content_text_view" />
+
     <com.airbnb.lottie.LottieAnimationView
         android:id="@+id/advanced_title_lottie"
         android:layout_width="220dp"

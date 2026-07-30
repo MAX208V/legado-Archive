@@ -36,6 +36,7 @@ import io.legado.app.help.config.AdvancedTitleFontAssetDelegate
 import io.legado.app.help.config.AppConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ReadTipConfig
+import io.legado.app.help.glide.ImageLoader
 import io.legado.app.model.ReadBook
 import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.book.read.page.entities.TextLine
@@ -51,7 +52,9 @@ import io.legado.app.utils.decodeBase64DataUrlBytes
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.gone
 import io.legado.app.utils.SvgUtils
+import io.legado.app.utils.FileUtils
 import io.legado.app.utils.printOnDebug
+import com.bumptech.glide.Glide
 import io.legado.app.utils.setOnApplyWindowInsetsListenerCompat
 import io.legado.app.utils.setTextIfNotEqual
 import java.io.File
@@ -124,6 +127,7 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.advancedTitleLottiePair.cancelAnimation()
         binding.contentTextView.setScrollFollowBackground(null, 255)
         binding.vwRoot.background = null
+        clearAnimatedBg()
         clearPagOverlay()
         synchronized(styledLottieJsonCache) {
             styledLottieJsonCache.clear()
@@ -180,6 +184,7 @@ class PageView(context: Context) : FrameLayout(context) {
         }
         upTime()
         upBattery(battery)
+        upAnimatedBg()
         upPagOverlay()
         invalidateTextRenderCache()
     }
@@ -1090,6 +1095,44 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.contentTextView.getSelectedReadPosition()
 
     val selectStartPos get() = binding.contentTextView.selectStart
+
+    /**
+     * 刷新 GIF 动图背景（使用 Glide 异步加载播放）
+     */
+    fun upAnimatedBg() {
+        val config = ReadBookConfig.durConfig
+        val curBgStr = config.curBgStr()
+        val curBgType = config.curBgType()
+        val isGif = curBgStr.endsWith(".gif", ignoreCase = true)
+        val animatedView = binding.animatedBgView
+        if (!isGif) {
+            Glide.with(this).clear(animatedView)
+            animatedView.visibility = GONE
+            return
+        }
+        try {
+            val loadPath = when (curBgType) {
+                1 -> "file:///android_asset/bg/$curBgStr"
+                else -> if (curBgStr.contains(File.separator)) curBgStr
+                        else "file:///android_asset/bg/$curBgStr" // fallback to assets
+            }
+            animatedView.visibility = VISIBLE
+            ImageLoader.load(context, loadPath)
+                .centerCrop()
+                .into(animatedView)
+        } catch (e: Exception) {
+            e.printOnDebug()
+            animatedView.visibility = GONE
+        }
+    }
+
+    /**
+     * 停止并释放 GIF 动图背景
+     */
+    private fun clearAnimatedBg() {
+        Glide.with(this).clear(binding.animatedBgView)
+        binding.animatedBgView.visibility = GONE
+    }
 
     /**
      * 刷新 PAG叠加动画（从当前配置重新加载）

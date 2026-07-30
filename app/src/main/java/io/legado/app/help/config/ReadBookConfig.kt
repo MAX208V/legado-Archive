@@ -3,9 +3,6 @@ package io.legado.app.help.config
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Drawable
-import android.graphics.drawable.AnimatedImageDrawable
-import android.graphics.ImageDecoder
-import android.os.Build
 import androidx.annotation.Keep
 import androidx.core.graphics.toColorInt
 import io.legado.app.R
@@ -116,9 +113,6 @@ object ReadBookConfig {
             bgMeanColor = drawable.bitmap.getMeanColor()
         } else if (drawable is ColorDrawable) {
             bgMeanColor = drawable.color
-        }
-        if (drawable is AnimatedImageDrawable) {
-            drawable.start()
         }
         bg = drawable
     }
@@ -842,12 +836,8 @@ object ReadBookConfig {
                     0 -> curBgStr.toColorInt().toDrawable()
                     1 -> {
                         val path = "bg" + File.separator + curBgStr
-                        if (curBgStr.endsWith(".gif", ignoreCase = true)) {
-                            loadAnimatedDrawable(path, width, height, fromAssets = true)
-                        } else {
-                            val bitmap = BitmapUtils.decodeAssetsBitmap(appCtx, path, width, height)
-                            bitmap?.resizeAndRecycle(width, height)?.toDrawable(resources)
-                        }
+                        val bitmap = BitmapUtils.decodeAssetsBitmap(appCtx, path, width, height)
+                        bitmap?.resizeAndRecycle(width, height)?.toDrawable(resources)
                     }
 
                     else -> {
@@ -857,8 +847,6 @@ object ReadBookConfig {
                         }
                         if (isNineBgImg) {
                             BitmapUtils.decodeNinePatchDrawable(path)
-                        } else if (curBgStr.endsWith(".gif", ignoreCase = true)) {
-                            loadAnimatedDrawable(path, width, height, fromAssets = false)
                         } else {
                             val bitmap = BitmapUtils.decodeBitmap(path, width, height)
                             bitmap?.resizeAndRecycle(width, height)?.toDrawable(resources)
@@ -871,39 +859,6 @@ object ReadBookConfig {
                 e.printOnDebug()
             }
             return bgDrawable ?: appCtx.getCompatColor(R.color.background).toDrawable()
-        }
-
-        /**
-         * 加载动图（GIF/APNG/AnimatedWebP）drawable，API 28+ 使用 ImageDecoder 原生支持自动播放
-         */
-        private fun loadAnimatedDrawable(path: String, width: Int, height: Int, fromAssets: Boolean): Drawable? {
-            return if (Build.VERSION.SDK_INT >= 28) {
-                try {
-                    val source = if (fromAssets) {
-                        val afd = appCtx.assets.openFd(path)
-                        ImageDecoder.createSource(afd)
-                    } else {
-                        val bytes = java.io.File(path).readBytes()
-                        ImageDecoder.createSource(bytes)
-                    }
-                    ImageDecoder.decodeDrawable(source) { decoder, _, _ ->
-                        decoder.setTargetSize(width, height)
-                        decoder.setAnimating(true)
-                    }
-                } catch (e: Exception) {
-                    e.printOnDebug()
-                    null
-                }
-            } else {
-                // API < 28 降级为静态位图（只显示动图第一帧）
-                if (fromAssets) {
-                    val bitmap = BitmapUtils.decodeAssetsBitmap(appCtx, path, width, height)
-                    bitmap?.resizeAndRecycle(width, height)?.toDrawable(appCtx.resources)
-                } else {
-                    val bitmap = BitmapUtils.decodeBitmap(path, width, height)
-                    bitmap?.resizeAndRecycle(width, height)?.toDrawable(appCtx.resources)
-                }
-            }
         }
 
         fun getBgPath(bgIndex: Int): String? {
