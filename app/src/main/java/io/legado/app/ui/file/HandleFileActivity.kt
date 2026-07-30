@@ -136,7 +136,8 @@ class HandleFileActivity :
                     }
 
                     HandleFileContract.PAG -> kotlin.runCatching {
-                        selectDoc.launch(typesOfExtensions(allowExtensions))
+                        // PAG 无标准 MIME，用 */* 让用户自由浏览，选完校验扩展名
+                        selectDoc.launch(arrayOf("*/*"))
                     }.onFailure {
                         AppLog.put(getString(R.string.open_sys_dir_picker_error), it, true)
                         checkPermissions {
