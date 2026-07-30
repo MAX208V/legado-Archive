@@ -1104,34 +1104,38 @@ class PageView(context: Context) : FrameLayout(context) {
     val selectStartPos get() = binding.contentTextView.selectStart
 
     /**
-     * 刷新 GIF 动图背景（使用 Glide 异步加载播放）
+     * 刷新 GIF 动图背景（用 Glide 异步加载 Drawable，直接设为 vwRoot 背景）
      */
     fun upAnimatedBg() {
         val config = ReadBookConfig.durConfig
         val curBgStr = config.curBgStr()
         val curBgType = config.curBgType()
         val isGif = curBgStr.endsWith(".gif", ignoreCase = true)
-        val animatedView = binding.animatedBgView
-        if (!isGif) {
-            try {
-                Glide.with(this).clear(animatedView)
-            } catch (_: Exception) { }
-            animatedView.visibility = GONE
-            return
-        }
+        if (!isGif) return
         try {
             val loadPath = when (curBgType) {
                 1 -> "file:///android_asset/bg/$curBgStr"
                 else -> if (curBgStr.contains(File.separator)) curBgStr
                         else "file:///android_asset/bg/$curBgStr"
             }
-            animatedView.visibility = VISIBLE
-            ImageLoader.load(context, loadPath)
-                .centerCrop()
-                .into(animatedView)
+            Glide.with(this)
+                .asDrawable()
+                .load(loadPath)
+                .into(animatedBgTarget)
         } catch (e: Exception) {
             e.printOnDebug()
-            animatedView.visibility = GONE
+        }
+    }
+
+    private val animatedBgTarget = object : com.bumptech.glide.request.target.CustomTarget<Drawable>() {
+        override fun onResourceReady(resource: Drawable, transition: com.bumptech.glide.request.transition.Transition<in Drawable>?) {
+            binding.vwRoot.background = resource
+            if (resource is com.bumptech.glide.load.resource.gif.GifDrawable) {
+                resource.start()
+            }
+        }
+        override fun onLoadCleared(placeholder: Drawable?) {
+            binding.vwRoot.background = placeholder
         }
     }
 
@@ -1140,9 +1144,8 @@ class PageView(context: Context) : FrameLayout(context) {
      */
     private fun clearAnimatedBg() {
         try {
-            Glide.with(this).clear(binding.animatedBgView)
+            Glide.with(this).clear(animatedBgTarget)
         } catch (_: Exception) { }
-        binding.animatedBgView.visibility = GONE
     }
 
     /**
