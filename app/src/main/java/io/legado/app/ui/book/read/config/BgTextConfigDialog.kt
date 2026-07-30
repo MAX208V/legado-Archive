@@ -348,7 +348,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             // 选择轮换图片
             val presetImages = remember { requireContext().assets.list("bg")?.toList().orEmpty() }
             val selectedImages = rememberSaveable(refreshTick) {
-                mutableStateOf(ReadBookConfig.durConfig.wallpaperRotationImageList)
+                mutableStateOf<List<String>>(ReadBookConfig.durConfig.wallpaperRotationImageList)
             }
             Row(
                 modifier = Modifier
@@ -860,7 +860,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
 
     private fun showWallpaperImageSelectDialog(
         allImages: List<String>,
-        selectedImages: MutableState<ArrayList<String>>
+        selectedImages: MutableState<List<String>>
     ) {
         val currentSelected = ReadBookConfig.durConfig.wallpaperRotationImageList.toHashSet()
         val labels = allImages.map { it.substringBeforeLast(".") }
@@ -875,7 +875,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val newSelected = allImages.filterIndexed { index, _ ->
                     index < checkedArray.size && checkedArray[index]
                 }
-                selectedImages.value = newSelected
+                selectedImages.value = ArrayList(newSelected)
                 ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(newSelected)
             },
             onDismissAction = {
