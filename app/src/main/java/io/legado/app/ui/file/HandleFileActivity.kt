@@ -135,18 +135,14 @@ class HandleFileActivity :
                         selectImage.launch()
                     }
 
-                    HandleFileContract.PAG -> kotlin.runCatching {
-                        // PAG 无标准 MIME，用 */* 让用户自由浏览，选完校验扩展名
-                        selectDoc.launch(arrayOf("*/*"))
-                    }.onFailure {
-                        AppLog.put(getString(R.string.open_sys_dir_picker_error), it, true)
-                        checkPermissions {
-                            FilePickerDialog.show(
-                                supportFragmentManager,
-                                mode = HandleFileContract.FILE,
-                                allowExtensions = allowExtensions
-                            )
-                        }
+                    HandleFileContract.PAG -> checkPermissions {
+                        // PAG 无标准 MIME，直接用内置文件浏览器按扩展名过滤
+                        FilePickerDialog.show(
+                            supportFragmentManager,
+                            mode = HandleFileContract.FILE,
+                            allowExtensions = arrayOf("pag"),
+                            title = getString(R.string.select_pag_file)
+                        )
                     }
 
                     10 -> checkPermissions {

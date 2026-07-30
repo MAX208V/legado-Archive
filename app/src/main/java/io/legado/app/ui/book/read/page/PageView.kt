@@ -1104,38 +1104,32 @@ class PageView(context: Context) : FrameLayout(context) {
     val selectStartPos get() = binding.contentTextView.selectStart
 
     /**
-     * 刷新 GIF 动图背景（用 Glide 异步加载 Drawable，直接设为 vwRoot 背景）
+     * 刷新 GIF 动图背景（用 ImageView + Glide 播放）
      */
     fun upAnimatedBg() {
         val config = ReadBookConfig.durConfig
         val curBgStr = config.curBgStr()
         val curBgType = config.curBgType()
         val isGif = curBgStr.endsWith(".gif", ignoreCase = true)
-        if (!isGif) return
+        val gifView = binding.animatedBgView
+        if (!isGif) {
+            gifView.visibility = GONE
+            try { Glide.with(this).clear(gifView) } catch (_: Exception) { }
+            return
+        }
         try {
             val loadPath = when (curBgType) {
                 1 -> "file:///android_asset/bg/$curBgStr"
                 else -> if (curBgStr.contains(File.separator)) curBgStr
                         else "file:///android_asset/bg/$curBgStr"
             }
-            Glide.with(this)
-                .asDrawable()
-                .load(loadPath)
-                .into(animatedBgTarget)
+            gifView.visibility = VISIBLE
+            ImageLoader.load(context, loadPath)
+                .centerCrop()
+                .into(gifView)
         } catch (e: Exception) {
             e.printOnDebug()
-        }
-    }
-
-    private val animatedBgTarget = object : com.bumptech.glide.request.target.CustomTarget<Drawable>() {
-        override fun onResourceReady(resource: Drawable, transition: com.bumptech.glide.request.transition.Transition<in Drawable>?) {
-            binding.vwRoot.background = resource
-            if (resource is com.bumptech.glide.load.resource.gif.GifDrawable) {
-                resource.start()
-            }
-        }
-        override fun onLoadCleared(placeholder: Drawable?) {
-            binding.vwRoot.background = placeholder
+            gifView.visibility = GONE
         }
     }
 
@@ -1143,9 +1137,8 @@ class PageView(context: Context) : FrameLayout(context) {
      * 停止并释放 GIF 动图背景
      */
     private fun clearAnimatedBg() {
-        try {
-            Glide.with(this).clear(animatedBgTarget)
-        } catch (_: Exception) { }
+        try { Glide.with(this).clear(binding.animatedBgView) } catch (_: Exception) { }
+        binding.animatedBgView.visibility = GONE
     }
 
     /**
