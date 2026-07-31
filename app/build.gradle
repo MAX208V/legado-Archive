@@ -113,6 +113,9 @@ android {
             applicationIdSuffix '.debug'
             versionNameSuffix 'debug'
             minifyEnabled false
+            // 非 debuggable：日常安装使用的 debug 包启用完整 ART 优化，
+            // 启动与运行速度接近 release（保持同一包名，数据不丢）
+            debuggable false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', 'cronet-proguard-rules.pro'
         }
     }
