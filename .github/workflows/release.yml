@@ -24,7 +24,7 @@ jobs:
           echo "version=$(date -d "8 hour" -u +3.%y.%m%d%H)" >> $GITHUB_OUTPUT
       - id: check
         run: |
-          if [ ! -z "${{ secrets.RELEASE_KEY_STORE }}" ]; then
+          if [ ! -z "${{ secrets.KEYSTORE_B64 }}" ] || [ ! -z "${{ secrets.RELEASE_KEY_STORE }}" ]; then
             echo "sign=yes" >> $GITHUB_OUTPUT
           fi
           if [ ! -z "${{ secrets.SERVICE_ACCOUNT_JSON }}" ]; then
@@ -55,7 +55,7 @@ jobs:
 
       - name: Release Apk Sign
         env:
-          KEYSTORE_B64: ${{ secrets.RELEASE_KEY_STORE }}
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}

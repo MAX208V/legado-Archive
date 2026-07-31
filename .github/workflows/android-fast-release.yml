@@ -29,32 +29,21 @@ jobs:
       - name: Grant gradlew permission
         run: chmod +x gradlew
 
-      # 签名密钥从 RELEASE_KEY 环境读取（base64 编码 keystore），
-      # 兼容两套 secret 命名：RELEASE_KEY_STORE / CI_DEBUG_KEY_STORE_B64
+      # 签名密钥从 RELEASE_KEY 环境读取（base64 编码 keystore）
+      # 环境内 secret 名：KEYSTORE_B64 / RELEASE_KEY_ALIAS /
+      # RELEASE_KEY_PASSWORD / RELEASE_STORE_PASSWORD
       - name: Release Apk Sign
         env:
-          RELEASE_KEY_STORE: ${{ secrets.RELEASE_KEY_STORE }}
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-          CI_DEBUG_KEY_STORE_B64: ${{ secrets.CI_DEBUG_KEY_STORE_B64 }}
-          CI_DEBUG_KEY_ALIAS: ${{ secrets.CI_DEBUG_KEY_ALIAS }}
-          CI_DEBUG_KEY_PASSWORD: ${{ secrets.CI_DEBUG_KEY_PASSWORD }}
-          CI_DEBUG_STORE_PASSWORD: ${{ secrets.CI_DEBUG_STORE_PASSWORD }}
         run: |
-          # 优先 RELEASE_KEY_STORE，其次 CI_DEBUG_KEY_STORE_B64
-          if [ -n "$RELEASE_KEY_STORE" ]; then
-            KEYSTORE_B64="$RELEASE_KEY_STORE"
-            KEY_ALIAS="${RELEASE_KEY_ALIAS:-$CI_DEBUG_KEY_ALIAS}"
-            KEY_PASSWORD="${RELEASE_KEY_PASSWORD:-$CI_DEBUG_KEY_PASSWORD}"
-            STORE_PASSWORD="${RELEASE_STORE_PASSWORD:-$CI_DEBUG_STORE_PASSWORD}"
-          elif [ -n "$CI_DEBUG_KEY_STORE_B64" ]; then
-            KEYSTORE_B64="$CI_DEBUG_KEY_STORE_B64"
-            KEY_ALIAS="$CI_DEBUG_KEY_ALIAS"
-            KEY_PASSWORD="$CI_DEBUG_KEY_PASSWORD"
-            STORE_PASSWORD="$CI_DEBUG_STORE_PASSWORD"
-          else
-            echo "::error::未找到签名密钥 secret（RELEASE_KEY_STORE 或 CI_DEBUG_KEY_STORE_B64），请检查 RELEASE_KEY 环境的 secret 配置"
+          KEY_ALIAS="$RELEASE_KEY_ALIAS"
+          KEY_PASSWORD="$RELEASE_KEY_PASSWORD"
+          STORE_PASSWORD="$RELEASE_STORE_PASSWORD"
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::未找到 KEYSTORE_B64 secret，请检查 RELEASE_KEY 环境的 secret 配置"
             exit 1
           fi
           if [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ] || [ -z "$STORE_PASSWORD" ]; then
