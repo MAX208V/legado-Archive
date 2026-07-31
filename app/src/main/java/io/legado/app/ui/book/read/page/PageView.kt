@@ -1106,6 +1106,37 @@ class PageView(context: Context) : FrameLayout(context) {
     }
 
     /**
+     * 懒创建的 PAGView：仅当启用 PAG 时才创建，
+     * 避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）
+     */
+    private var pagOverlayView: org.libpag.PAGView? = null
+
+    private fun getPagOverlayView(): org.libpag.PAGView? {
+        pagOverlayView?.let { return it }
+        return try {
+            val pagView = org.libpag.PAGView(context)
+            val root = binding.vwRoot
+            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(0, 0).apply {
+                topToTop = R.id.content_text_view
+                bottomToBottom = R.id.content_text_view
+                startToStart = R.id.content_text_view
+                endToEnd = R.id.content_text_view
+            }
+            // 插在文本层之后（绘制在文本上方、与原有布局顺序一致）
+            val insertIndex = (root.indexOfChild(binding.contentTextView) + 1)
+                .coerceAtMost(root.childCount)
+            root.addView(pagView, insertIndex, lp)
+            pagView.visibility = GONE
+            pagView.setRepeatCount(-1) // 无限循环
+            pagOverlayView = pagView
+            pagView
+        } catch (e: Exception) {
+            e.printOnDebug()
+            null
+        }
+    }
+
+    /**
      * 加载并播放 PAG 叠加动画
      */
     fun upPagOverlay() {
@@ -1117,7 +1148,7 @@ class PageView(context: Context) : FrameLayout(context) {
             clearPagOverlay()
             return
         }
-        val pagView = binding.pagOverlay
+        val pagView = getPagOverlayView() ?: return
         try {
             val path = pagPath
             if (path.startsWith("file://") || path.contains(File.separator)) {
@@ -1135,7 +1166,6 @@ class PageView(context: Context) : FrameLayout(context) {
                 }
                 pagView.setPath(tempFile.absolutePath)
             }
-            pagView.setRepeatCount(-1) // 无限循环
             if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
             pagView.play()
         } catch (e: Exception) {
@@ -1145,14 +1175,18 @@ class PageView(context: Context) : FrameLayout(context) {
     }
 
     /**
-     * 停止并清除 PAG 叠加动画
+     * 停止并清除 PAG 叠加动画（移除视图以释放 libpag 原生内存）
      */
     fun clearPagOverlay() {
-        val pagView = binding.pagOverlay
-        try {
-            if (pagView.isPlaying) pagView.stop()
-        } catch (_: Exception) { }
-        pagView.visibility = GONE
+        pagOverlayView?.let { pagView ->
+            try {
+                if (pagView.isPlaying) pagView.stop()
+            } catch (_: Exception) { }
+            try {
+                binding.vwRoot.removeView(pagView)
+            } catch (_: Exception) { }
+        }
+        pagOverlayView = null
     }
 
     private companion object {
