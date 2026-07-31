@@ -873,8 +873,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
         val labels = themeDirs.map { it.name }
         val thumbnails = themeDirs.map { dir ->
-            val bg = themeBackground(dir)
-            if (bg != null) "image:${bg.absolutePath}" else "color:#EEEEEE"
+            val thumb = themePreviewFile(dir)
+            if (thumb != null) "image:${thumb.absolutePath}" else "color:#EEEEEE"
         }
         val currentEntries = entries.mapNotNull {
             if (it.startsWith("pagtheme:")) it.removePrefix("pagtheme:") else null
@@ -910,13 +910,31 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         )
     }
 
-    private fun themeBackground(dir: File): File? =
-        dir.listFiles { it.isFile && it.extension.equals("jpg", true) }
-            ?.minByOrNull { it.name }
+    /** 背景图：优先 theme.json bg.image，否则扫描 jpg */
+    private fun themeBackground(dir: File): File? {
+        val cfg = ReadBookConfig.parsePagThemeConfig(dir)
+        return cfg?.bgImage
+            ?.let { File(dir, it).takeIf { f -> f.isFile } }
+            ?: dir.listFiles { it.isFile && it.extension.equals("jpg", true) }
+                ?.minByOrNull { it.name }
+    }
 
-    private fun themePagFile(dir: File): File? =
-        dir.listFiles { it.isFile && it.extension.equals("pag", true) }
-            ?.minByOrNull { it.name }
+    /** PAG 动画：优先 theme.json pagLayer，否则扫描 .pag */
+    private fun themePagFile(dir: File): File? {
+        val cfg = ReadBookConfig.parsePagThemeConfig(dir)
+        return cfg?.pagLayer
+            ?.let { File(dir, it).takeIf { f -> f.isFile } }
+            ?: dir.listFiles { it.isFile && it.extension.equals("pag", true) }
+                ?.minByOrNull { it.name }
+    }
+
+    /** 缩略图：优先 theme.json previewImage，否则背景图 */
+    private fun themePreviewFile(dir: File): File? {
+        val cfg = ReadBookConfig.parsePagThemeConfig(dir)
+        return cfg?.previewImage
+            ?.let { File(dir, it).takeIf { f -> f.isFile } }
+            ?: themeBackground(dir)
+    }
 
     /** 预览 PAG 主题：背景图 + PAG 动画 + 示例文字（theme.json 字体色） */
     private fun pagThemePreview(dir: File) {
@@ -938,7 +956,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         if (bg != null) {
             ImageLoader.load(context, bg.absolutePath).centerCrop().into(bgView)
         } else {
-            bgView.setBackgroundColor(0xFFEEEEEE.toInt())
+            val bgColor = ReadBookConfig.parsePagThemeConfig(dir)?.backgroundColor
+                ?: 0xFFEEEEEE.toInt()
+            bgView.setBackgroundColor(bgColor)
         }
         container.addView(bgView)
         val pagFile = themePagFile(dir)

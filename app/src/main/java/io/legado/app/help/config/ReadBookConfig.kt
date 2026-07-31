@@ -129,19 +129,67 @@ object ReadBookConfig {
     }
 
     /**
-     * 读取 PAG 主题目录下 theme.json 的 font 字段（字体颜色），
+     * PAG 主题 theme.json 解析结果
+     * 完整格式示例：
+     * {
+     *   "colors": { "font": "#2B3836", "background": "#D2E7D3", ... },
+     *   "version": 1,
+     *   "previewImage": "slice_bg.png",
+     *   "pagLayer": "leaf.pag",
+     *   "bg": { "type": 2, "image": "readBg.jpg" }
+     * }
+     */
+    data class PagThemeConfig(
+        val fontColor: Int? = null,
+        val backgroundColor: Int? = null,
+        val pagLayer: String? = null,
+        val bgType: Int = 2,
+        val bgImage: String? = null,
+        val previewImage: String? = null
+    )
+
+    /**
+     * 解析 PAG 主题目录下的 theme.json（完整格式），
      * 无 theme.json 或解析失败返回 null
      */
-    fun parseThemeFontColor(dir: File): Int? {
+    fun parsePagThemeConfig(dir: File): PagThemeConfig? {
         return runCatching {
             val themeFile = File(dir, "theme.json")
             if (!themeFile.exists()) return null
-            val font = org.json.JSONObject(themeFile.readText())
-                .optString("font")
-                .takeIf { it.isNotBlank() }
-                ?: return null
-            font.toColorInt()
+            val json = org.json.JSONObject(themeFile.readText())
+            val colors = json.optJSONObject("colors")
+            fun colorOf(key: String): Int? {
+                return colors?.optString(key)
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { runCatching { it.toColorInt() }.getOrNull() }
+            }
+            val bg = json.optJSONObject("bg")
+            PagThemeConfig(
+                fontColor = colorOf("font"),
+                backgroundColor = colorOf("background"),
+                pagLayer = json.optString("pagLayer").takeIf { it.isNotBlank() },
+                bgType = bg?.optInt("type") ?: 2,
+                bgImage = bg?.optString("image")?.takeIf { it.isNotBlank() },
+                previewImage = json.optString("previewImage").takeIf { it.isNotBlank() }
+            )
         }.getOrNull()
+    }
+
+    /**
+     * 读取 PAG 主题目录下 theme.json 的字体颜色，
+     * 优先新格式 colors.font，兼容旧格式顶层 font；
+     * 无 theme.json 或解析失败返回 null
+     */
+    fun parseThemeFontColor(dir: File): Int? {
+        return parsePagThemeConfig(dir)?.fontColor
+            ?: runCatching {
+                val themeFile = File(dir, "theme.json")
+                if (!themeFile.exists()) return null
+                org.json.JSONObject(themeFile.readText())
+                    .optString("font")
+                    .takeIf { it.isNotBlank() }
+                    ?.toColorInt()
+            }.getOrNull()
     }
 
     fun upBg(width: Int, height: Int) {

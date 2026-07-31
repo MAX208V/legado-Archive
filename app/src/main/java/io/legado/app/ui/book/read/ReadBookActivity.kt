@@ -5221,19 +5221,27 @@ class ReadBookActivity : BaseReadBookActivity(),
             entry.startsWith("pagtheme:") -> {
                 ReadBookConfig.rotationStyleIndex = null
                 val dir = File(entry.removePrefix("pagtheme:"))
-                val bgFile = dir.listFiles { it.isFile && it.extension.equals("jpg", true) }
-                    ?.minByOrNull { it.name }
+                val themeConfig = ReadBookConfig.parsePagThemeConfig(dir)
+                // 背景：优先 theme.json bg.image，否则扫描 jpg
+                val bgFile = themeConfig?.bgImage
+                    ?.let { File(dir, it).takeIf { f -> f.isFile } }
+                    ?: dir.listFiles { it.isFile && it.extension.equals("jpg", true) }
+                        ?.minByOrNull { it.name }
                 if (bgFile != null) {
                     ReadBookConfig.rotationBgType = 2
                     ReadBookConfig.rotationBgStr = bgFile.absolutePath
                 }
-                val pagFile = dir.listFiles { it.isFile && it.extension.equals("pag", true) }
-                    ?.minByOrNull { it.name }
+                // PAG：优先 theme.json pagLayer，否则扫描 .pag
+                val pagFile = themeConfig?.pagLayer
+                    ?.let { File(dir, it).takeIf { f -> f.isFile } }
+                    ?: dir.listFiles { it.isFile && it.extension.equals("pag", true) }
+                        ?.minByOrNull { it.name }
                 if (pagFile != null) {
                     ReadBookConfig.rotationPagEnabled = true
                     ReadBookConfig.rotationPagPath = pagFile.absolutePath
                 }
-                parseThemeFontColor(dir)?.let { fontColor ->
+                // 字体颜色：新格式 colors.font（已兼容旧格式顶层 font）
+                (themeConfig?.fontColor ?: ReadBookConfig.parseThemeFontColor(dir))?.let { fontColor ->
                     ReadBookConfig.rotationTextColor = fontColor
                     needStyleRefresh = true
                 }
