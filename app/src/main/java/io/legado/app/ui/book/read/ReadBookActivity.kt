@@ -180,6 +180,7 @@ import io.legado.app.ui.widget.dialog.CommentWebViewSession
 import io.legado.app.utils.ACache
 import io.legado.app.utils.BookIntroUtils
 import io.legado.app.utils.Debounce
+import io.legado.app.utils.defaultSharedPreferences
 import io.legado.app.utils.LogUtils
 import io.legado.app.utils.NetworkUtils
 import io.legado.app.utils.StartActivityContract
@@ -5194,7 +5195,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         val allEntries = config.wallpaperRotationImageList
         // 按白天/黑夜模式过滤（开关开启时）
-        val modeFilterEnabled = appCtx.defaultSharedPreferences
+        val modeFilterEnabled = application.defaultSharedPreferences
             .getBoolean(ReadBookConfig.PREF_ROTATION_MODE_FILTER, false)
         val entries = if (modeFilterEnabled) {
             val isNight = AppConfig.isNightTheme
