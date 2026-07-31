@@ -1116,12 +1116,11 @@ class PageView(context: Context) : FrameLayout(context) {
         return try {
             val pagView = org.libpag.PAGView(context)
             val root = binding.vwRoot
-            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(0, 0).apply {
-                topToTop = R.id.content_text_view
-                bottomToBottom = R.id.content_text_view
-                startToStart = R.id.content_text_view
-                endToEnd = R.id.content_text_view
-            }
+            // 全屏显示（覆盖整个阅读页，含页眉/页脚区域）
+            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
+            )
             // 插在文本层之前（背景壁纸之上、文字之下）
             val insertIndex = root.indexOfChild(binding.contentTextView)
                 .coerceIn(0, root.childCount)
