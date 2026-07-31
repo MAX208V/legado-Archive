@@ -5185,20 +5185,40 @@ class ReadBookActivity : BaseReadBookActivity(),
         stopWallpaperRotation()
         val config = ReadBookConfig.durConfig
         if (!config.wallpaperRotationEnabled || config.wallpaperRotationImageList.isEmpty()) return
-        val images = config.wallpaperRotationImageList
+        val entries = config.wallpaperRotationImageList
         val intervalMs = (config.wallpaperRotationIntervalSec * 1000L).coerceAtLeast(5000L)
         wallpaperRotationJob = lifecycleScope.launch {
             while (isActive) {
                 delay(intervalMs)
                 val index = ReadBookConfig.rotationCurrentIndex
-                val nextIndex = (index + 1) % images.size
+                val nextIndex = (index + 1) % entries.size
                 ReadBookConfig.rotationCurrentIndex = nextIndex
-                val imageName = images[nextIndex]
-                // 切换壁纸
-                ReadBookConfig.durConfig.setCurBg(1, imageName)
-                binding.readView.upBg()
+                applyRotationEntry(entries[nextIndex])
             }
         }
+    }
+
+    private fun applyRotationEntry(entry: String) {
+        val config = ReadBookConfig.durConfig
+        when {
+            entry.startsWith("custom:") -> {
+                val path = entry.removePrefix("custom:")
+                config.setCurBg(2, path)
+            }
+            entry.startsWith("style:") -> {
+                val styleIndex = entry.removePrefix("style:").toIntOrNull() ?: return
+                val styleConfig = ReadBookConfig.getConfig(styleIndex)
+                config.setCurBg(styleConfig.curBgType(), styleConfig.curBgStr())
+            }
+            entry.startsWith("asset:") -> {
+                config.setCurBg(1, entry.removePrefix("asset:"))
+            }
+            else -> {
+                // 向后兼容：纯文件名 = 内置壁纸
+                config.setCurBg(1, entry)
+            }
+        }
+        binding.readView.upBg()
     }
 
     private fun stopWallpaperRotation() {

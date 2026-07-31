@@ -321,6 +321,11 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         var rotationInterval by rememberSaveable(refreshTick) {
             mutableIntStateOf(ReadBookConfig.durConfig.wallpaperRotationIntervalSec)
         }
+        var entries by rememberSaveable(refreshTick) {
+            mutableStateOf(ReadBookConfig.durConfig.wallpaperRotationImageList)
+        }
+        val presetImages = remember { requireContext().assets.list("bg")?.toList().orEmpty() }
+
         ReaderSwitchRow(
             title = stringResource(R.string.wallpaper_rotation),
             checked = rotationEnabled,
@@ -334,7 +339,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             postReadConfigChanged(9, 10)
         }
         if (rotationEnabled) {
-            // 轮换间隔
             SliderRow(
                 title = stringResource(R.string.wallpaper_rotation_interval_label),
                 value = rotationInterval,
@@ -345,20 +349,70 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 rotationInterval = it
                 ReadBookConfig.durConfig.wallpaperRotationIntervalSec = it
             }
-            // 选择轮换图片
-            val presetImages = remember { requireContext().assets.list("bg")?.toList().orEmpty() }
-            val selectedImages = rememberSaveable(refreshTick) {
-                mutableStateOf<List<String>>(ReadBookConfig.durConfig.wallpaperRotationImageList)
+
+            // --- 三种壁纸来源按钮 ---
+            RotationSourceButton(
+                icon = R.drawable.ic_image,
+                text = "选择自定义壁纸",
+                count = entries.count { it.startsWith("custom:") },
+                style = style,
+                onClick = { addCustomWallpaper(entries) { entries = it } }
+            )
+            RotationSourceButton(
+                icon = R.drawable.ic_arrange,
+                text = "添加样式壁纸",
+                count = entries.count { it.startsWith("style:") },
+                style = style,
+                onClick = { addStyleWallpaper(entries) { entries = it } }
+            )
+            RotationSourceButton(
+                icon = R.drawable.ic_cfg_theme,
+                text = "选择内置壁纸",
+                count = entries.count { it.startsWith("asset:") || !it.contains(":") },
+                total = presetImages.size,
+                style = style,
+                onClick = { showBuiltinWallpaperDialog(presetImages, entries) { entries = it } }
+            )
+
+            // --- 当前轮换列表 ---
+            if (entries.isNotEmpty()) {
+                RotationEntryList(entries, style) { entries = it }
             }
+        }
+    }
+
+    @Composable
+    private fun RotationSourceButton(
+        icon: Int,
+        text: String,
+        count: Int,
+        total: Int? = null,
+        style: AppDialogStyle,
+        onClick: () -> Unit
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(style.actionRadius),
+            color = style.fieldSurface,
+            contentColor = style.primaryText,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
+        ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showWallpaperImageSelectDialog(presetImages, selectedImages) }
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Icon(
+                    painter = painterResource(icon),
+                    contentDescription = null,
+                    tint = style.accent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = stringResource(R.string.select_rotation_images),
+                    text = text,
                     color = style.primaryText,
                     fontSize = 13.sp,
                     modifier = Modifier.weight(1f),
@@ -366,13 +420,235 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${selectedImages.value.size}/${presetImages.size}",
+                    text = if (total != null) "$count/$total" else "${count}张",
                     color = style.accent,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
         }
+    }
+
+    @Composable
+    private fun RotationEntryList(
+        entries: MutableList<String>,
+        style: AppDialogStyle,
+        onChanged: (ArrayList<String>) -> Unit
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "当前轮换列表（点击移除）",
+                color = style.secondaryText,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(start = 6.dp, top = 6.dp)
+            )
+            entries.forEachIndexed { index, entry ->
+                val label = when {
+                    entry.startsWith("custom:") -> {
+                        val name = entry.removePrefix("custom:").substringAfterLast("/")
+                        "📁 $name"
+                    }
+                    entry.startsWith("style:") -> {
+                        val idx = entry.removePrefix("style:").toIntOrNull() ?: -1
+                        val name = ReadBookConfig.getConfig(idx).name.ifBlank { "样式$idx" }
+                        "🎨 $name"
+                    }
+                    else -> {
+                        val name = entry.removePrefix("asset:").substringBeforeLast(".")
+                        "🖼️ $name"
+                    }
+                }
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val mutable = entries.toMutableList()
+                            mutable.removeAt(index)
+                            onChanged(ArrayList(mutable))
+                            ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
+                            postReadConfigChanged(9)
+                        },
+                    shape = RoundedCornerShape(style.actionRadius),
+                    color = style.fieldSurface,
+                    contentColor = style.primaryText,
+                    tonalElevation = 0.dp,
+                    shadowElevation = 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 缩略图
+                        WallpaperThumb(entry, style)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = label,
+                            color = style.primaryText,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            text = "✕",
+                            color = style.danger,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun WallpaperThumb(entry: String, style: AppDialogStyle) {
+        val context = LocalContext.current
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(style.surface)
+        ) {
+            val loadPath = when {
+                entry.startsWith("custom:") -> entry.removePrefix("custom:")
+                entry.startsWith("asset:") || !entry.contains(":") -> {
+                    val name = entry.removePrefix("asset:")
+                    "file:///android_asset/bg/$name"
+                }
+                entry.startsWith("style:") -> {
+                    val idx = entry.removePrefix("style:").toIntOrNull() ?: -1
+                    val c = ReadBookConfig.getConfig(idx)
+                    if (c.curBgType() == 0) null else when (c.curBgType()) {
+                        1 -> "file:///android_asset/bg/${c.curBgStr()}"
+                        else -> c.curBgStr()
+                    }
+                }
+                else -> null
+            }
+            if (loadPath != null) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        AppCompatImageView(ctx).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                        }
+                    },
+                    update = { iv ->
+                        ImageLoader.load(iv.context, loadPath).centerCrop().into(iv)
+                    },
+                    onRelease = { it.releaseComposeImage() }
+                )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(
+                        Color(runCatching {
+                            ReadBookConfig.getConfig(
+                                entry.removePrefix("style:").toIntOrNull() ?: 0
+                            ).curBgStr().toColorInt()
+                        }.getOrDefault(0xFFEEEEEE.toInt()))
+                    )
+                )
+            }
+        }
+    }
+
+    private fun addCustomWallpaper(
+        currentEntries: MutableList<String>,
+        onChanged: (ArrayList<String>) -> Unit
+    ) {
+        selectCustomWallpaper.launch {
+            mode = HandleFileContract.IMAGE
+        }
+    }
+
+    private val selectCustomWallpaper = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri -> addCustomWallpaperFromUri(uri) }
+    }
+
+    private fun addCustomWallpaperFromUri(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val inputStream = requireContext().contentResolver.openInputStream(uri) ?: return@launch
+                val bgDir = File(requireContext().externalFiles, "bg")
+                bgDir.mkdirs()
+                val fileName = "custom_${System.currentTimeMillis()}_${uri.lastPathSegment ?: "wallpaper"}"
+                val destFile = File(bgDir, fileName)
+                destFile.outputStream().use { out -> inputStream.copyTo(out) }
+                val entry = "custom:${destFile.absolutePath}"
+                val list = ReadBookConfig.durConfig.wallpaperRotationImageList
+                list.add(entry)
+                ReadBookConfig.durConfig.wallpaperRotationImageList = list
+                refreshTick++
+                postReadConfigChanged(9)
+            } catch (e: Exception) {
+                requireContext().toastOnUi(e.stackTraceStr)
+            }
+        }
+    }
+
+    private fun addStyleWallpaper(
+        currentEntries: MutableList<String>,
+        onChanged: (ArrayList<String>) -> Unit
+    ) {
+        val styleNames = ReadBookConfig.configList.mapIndexed { i, c ->
+            c.name.ifBlank { "样式${i + 1}" }
+        }
+        showComposeChoiceListDialog(
+            title = "选择要加入轮换的样式",
+            labels = styleNames
+        ) { index ->
+            if (index >= 0 && index < ReadBookConfig.configList.size) {
+                val list = ReadBookConfig.durConfig.wallpaperRotationImageList
+                val entry = "style:$index"
+                if (entry !in list) {
+                    list.add(entry)
+                    ReadBookConfig.durConfig.wallpaperRotationImageList = list
+                    refreshTick++
+                    postReadConfigChanged(9)
+                }
+            }
+        }
+    }
+
+    private fun showBuiltinWallpaperDialog(
+        presetImages: List<String>,
+        currentEntries: MutableList<String>,
+        onChanged: (ArrayList<String>) -> Unit
+    ) {
+        val currentAssetEntries = currentEntries.map {
+            if (it.startsWith("asset:")) it.removePrefix("asset:")
+            else if (!it.contains(":")) it
+            else null
+        }.filterNotNull().toSet()
+        val labels = presetImages.map { it.substringBeforeLast(".") }
+        val checkedIndices = presetImages.indices.filter { presetImages[it] in currentAssetEntries }.toSet()
+        showComposeMultiChoiceDialog(
+            title = getString(R.string.select_rotation_images),
+            labels = labels,
+            checkedIndices = checkedIndices,
+            positiveText = getString(android.R.string.ok),
+            negativeText = getString(android.R.string.cancel),
+            onPositive = { checkedArray ->
+                val newAssets = presetImages.filterIndexed { i, _ ->
+                    i < checkedArray.size && checkedArray[i]
+                }
+                // 移除旧的 asset 条目，添加新选的
+                val mutable = currentEntries.filter { e ->
+                    val assetName = if (e.startsWith("asset:")) e.removePrefix("asset:")
+                        else if (!e.contains(":")) e else null
+                    assetName == null || assetName !in currentAssetEntries
+                }.toMutableList()
+                newAssets.forEach { name -> mutable.add("asset:$name") }
+                val result = ArrayList(mutable)
+                onChanged(result)
+                ReadBookConfig.durConfig.wallpaperRotationImageList = result
+                postReadConfigChanged(9)
+            },
+            onDismissAction = { refreshTick++ }
+        )
     }
 
     @Composable
@@ -858,31 +1134,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
-    private fun showWallpaperImageSelectDialog(
-        allImages: List<String>,
-        selectedImages: MutableState<List<String>>
-    ) {
-        val currentSelected = ReadBookConfig.durConfig.wallpaperRotationImageList.toHashSet()
-        val labels = allImages.map { it.substringBeforeLast(".") }
-        val checkedIndices = allImages.indices.filter { it in currentSelected.map { i -> allImages.indexOf(i) } }.toSet()
-        showComposeMultiChoiceDialog(
-            title = getString(R.string.select_rotation_images),
-            labels = labels,
-            checkedIndices = checkedIndices,
-            positiveText = getString(android.R.string.ok),
-            negativeText = getString(android.R.string.cancel),
-            onPositive = { checkedArray ->
-                val newSelected = allImages.filterIndexed { index, _ ->
-                    index < checkedArray.size && checkedArray[index]
-                }
-                selectedImages.value = ArrayList(newSelected)
-                ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(newSelected)
-            },
-            onDismissAction = {
-                refreshTick++
-            }
-        )
-    }
 
     private val selectPagFile = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri -> setPagFromUri(uri) }
