@@ -104,6 +104,7 @@ import io.legado.app.utils.find
 import io.legado.app.utils.getFile
 import io.legado.app.utils.inputStream
 import io.legado.app.utils.dpToPx
+import io.legado.app.utils.defaultSharedPreferences
 import io.legado.app.utils.longToast
 import io.legado.app.utils.observeEvent
 import io.legado.app.utils.openInputStream
@@ -127,6 +128,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         const val TEXT_COLOR = 121
         const val BG_COLOR = 122
         const val TEXT_ACCENT_COLOR = 123
+        private const val PREF_PAG_THEME_ROOT = "pref_pag_theme_root_dir"
     }
 
     private val configFileName = "readConfig.zip"
@@ -454,7 +456,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = "当前轮换列表（点击预览，点击 ✕ 移除）",
+                text = "当前轮换列表（点击或 ▶ 预览，✕ 移除）",
                 color = style.secondaryText,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(start = 6.dp, top = 6.dp)
@@ -473,8 +475,12 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 缩略图
-                        WallpaperThumb(entry, style)
+                        // 缩略图（点击预览）
+                        Box(
+                            modifier = Modifier.clickable { previewRotationEntry(entry) }
+                        ) {
+                            WallpaperThumb(entry, style)
+                        }
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = label,
@@ -484,25 +490,21 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier
                                 .weight(1f)
-                                .clickable { showWallpaperPreview(entry) }
+                                .clickable { previewRotationEntry(entry) }
                         )
-                        // ▶ 预览动画按钮（仅 PAG 主题条目）
-                        if (entry.startsWith("pagtheme:")) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable {
-                                        pagThemePreview(File(entry.removePrefix("pagtheme:")))
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "▶",
-                                    color = style.accent,
-                                    fontSize = 14.sp
-                                )
-                            }
+                        // ▶ 预览按钮（所有条目：PAG主题→动画预览，其余→大图预览）
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { previewRotationEntry(entry) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "▶",
+                                color = style.accent,
+                                fontSize = 14.sp
+                            )
                         }
                         // ✕ 移除按钮（独立点击区）
                         Box(
@@ -567,6 +569,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val name = entry.removePrefix("asset:")
                 "file:///android_asset/bg/$name"
             }
+        }
+    }
+
+    /** 统一条目预览：PAG主题→动画预览，其余→大图预览 */
+    private fun previewRotationEntry(entry: String) {
+        if (entry.startsWith("pagtheme:")) {
+            pagThemePreview(File(entry.removePrefix("pagtheme:")))
+        } else {
+            showWallpaperPreview(entry)
         }
     }
 
@@ -731,6 +742,24 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     // ── PAG 主题 ──
 
     private fun selectPagThemeRoot() {
+        // 记住上次根目录：再次点击直接扫描上次目录，不用重新选文件夹
+        val savedPath = requireContext().defaultSharedPreferences
+            .getString(PREF_PAG_THEME_ROOT, null)
+        val savedDir = savedPath?.let { File(it) }
+        if (savedDir != null && savedDir.isDirectory) {
+            showPagThemeDialog(
+                savedDir,
+                entries = ReadBookConfig.durConfig.wallpaperRotationImageList
+            ) { list ->
+                ReadBookConfig.durConfig.wallpaperRotationImageList = list
+                postReadConfigChanged(9)
+            }
+        } else {
+            openPagThemeRootPicker()
+        }
+    }
+
+    private fun openPagThemeRootPicker() {
         selectPagThemeRootContract.launch {
             mode = HandleFileContract.DIR
             title = "选择PAG主题根目录"
@@ -741,6 +770,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         it.uri?.let { uri ->
             val path = uri.path ?: return@let
             val dir = File(path)
+            // 记住本次选择的根目录
+            requireContext().defaultSharedPreferences.edit()
+                .putString(PREF_PAG_THEME_ROOT, path)
+                .apply()
             showPagThemeDialog(
                 dir,
                 entries = ReadBookConfig.durConfig.wallpaperRotationImageList
@@ -779,13 +812,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             .filter { themeDirs[it].absolutePath in currentEntries }
             .toSet()
         showComposeMultiChoiceDialog(
-            title = "选择PAG主题（多选，▶ 预览动画）",
+            title = "选择PAG主题（根目录：${rootDir.name}）",
             labels = labels,
             checkedIndices = checkedIndices,
             thumbnails = thumbnails,
             actionText = "▶",
             positiveText = getString(android.R.string.ok),
             negativeText = getString(android.R.string.cancel),
+            extraActionText = "更换目录",
+            onExtraAction = { openPagThemeRootPicker() },
             onItemActionClick = { index ->
                 pagThemePreview(themeDirs[index])
             },

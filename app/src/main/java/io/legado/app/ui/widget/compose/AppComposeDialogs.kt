@@ -1239,6 +1239,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
     private var onItemCheckedChange: ((Int, Boolean) -> Unit)? = null
     private var onDismissAction: (() -> Unit)? = null
     private var onItemActionClick: ((Int) -> Unit)? = null
+    private var onExtraAction: (() -> Unit)? = null
 
     override fun onDismiss(dialog: DialogInterface) {
         super.onDismiss(dialog)
@@ -1290,6 +1291,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                     .ifBlank { stringResource(R.string.cancel) }
                 val canSubmit = onPositive != null
                 val actionText = args.getString(ARG_ACTION_TEXT)
+                val extraActionText = args.getString(ARG_EXTRA_ACTION_TEXT)
                 AppDialogFrame(
                     title = args.getString(ARG_TITLE).orEmpty(),
                     message = args.getString(ARG_MESSAGE),
@@ -1355,6 +1357,18 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                     },
                     actions = {
                         val palette = style.toMiuixPalette()
+                        extraActionText?.takeIf { it.isNotBlank() }?.let { extra ->
+                            LegadoMiuixActionButton(
+                                text = extra,
+                                palette = palette,
+                                onClick = {
+                                    dismissAllowingStateLoss()
+                                    onExtraAction?.invoke()
+                                },
+                                cornerRadius = style.actionRadius
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
                         LegadoMiuixActionButton(
                             text = negativeText,
                             palette = palette,
@@ -1398,7 +1412,9 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
             onDismissAction: (() -> Unit)? = null,
             onPositive: ((BooleanArray) -> Unit)? = null,
             actionText: String? = null,
-            onItemActionClick: ((Int) -> Unit)? = null
+            onItemActionClick: ((Int) -> Unit)? = null,
+            extraActionText: String? = null,
+            onExtraAction: (() -> Unit)? = null
         ): ComposeMultiChoiceDialog {
             val safeLabels = labels.toList()
             return ComposeMultiChoiceDialog().apply {
@@ -1413,11 +1429,13 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                         putStringArrayList(ARG_THUMBNAILS, ArrayList(it))
                     }
                     putString(ARG_ACTION_TEXT, actionText)
+                    putString(ARG_EXTRA_ACTION_TEXT, extraActionText)
                 }
                 this.onPositive = onPositive
                 this.onItemCheckedChange = onItemCheckedChange
                 this.onDismissAction = onDismissAction
                 this.onItemActionClick = onItemActionClick
+                this.onExtraAction = onExtraAction
             }
         }
 
@@ -1429,6 +1447,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
         private const val ARG_NEGATIVE_TEXT = "negativeText"
         private const val ARG_THUMBNAILS = "thumbnails"
         private const val ARG_ACTION_TEXT = "actionText"
+        private const val ARG_EXTRA_ACTION_TEXT = "extraActionText"
     }
 }
 
