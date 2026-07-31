@@ -880,6 +880,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 runCatching {
                     setPath(pagFile.absolutePath)
                     setRepeatCount(-1)
+                    setScaleMode(org.libpag.PAGScaleMode.Zoom)
                     play()
                 }
             }

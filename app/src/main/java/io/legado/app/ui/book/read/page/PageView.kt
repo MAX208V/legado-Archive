@@ -1122,12 +1122,14 @@ class PageView(context: Context) : FrameLayout(context) {
                 startToStart = R.id.content_text_view
                 endToEnd = R.id.content_text_view
             }
-            // 插在文本层之后（绘制在文本上方、与原有布局顺序一致）
-            val insertIndex = (root.indexOfChild(binding.contentTextView) + 1)
-                .coerceAtMost(root.childCount)
+            // 插在文本层之前（背景壁纸之上、文字之下）
+            val insertIndex = root.indexOfChild(binding.contentTextView)
+                .coerceIn(0, root.childCount)
             root.addView(pagView, insertIndex, lp)
             pagView.visibility = GONE
             pagView.setRepeatCount(-1) // 无限循环
+            // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
+            pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
             pagOverlayView = pagView
             pagView
         } catch (e: Exception) {
