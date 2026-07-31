@@ -59,7 +59,7 @@ object ReadBookConfig {
     var bg: Drawable? = null
     var bgMeanColor: Int = 0
     var pagDrawable: Drawable? = null
-    val textColor: Int get() = durConfig.curTextColor()
+    val textColor: Int get() = rotationTextColor ?: durConfig.curTextColor()
     val textAccentColor: Int get() = durConfig.curTextAccentColor()
     var isNineBgImg = false
 
@@ -114,6 +114,8 @@ object ReadBookConfig {
     // 当前轮换条目来自哪个样式：非空时 upBg 动态取该样式当前模式的背景，
     // 实现白天/黑夜模式自动切换（模式变化 → refreshVisualStyle → upBg）
     var rotationStyleIndex: Int? = null
+    // PAG 主题的字体颜色覆盖层（theme.json 的 font 字段）
+    var rotationTextColor: Int? = null
     var rotationPagEnabled: Boolean? = null
     var rotationPagPath: String? = null
 
@@ -121,8 +123,25 @@ object ReadBookConfig {
         rotationBgType = null
         rotationBgStr = null
         rotationStyleIndex = null
+        rotationTextColor = null
         rotationPagEnabled = null
         rotationPagPath = null
+    }
+
+    /**
+     * 读取 PAG 主题目录下 theme.json 的 font 字段（字体颜色），
+     * 无 theme.json 或解析失败返回 null
+     */
+    fun parseThemeFontColor(dir: File): Int? {
+        return runCatching {
+            val themeFile = File(dir, "theme.json")
+            if (!themeFile.exists()) return null
+            val font = org.json.JSONObject(themeFile.readText())
+                .optString("font")
+                .takeIf { it.isNotBlank() }
+                ?: return null
+            font.toColorInt()
+        }.getOrNull()
     }
 
     fun upBg(width: Int, height: Int) {

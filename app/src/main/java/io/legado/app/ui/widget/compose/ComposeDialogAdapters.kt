@@ -143,7 +143,9 @@ fun Fragment.showComposeMultiChoiceDialog(
     thumbnails: List<String>? = null,
     onItemCheckedChange: ((Int, Boolean) -> Unit)? = null,
     onDismissAction: (() -> Unit)? = null,
-    onPositive: ((BooleanArray) -> Unit)? = null
+    onPositive: ((BooleanArray) -> Unit)? = null,
+    actionText: String? = null,
+    onItemActionClick: ((Int) -> Unit)? = null
 ) {
     showDialogFragment(
         ComposeMultiChoiceDialog.create(
@@ -156,7 +158,9 @@ fun Fragment.showComposeMultiChoiceDialog(
             thumbnails = thumbnails,
             onItemCheckedChange = onItemCheckedChange,
             onDismissAction = onDismissAction,
-            onPositive = onPositive
+            onPositive = onPositive,
+            actionText = actionText,
+            onItemActionClick = onItemActionClick
         )
     )
 }

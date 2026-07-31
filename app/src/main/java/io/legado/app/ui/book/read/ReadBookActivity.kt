@@ -5185,9 +5185,10 @@ class ReadBookActivity : BaseReadBookActivity(),
         stopWallpaperRotation()
         val config = ReadBookConfig.durConfig
         if (!config.wallpaperRotationEnabled || config.wallpaperRotationImageList.isEmpty()) {
-            // 轮换未启用/列表为空：恢复样式原始背景与PAG
+            // 轮换未启用/列表为空：恢复样式原始背景、PAG 与字体颜色
             ReadBookConfig.clearRotationOverride()
             binding.readView.upBg()
+            binding.readView.upStyle()
             refreshPagOverlay()
             return
         }
@@ -5212,7 +5213,31 @@ class ReadBookActivity : BaseReadBookActivity(),
         // 默认回退到当前样式的 PAG（不残留轮换列表中某样式的 PAG）
         ReadBookConfig.rotationPagEnabled = null
         ReadBookConfig.rotationPagPath = null
+        // 字体颜色覆盖层默认清空（仅 PAG 主题会覆盖）
+        ReadBookConfig.rotationTextColor = null
+        // 字体颜色变化时需要重排文本页面
+        var needStyleRefresh = false
         when {
+            entry.startsWith("pagtheme:") -> {
+                ReadBookConfig.rotationStyleIndex = null
+                val dir = File(entry.removePrefix("pagtheme:"))
+                val bgFile = dir.listFiles { it.isFile && it.extension.equals("jpg", true) }
+                    ?.minByOrNull { it.name }
+                if (bgFile != null) {
+                    ReadBookConfig.rotationBgType = 2
+                    ReadBookConfig.rotationBgStr = bgFile.absolutePath
+                }
+                val pagFile = dir.listFiles { it.isFile && it.extension.equals("pag", true) }
+                    ?.minByOrNull { it.name }
+                if (pagFile != null) {
+                    ReadBookConfig.rotationPagEnabled = true
+                    ReadBookConfig.rotationPagPath = pagFile.absolutePath
+                }
+                parseThemeFontColor(dir)?.let { fontColor ->
+                    ReadBookConfig.rotationTextColor = fontColor
+                    needStyleRefresh = true
+                }
+            }
             entry.startsWith("custom:") -> {
                 ReadBookConfig.rotationStyleIndex = null
                 ReadBookConfig.rotationBgType = 2
@@ -5246,6 +5271,17 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         refreshPagOverlay()
         binding.readView.upBg()
+        if (needStyleRefresh) {
+            binding.readView.upStyle()
+        }
+    }
+
+    /**
+     * 读取 PAG 主题目录下 theme.json 的 font 字段（字体颜色），
+     * 无 theme.json 或解析失败返回 null
+     */
+    private fun parseThemeFontColor(dir: File): Int? {
+        return ReadBookConfig.parseThemeFontColor(dir)
     }
 
     private fun stopWallpaperRotation() {

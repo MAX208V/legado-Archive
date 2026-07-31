@@ -1238,6 +1238,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
     private var onPositive: ((BooleanArray) -> Unit)? = null
     private var onItemCheckedChange: ((Int, Boolean) -> Unit)? = null
     private var onDismissAction: (() -> Unit)? = null
+    private var onItemActionClick: ((Int) -> Unit)? = null
 
     override fun onDismiss(dialog: DialogInterface) {
         super.onDismiss(dialog)
@@ -1288,6 +1289,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                     .orEmpty()
                     .ifBlank { stringResource(R.string.cancel) }
                 val canSubmit = onPositive != null
+                val actionText = args.getString(ARG_ACTION_TEXT)
                 AppDialogFrame(
                     title = args.getString(ARG_TITLE).orEmpty(),
                     message = args.getString(ARG_MESSAGE),
@@ -1328,6 +1330,24 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                                     minHeight = 42.dp,
                                     leadingContent = itemThumbnails.getOrNull(index)?.let { thumb ->
                                         { ChoiceThumbnail(spec = thumb) }
+                                    },
+                                    trailingAction = actionText?.let { action ->
+                                        {
+                                            Surface(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .clickable { onItemActionClick?.invoke(index) },
+                                                color = palette.accent.copy(alpha = 0.12f),
+                                                contentColor = palette.accent
+                                            ) {
+                                                Text(
+                                                    text = action,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 )
                             }
@@ -1376,7 +1396,9 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
             thumbnails: List<String>? = null,
             onItemCheckedChange: ((Int, Boolean) -> Unit)? = null,
             onDismissAction: (() -> Unit)? = null,
-            onPositive: ((BooleanArray) -> Unit)? = null
+            onPositive: ((BooleanArray) -> Unit)? = null,
+            actionText: String? = null,
+            onItemActionClick: ((Int) -> Unit)? = null
         ): ComposeMultiChoiceDialog {
             val safeLabels = labels.toList()
             return ComposeMultiChoiceDialog().apply {
@@ -1390,10 +1412,12 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                     thumbnails?.let {
                         putStringArrayList(ARG_THUMBNAILS, ArrayList(it))
                     }
+                    putString(ARG_ACTION_TEXT, actionText)
                 }
                 this.onPositive = onPositive
                 this.onItemCheckedChange = onItemCheckedChange
                 this.onDismissAction = onDismissAction
+                this.onItemActionClick = onItemActionClick
             }
         }
 
@@ -1404,6 +1428,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
         private const val ARG_POSITIVE_TEXT = "positiveText"
         private const val ARG_NEGATIVE_TEXT = "negativeText"
         private const val ARG_THUMBNAILS = "thumbnails"
+        private const val ARG_ACTION_TEXT = "actionText"
     }
 }
 

@@ -8,8 +8,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -378,6 +380,13 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 style = style,
                 onClick = { showBuiltinWallpaperDialog(presetImages, entries) { entries = it } }
             )
+            RotationSourceButton(
+                icon = R.drawable.ic_play_outline_24dp,
+                text = "选择PAG主题",
+                count = entries.count { it.startsWith("pagtheme:") },
+                style = style,
+                onClick = { selectPagThemeRoot() }
+            )
 
             // --- 当前轮换列表 ---
             if (entries.isNotEmpty()) {
@@ -477,6 +486,24 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 .weight(1f)
                                 .clickable { showWallpaperPreview(entry) }
                         )
+                        // ▶ 预览动画按钮（仅 PAG 主题条目）
+                        if (entry.startsWith("pagtheme:")) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        pagThemePreview(File(entry.removePrefix("pagtheme:")))
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "▶",
+                                    color = style.accent,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
                         // ✕ 移除按钮（独立点击区）
                         Box(
                             modifier = Modifier
@@ -514,9 +541,31 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val name = ReadBookConfig.getConfig(idx).name.ifBlank { "样式$idx" }
                 "🎨 $name"
             }
+            entry.startsWith("pagtheme:") -> {
+                "🎞️ ${entry.removePrefix("pagtheme:").substringAfterLast("/")}"
+            }
             else -> {
                 val name = entry.removePrefix("asset:").substringBeforeLast(".")
                 "🖼️ $name"
+            }
+        }
+    }
+
+    /** 解析轮换条目对应的预览路径（背景图）；纯色返回 null */
+    private fun rotationEntryImagePath(entry: String): String? {
+        return when {
+            entry.startsWith("custom:") -> entry.removePrefix("custom:")
+            entry.startsWith("style:") -> {
+                configBgImagePath(
+                    ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                )
+            }
+            entry.startsWith("pagtheme:") -> {
+                themeBackground(File(entry.removePrefix("pagtheme:")))?.absolutePath
+            }
+            else -> {
+                val name = entry.removePrefix("asset:")
+                "file:///android_asset/bg/$name"
             }
         }
     }
@@ -530,24 +579,17 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 300.dpToPx()
             )
         }
-        val loadPath = when {
-            entry.startsWith("custom:") -> entry.removePrefix("custom:")
-            entry.startsWith("style:") -> {
-                configBgImagePath(
-                    ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
-                )
-            }
-            else -> {
-                val name = entry.removePrefix("asset:")
-                "file:///android_asset/bg/$name"
-            }
-        }
+        val loadPath = rotationEntryImagePath(entry)
         if (loadPath != null) {
             ImageLoader.load(requireContext(), loadPath).centerCrop().into(imageView)
         } else {
-            val color = configBgColor(
-                ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
-            )
+            val color = if (entry.startsWith("style:")) {
+                configBgColor(
+                    ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                )
+            } else {
+                0xFFEEEEEE.toInt()
+            }
             imageView.setBackgroundColor(color)
         }
         alert(title = rotationEntryLabel(entry)) {
@@ -568,6 +610,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         ) {
             val loadPath = when {
                 entry.startsWith("custom:") -> entry.removePrefix("custom:")
+                entry.startsWith("pagtheme:") -> {
+                    themeBackground(File(entry.removePrefix("pagtheme:")))?.absolutePath
+                }
                 entry.startsWith("asset:") || !entry.contains(":") -> {
                     val name = entry.removePrefix("asset:")
                     "file:///android_asset/bg/$name"
@@ -681,6 +726,151 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             },
             onDismissAction = { refreshTick++ }
         )
+    }
+
+    // ── PAG 主题 ──
+
+    private fun selectPagThemeRoot() {
+        selectPagThemeRootContract.launch {
+            mode = HandleFileContract.DIR
+            title = "选择PAG主题根目录"
+        }
+    }
+
+    private val selectPagThemeRootContract = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri ->
+            val path = uri.path ?: return@let
+            val dir = File(path)
+            showPagThemeDialog(
+                dir,
+                entries = ReadBookConfig.durConfig.wallpaperRotationImageList
+            ) { list ->
+                ReadBookConfig.durConfig.wallpaperRotationImageList = list
+                postReadConfigChanged(9)
+            }
+        }
+    }
+
+    private fun showPagThemeDialog(
+        rootDir: File,
+        entries: MutableList<String>,
+        onChanged: (ArrayList<String>) -> Unit
+    ) {
+        if (!rootDir.isDirectory) {
+            requireContext().toastOnUi("所选目录无效：${rootDir.path}")
+            return
+        }
+        val themeDirs = rootDir.listFiles { it.isDirectory }
+            ?.sortedBy { it.name }
+            .orEmpty()
+        if (themeDirs.isEmpty()) {
+            requireContext().toastOnUi("所选目录下没有子文件夹")
+            return
+        }
+        val labels = themeDirs.map { it.name }
+        val thumbnails = themeDirs.map { dir ->
+            val bg = themeBackground(dir)
+            if (bg != null) "image:${bg.absolutePath}" else "color:#EEEEEE"
+        }
+        val currentEntries = entries.mapNotNull {
+            if (it.startsWith("pagtheme:")) it.removePrefix("pagtheme:") else null
+        }.toSet()
+        val checkedIndices = themeDirs.indices
+            .filter { themeDirs[it].absolutePath in currentEntries }
+            .toSet()
+        showComposeMultiChoiceDialog(
+            title = "选择PAG主题（多选，▶ 预览动画）",
+            labels = labels,
+            checkedIndices = checkedIndices,
+            thumbnails = thumbnails,
+            actionText = "▶",
+            positiveText = getString(android.R.string.ok),
+            negativeText = getString(android.R.string.cancel),
+            onItemActionClick = { index ->
+                pagThemePreview(themeDirs[index])
+            },
+            onDismissAction = { refreshTick++ },
+            onPositive = { checkedArray ->
+                val newSelected = themeDirs.indices.filter { i ->
+                    i < checkedArray.size && checkedArray[i]
+                }
+                val mutable = entries.filter { !it.startsWith("pagtheme:") }.toMutableList()
+                newSelected.forEach { i -> mutable.add("pagtheme:${themeDirs[i].absolutePath}") }
+                val result = ArrayList(mutable)
+                onChanged(result)
+                ReadBookConfig.durConfig.wallpaperRotationImageList = result
+                postReadConfigChanged(9)
+            }
+        )
+    }
+
+    private fun themeBackground(dir: File): File? =
+        dir.listFiles { it.isFile && it.extension.equals("jpg", true) }
+            ?.minByOrNull { it.name }
+
+    private fun themePagFile(dir: File): File? =
+        dir.listFiles { it.isFile && it.extension.equals("pag", true) }
+            ?.minByOrNull { it.name }
+
+    /** 预览 PAG 主题：背景图 + PAG 动画 + 示例文字（theme.json 字体色） */
+    private fun pagThemePreview(dir: File) {
+        val context = requireContext()
+        val container = FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                320.dpToPx()
+            )
+        }
+        val bgView = AppCompatImageView(context).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        val bg = themeBackground(dir)
+        if (bg != null) {
+            ImageLoader.load(context, bg.absolutePath).centerCrop().into(bgView)
+        } else {
+            bgView.setBackgroundColor(0xFFEEEEEE.toInt())
+        }
+        container.addView(bgView)
+        val pagFile = themePagFile(dir)
+        val pagView = if (pagFile != null) {
+            org.libpag.PAGView(context).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                runCatching {
+                    setPath(pagFile.absolutePath)
+                    setRepeatCount(-1)
+                    play()
+                }
+            }
+        } else null
+        pagView?.let { container.addView(it) }
+        val fontColor = ReadBookConfig.parseThemeFontColor(dir) ?: 0xFF3E3D3B.toInt()
+        val textView = TextView(context).apply {
+            text = "主题示例文字"
+            setTextColor(fontColor)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        container.addView(textView)
+        alert(title = dir.name, message = "背景图 + PAG动画 + 字体颜色") {
+            customView { container }
+            okButton()
+            onDismiss {
+                pagView?.let {
+                    runCatching { if (it.isPlaying) it.stop() }
+                }
+            }
+        }
     }
 
     /**
