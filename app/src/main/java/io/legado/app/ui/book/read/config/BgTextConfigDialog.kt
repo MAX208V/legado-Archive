@@ -349,6 +349,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             ) {
                 rotationInterval = it
                 ReadBookConfig.durConfig.wallpaperRotationIntervalSec = it
+                // 立即重启轮换 Job 使新间隔生效
+                postReadConfigChanged(9)
             }
 
             // --- 三种壁纸来源按钮 ---
