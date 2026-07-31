@@ -26,7 +26,146 @@ object DatabaseMigrations {
             migration_103_104, migration_104_105, migration_105_106,
             migration_106_107, migration_107_108, migration_108_109,
             migration_109_110, migration_110_111, migration_111_112,
+            migration_112_113,
         )
+    }
+
+    /**
+     * v112 → v113：幂等修复迁移。
+     *
+     * 背景：部分 112 数据库（如旧备份恢复后直接升级）的 identity_hash
+     * 停留在 109 阶段，与 112 schema 期望哈希不一致，Room 打开即崩溃
+     * （"Room cannot verify the data integrity"）。
+     *
+     * 本迁移：
+     * 1. 触发 Room 迁移流程 → 自动更新 identity_hash 为当前版本
+     * 2. 幂等补齐 novel_video 四张表及其索引/列，覆盖缺表/缺列异常状态
+     * （正常库全部 IF NOT EXISTS / 列存在检查，无副作用）
+     */
+    private val migration_112_113 = object : Migration(112, 113) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // novel_video_jobs（含 110/111 全部列）
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `novel_video_jobs` (
+                    `id` TEXT NOT NULL,
+                    `bookUrl` TEXT NOT NULL DEFAULT '',
+                    `bookName` TEXT NOT NULL DEFAULT '',
+                    `chapterStartIndex` INTEGER NOT NULL DEFAULT -1,
+                    `chapterEndIndex` INTEGER NOT NULL DEFAULT -1,
+                    `chapterTitlesJson` TEXT NOT NULL DEFAULT '[]',
+                    `status` TEXT NOT NULL DEFAULT 'drafting',
+                    `paramsJson` TEXT NOT NULL DEFAULT '{}',
+                    `screenplayJson` TEXT,
+                    `draftJson` TEXT,
+                    `outputPath` TEXT,
+                    `coverPath` TEXT,
+                    `totalDurationMs` INTEGER,
+                    `errorMessage` TEXT,
+                    `createdAt` INTEGER NOT NULL DEFAULT 0,
+                    `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                    `attachToBookChapter` INTEGER NOT NULL DEFAULT 1,
+                    `workerId` TEXT,
+                    `workerHeartbeatAt` INTEGER,
+                    `providerJobId` TEXT,
+                    `providerId` TEXT,
+                    `attempts` INTEGER NOT NULL DEFAULT 0,
+                    `availableAt` INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_jobs_bookUrl` ON `novel_video_jobs` (`bookUrl`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_jobs_status` ON `novel_video_jobs` (`status`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_jobs_createdAt` ON `novel_video_jobs` (`createdAt`)")
+            // 已有旧表但缺 110/111 列时补列
+            val jobColumns = columnNames(db, "novel_video_jobs")
+            if ("workerId" !in jobColumns) db.execSQL("ALTER TABLE `novel_video_jobs` ADD COLUMN `workerId` TEXT")
+            if ("workerHeartbeatAt" !in jobColumns) db.execSQL("ALTER TABLE `novel_video_jobs` ADD COLUMN `workerHeartbeatAt` INTEGER")
+            if ("providerJobId" !in jobColumns) db.execSQL("ALTER TABLE `novel_video_jobs` ADD COLUMN `providerJobId` TEXT")
+            if ("providerId" !in jobColumns) db.execSQL("ALTER TABLE `novel_video_jobs` ADD COLUMN `providerId` TEXT")
+            if ("attempts" !in jobColumns) db.execSQL("ALTER TABLE `novel_video_jobs` ADD COLUMN `attempts` INTEGER NOT NULL DEFAULT 0")
+            if ("availableAt" !in jobColumns) db.execSQL("ALTER TABLE `novel_video_jobs` ADD COLUMN `availableAt` INTEGER NOT NULL DEFAULT 0")
+
+            // novel_video_segments（含 110/111 全部列）
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `novel_video_segments` (
+                    `id` TEXT NOT NULL,
+                    `jobId` TEXT NOT NULL DEFAULT '',
+                    `chapterIndex` INTEGER NOT NULL DEFAULT 0,
+                    `chapterTitle` TEXT NOT NULL DEFAULT '',
+                    `sceneId` INTEGER NOT NULL DEFAULT 1,
+                    `narration` TEXT NOT NULL DEFAULT '',
+                    `imagePrompt` TEXT NOT NULL DEFAULT '',
+                    `videoPrompt` TEXT NOT NULL DEFAULT '',
+                    `characterDescription` TEXT NOT NULL DEFAULT '',
+                    `imageUrl` TEXT,
+                    `videoUrl` TEXT,
+                    `localVideoPath` TEXT,
+                    `durationMs` INTEGER,
+                    `status` TEXT NOT NULL DEFAULT 'pending',
+                    `retryCount` INTEGER NOT NULL DEFAULT 0,
+                    `errorMessage` TEXT,
+                    `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                    `providerJobId` TEXT,
+                    `providerId` TEXT,
+                    PRIMARY KEY(`id`),
+                    FOREIGN KEY(`jobId`) REFERENCES `novel_video_jobs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_segments_jobId` ON `novel_video_segments` (`jobId`)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_novel_video_segments_jobId_chapterIndex_sceneId` ON `novel_video_segments` (`jobId`, `chapterIndex`, `sceneId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_segments_status` ON `novel_video_segments` (`status`)")
+            val segmentColumns = columnNames(db, "novel_video_segments")
+            if ("providerJobId" !in segmentColumns) db.execSQL("ALTER TABLE `novel_video_segments` ADD COLUMN `providerJobId` TEXT")
+            if ("providerId" !in segmentColumns) db.execSQL("ALTER TABLE `novel_video_segments` ADD COLUMN `providerId` TEXT")
+
+            // novel_video_character_sheets
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `novel_video_character_sheets` (
+                    `id` TEXT NOT NULL,
+                    `jobId` TEXT NOT NULL DEFAULT '',
+                    `characterId` TEXT NOT NULL DEFAULT '',
+                    `characterName` TEXT NOT NULL DEFAULT '',
+                    `description` TEXT NOT NULL DEFAULT '',
+                    `role` TEXT NOT NULL DEFAULT '主角',
+                    `combinedViewUrl` TEXT,
+                    `localPath` TEXT,
+                    `status` TEXT NOT NULL DEFAULT 'pending',
+                    `errorMessage` TEXT,
+                    `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(`id`),
+                    FOREIGN KEY(`jobId`) REFERENCES `novel_video_jobs`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_character_sheets_jobId` ON `novel_video_character_sheets` (`jobId`)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_novel_video_character_sheets_jobId_characterId` ON `novel_video_character_sheets` (`jobId`, `characterId`)")
+
+            // novel_video_compilations
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `novel_video_compilations` (
+                    `id` TEXT NOT NULL,
+                    `title` TEXT NOT NULL DEFAULT '',
+                    `bookUrl` TEXT NOT NULL DEFAULT '',
+                    `bookName` TEXT NOT NULL DEFAULT '',
+                    `sourceJobIdsJson` TEXT NOT NULL DEFAULT '[]',
+                    `outputPath` TEXT,
+                    `totalDurationMs` INTEGER,
+                    `segmentCount` INTEGER NOT NULL DEFAULT 0,
+                    `createdAt` INTEGER NOT NULL DEFAULT 0,
+                    `updatedAt` INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_compilations_bookUrl` ON `novel_video_compilations` (`bookUrl`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_compilations_createdAt` ON `novel_video_compilations` (`createdAt`)")
+        }
     }
 
     /**
