@@ -613,6 +613,7 @@ fun LegadoMiuixChoiceRow(
     showSelectedMark: Boolean = true,
     enabled: Boolean = true,
     leadingIconName: String? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
     textAlign: TextAlign = TextAlign.Center
 ) {
     val actionRadius = palette.actionRadius ?: LocalContext.current.composeActionRadius()
@@ -645,6 +646,10 @@ fun LegadoMiuixChoiceRow(
                     iconName = iconName,
                     modifier = Modifier.size(if (compact) 28.dp else 34.dp)
                 )
+                Spacer(modifier = Modifier.width(if (compact) 9.dp else 12.dp))
+            }
+            leadingContent?.let {
+                it()
                 Spacer(modifier = Modifier.width(if (compact) 9.dp else 12.dp))
             }
             Column(

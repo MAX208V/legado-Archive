@@ -140,6 +140,7 @@ fun Fragment.showComposeMultiChoiceDialog(
     message: CharSequence? = null,
     positiveText: CharSequence = getString(android.R.string.ok),
     negativeText: CharSequence = getString(android.R.string.cancel),
+    thumbnails: List<String>? = null,
     onItemCheckedChange: ((Int, Boolean) -> Unit)? = null,
     onDismissAction: (() -> Unit)? = null,
     onPositive: ((BooleanArray) -> Unit)? = null
@@ -152,6 +153,7 @@ fun Fragment.showComposeMultiChoiceDialog(
             message = message?.toString(),
             positiveText = positiveText.toString(),
             negativeText = negativeText.toString(),
+            thumbnails = thumbnails,
             onItemCheckedChange = onItemCheckedChange,
             onDismissAction = onDismissAction,
             onPositive = onPositive

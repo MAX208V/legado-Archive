@@ -5204,18 +5204,25 @@ class ReadBookActivity : BaseReadBookActivity(),
             entry.startsWith("custom:") -> {
                 val path = entry.removePrefix("custom:")
                 config.setCurBg(2, path)
+                config.pagOverlayEnabled = false
             }
             entry.startsWith("style:") -> {
                 val styleIndex = entry.removePrefix("style:").toIntOrNull() ?: return
                 val styleConfig = ReadBookConfig.getConfig(styleIndex)
                 config.setCurBg(styleConfig.curBgType(), styleConfig.curBgStr())
+                // 联动该样式的 PAG 叠加动画
+                config.pagOverlayEnabled = styleConfig.pagOverlayEnabled
+                config.pagOverlayPath = styleConfig.pagOverlayPath
+                refreshPagOverlay()
             }
             entry.startsWith("asset:") -> {
                 config.setCurBg(1, entry.removePrefix("asset:"))
+                config.pagOverlayEnabled = false
             }
             else -> {
                 // 向后兼容：纯文件名 = 内置壁纸
                 config.setCurBg(1, entry)
+                config.pagOverlayEnabled = false
             }
         }
         binding.readView.upBg()

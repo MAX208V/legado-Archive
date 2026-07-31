@@ -5,6 +5,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import androidx.appcompat.widget.AppCompatImageView
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -50,12 +53,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.graphics.toColorInt
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -73,6 +79,7 @@ import io.legado.app.lib.theme.UiCorner
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.bottomBackground
 import io.legado.app.lib.theme.composeActionRadius
+import io.legado.app.lib.theme.themeCardColorOrDefault
 import io.legado.app.lib.theme.composePanelRadius
 import io.legado.app.lib.theme.primaryTextColor
 import io.legado.app.lib.theme.secondaryTextColor
@@ -1253,6 +1260,9 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                 val itemLabels = remember {
                     args.getStringArrayList(ARG_LABELS)?.toList().orEmpty()
                 }
+                val itemThumbnails = remember {
+                    args.getStringArrayList(ARG_THUMBNAILS)?.toList().orEmpty()
+                }
                 val initialCheckedValues = remember(itemLabels) {
                     val initialChecked = args.getBooleanArray(ARG_CHECKED) ?: booleanArrayOf()
                     List(itemLabels.size) { index -> initialChecked.getOrNull(index) ?: false }
@@ -1314,7 +1324,10 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                                             onItemCheckedChange?.invoke(index, nextChecked)
                                         }
                                     },
-                                    minHeight = 42.dp
+                                    minHeight = 42.dp,
+                                    leadingContent = itemThumbnails.getOrNull(index)?.let { thumb ->
+                                        { ChoiceThumbnail(spec = thumb) }
+                                    }
                                 )
                             }
                         }
@@ -1359,6 +1372,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
             message: String? = null,
             positiveText: String,
             negativeText: String,
+            thumbnails: List<String>? = null,
             onItemCheckedChange: ((Int, Boolean) -> Unit)? = null,
             onDismissAction: (() -> Unit)? = null,
             onPositive: ((BooleanArray) -> Unit)? = null
@@ -1372,6 +1386,9 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                     putString(ARG_MESSAGE, message)
                     putString(ARG_POSITIVE_TEXT, positiveText)
                     putString(ARG_NEGATIVE_TEXT, negativeText)
+                    thumbnails?.let {
+                        putStringArrayList(ARG_THUMBNAILS, ArrayList(it))
+                    }
                 }
                 this.onPositive = onPositive
                 this.onItemCheckedChange = onItemCheckedChange
@@ -1385,6 +1402,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
         private const val ARG_MESSAGE = "message"
         private const val ARG_POSITIVE_TEXT = "positiveText"
         private const val ARG_NEGATIVE_TEXT = "negativeText"
+        private const val ARG_THUMBNAILS = "thumbnails"
     }
 }
 
@@ -1392,6 +1410,45 @@ private fun List<Boolean>.toggleAt(index: Int, size: Int): List<Boolean> {
     if (index !in 0 until size) return this
     return MutableList(size) { i -> getOrNull(i) ?: false }.apply {
         this[index] = !this[index]
+    }
+}
+
+/**
+ * 多选列表行缩略图，spec 格式：
+ * - "image:path" 用 Glide/ImageLoader 加载图片
+ * - "color:#RRGGBB" 纯色块
+ */
+@Composable
+private fun ChoiceThumbnail(spec: String, size: Dp = 34.dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(RoundedCornerShape(6.dp))
+            .background(LocalContext.current.themeCardColorOrDefault())
+    ) {
+        when {
+            spec.startsWith("image:") -> {
+                val path = spec.removePrefix("image:")
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        AppCompatImageView(ctx).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                        }
+                    },
+                    update = { iv ->
+                        io.legado.app.help.glide.ImageLoader.load(iv.context, path).centerCrop().into(iv)
+                    },
+                    onRelease = { it.releaseComposeImage() }
+                )
+            }
+            spec.startsWith("color:") -> {
+                val color = runCatching {
+                    spec.removePrefix("color:").toColorInt()
+                }.getOrDefault(0xFFEEEEEE.toInt())
+                Box(modifier = Modifier.fillMaxSize().background(Color(color)))
+            }
+        }
     }
 }
 
