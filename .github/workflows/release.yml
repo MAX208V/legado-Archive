@@ -11,6 +11,8 @@ on:
 jobs:
   prepare:
     runs-on: ubuntu-latest
+    # 签名 secret 存放在 RELEASE_KEY 环境，需显式声明才能读取
+    environment: RELEASE_KEY
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     outputs:
       version: ${{ steps.set-ver.outputs.version }}
@@ -37,6 +39,7 @@ jobs:
         product: [ app, google ]
       fail-fast: false
     runs-on: ubuntu-latest
+    environment: RELEASE_KEY
     env:
       product: ${{ matrix.product }}
       VERSION: ${{ needs.prepare.outputs.version }}

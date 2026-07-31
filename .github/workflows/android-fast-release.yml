@@ -9,6 +9,9 @@ permissions:
 jobs:
   build-release-abi:
     runs-on: ubuntu-latest
+    # 签名 secret 存放在 RELEASE_KEY 环境（Environment secrets），
+    # 必须显式声明 environment 才能读取
+    environment: RELEASE_KEY
 
     steps:
       - name: Checkout
@@ -26,24 +29,52 @@ jobs:
       - name: Grant gradlew permission
         run: chmod +x gradlew
 
-      # 使用仓库内已提交的 ci-debug.keystore 签名（与 Fast Debug 工作流一致）。
-      # 若需要独立签名密钥，请配置 CI_DEBUG_KEY_STORE_B64 / CI_DEBUG_KEY_ALIAS /
-      # CI_DEBUG_KEY_PASSWORD / CI_DEBUG_STORE_PASSWORD 四个 Actions secret 后改用 base64 解码。
+      # 签名密钥从 RELEASE_KEY 环境读取（base64 编码 keystore），
+      # 兼容两套 secret 命名：RELEASE_KEY_STORE / CI_DEBUG_KEY_STORE_B64
       - name: Release Apk Sign
+        env:
+          RELEASE_KEY_STORE: ${{ secrets.RELEASE_KEY_STORE }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          CI_DEBUG_KEY_STORE_B64: ${{ secrets.CI_DEBUG_KEY_STORE_B64 }}
+          CI_DEBUG_KEY_ALIAS: ${{ secrets.CI_DEBUG_KEY_ALIAS }}
+          CI_DEBUG_KEY_PASSWORD: ${{ secrets.CI_DEBUG_KEY_PASSWORD }}
+          CI_DEBUG_STORE_PASSWORD: ${{ secrets.CI_DEBUG_STORE_PASSWORD }}
         run: |
-          echo -e "\n" >> gradle.properties
-          echo RELEASE_KEY_ALIAS='legado-ci-debug' >> gradle.properties
-          echo RELEASE_KEY_PASSWORD='legado-ci-debug' >> gradle.properties
-          echo RELEASE_STORE_PASSWORD='legado-ci-debug' >> gradle.properties
-          echo RELEASE_STORE_FILE='./ci-debug.keystore' >> gradle.properties
-          # 校验 keystore 存在且有效
-          if [ ! -s "$GITHUB_WORKSPACE/app/ci-debug.keystore" ]; then
-            echo "::error::app/ci-debug.keystore 缺失或为空"
+          # 优先 RELEASE_KEY_STORE，其次 CI_DEBUG_KEY_STORE_B64
+          if [ -n "$RELEASE_KEY_STORE" ]; then
+            KEYSTORE_B64="$RELEASE_KEY_STORE"
+            KEY_ALIAS="${RELEASE_KEY_ALIAS:-$CI_DEBUG_KEY_ALIAS}"
+            KEY_PASSWORD="${RELEASE_KEY_PASSWORD:-$CI_DEBUG_KEY_PASSWORD}"
+            STORE_PASSWORD="${RELEASE_STORE_PASSWORD:-$CI_DEBUG_STORE_PASSWORD}"
+          elif [ -n "$CI_DEBUG_KEY_STORE_B64" ]; then
+            KEYSTORE_B64="$CI_DEBUG_KEY_STORE_B64"
+            KEY_ALIAS="$CI_DEBUG_KEY_ALIAS"
+            KEY_PASSWORD="$CI_DEBUG_KEY_PASSWORD"
+            STORE_PASSWORD="$CI_DEBUG_STORE_PASSWORD"
+          else
+            echo "::error::未找到签名密钥 secret（RELEASE_KEY_STORE 或 CI_DEBUG_KEY_STORE_B64），请检查 RELEASE_KEY 环境的 secret 配置"
             exit 1
           fi
-          keytool -list -keystore "$GITHUB_WORKSPACE/app/ci-debug.keystore" \
-            -storepass 'legado-ci-debug' -alias 'legado-ci-debug' >/dev/null 2>&1 \
-            || { echo "::error::ci-debug.keystore 校验失败"; exit 1; }
+          if [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ] || [ -z "$STORE_PASSWORD" ]; then
+            echo "::error::签名 alias/密码 secret 缺失，请检查 RELEASE_KEY 环境配置"
+            exit 1
+          fi
+          echo -e "\n" >> gradle.properties
+          echo "RELEASE_KEY_ALIAS='$KEY_ALIAS'" >> gradle.properties
+          echo "RELEASE_KEY_PASSWORD='$KEY_PASSWORD'" >> gradle.properties
+          echo "RELEASE_STORE_PASSWORD='$STORE_PASSWORD'" >> gradle.properties
+          echo RELEASE_STORE_FILE='./key.jks' >> gradle.properties
+          # printf 原样输出，避免 shell 解释破坏 base64
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$GITHUB_WORKSPACE/app/key.jks"
+          if [ ! -s "$GITHUB_WORKSPACE/app/key.jks" ]; then
+            echo "::error::解码后的 key.jks 为空，请检查 KEYSORE base64 secret 值"
+            exit 1
+          fi
+          keytool -list -keystore "$GITHUB_WORKSPACE/app/key.jks" \
+            -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1 \
+            || { echo "::error::key.jks 不是有效 keystore（可能是 base64 值损坏或 alias/密码不符）"; exit 1; }
 
       - name: Prepare release version
         id: version
