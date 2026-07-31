@@ -572,12 +572,83 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
-    /** 统一条目预览：PAG主题→动画预览，其余→大图预览 */
+    /** 统一条目预览：PAG主题→动画预览，样式→完整预览（背景+PAG+文字），其余→大图预览 */
     private fun previewRotationEntry(entry: String) {
-        if (entry.startsWith("pagtheme:")) {
-            pagThemePreview(File(entry.removePrefix("pagtheme:")))
+        when {
+            entry.startsWith("pagtheme:") -> {
+                pagThemePreview(File(entry.removePrefix("pagtheme:")))
+            }
+            entry.startsWith("style:") -> {
+                stylePreview(
+                    ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                )
+            }
+            else -> showWallpaperPreview(entry)
+        }
+    }
+
+    /** 样式完整预览：背景图（缩略图同链路）+ PAG动画（如启用）+ 示例文字（样式当前文字色） */
+    private fun stylePreview(config: ReadBookConfig.Config) {
+        val context = requireContext()
+        val container = FrameLayout(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                320.dpToPx()
+            )
+        }
+        val bgView = AppCompatImageView(context).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        val bgPath = configBgImagePath(config)
+        if (bgPath != null) {
+            ImageLoader.load(context, bgPath).centerCrop().into(bgView)
         } else {
-            showWallpaperPreview(entry)
+            bgView.setBackgroundColor(configBgColor(config))
+        }
+        container.addView(bgView)
+        // 样式启用了 PAG 叠加动画则预览播放
+        val pagPath = if (config.pagOverlayEnabled && config.pagOverlayPath.isNotBlank()) {
+            config.pagOverlayPath
+        } else null
+        val pagView = if (pagPath != null) {
+            org.libpag.PAGView(context).apply {
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
+                )
+                runCatching {
+                    setPath(pagPath)
+                    setRepeatCount(-1)
+                    setScaleMode(org.libpag.PAGScaleMode.Zoom)
+                    play()
+                }
+            }
+        } else null
+        pagView?.let { container.addView(it) }
+        val textColor = config.curTextColor()
+        val textView = TextView(context).apply {
+            text = "样式预览文字"
+            setTextColor(textColor)
+            textSize = 16f
+            gravity = Gravity.CENTER
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
+        container.addView(textView)
+        alert(title = config.name.ifBlank { "样式预览" }) {
+            customView { container }
+            okButton()
+            onDismiss {
+                pagView?.let {
+                    runCatching { if (it.isPlaying) it.stop() }
+                }
+            }
         }
     }
 
