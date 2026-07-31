@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,8 +52,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.input.pointer.pointerInput
 import io.legado.app.ui.widget.compose.releaseComposeImage
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -359,6 +363,28 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 postReadConfigChanged(9)
             }
 
+            // --- 按白天/黑夜模式轮换开关 ---
+            var modeFilterEnabled by rememberSaveable(refreshTick) {
+                mutableStateOf(
+                    requireContext().defaultSharedPreferences
+                        .getBoolean(ReadBookConfig.PREF_ROTATION_MODE_FILTER, false)
+                )
+            }
+            ReaderSwitchRow(
+                title = "按白天/黑夜模式轮换",
+                checked = modeFilterEnabled,
+                style = style,
+                summary = if (modeFilterEnabled) {
+                    "列表项可设置白天☀️/黑夜🌙使用，轮换时按当前模式过滤"
+                } else null
+            ) {
+                modeFilterEnabled = it
+                requireContext().defaultSharedPreferences.edit()
+                    .putBoolean(ReadBookConfig.PREF_ROTATION_MODE_FILTER, it)
+                    .apply()
+                postReadConfigChanged(9)
+            }
+
             // --- 三种壁纸来源按钮 ---
             RotationSourceButton(
                 icon = R.drawable.ic_image,
@@ -392,7 +418,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
 
             // --- 当前轮换列表 ---
             if (entries.isNotEmpty()) {
-                RotationEntryList(entries, style) { entries = it }
+                RotationEntryList(entries, style, modeFilterEnabled) { entries = it }
             }
         }
     }
@@ -449,6 +475,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun RotationEntryList(
         entries: MutableList<String>,
         style: AppDialogStyle,
+        modeFilterEnabled: Boolean,
         onChanged: (ArrayList<String>) -> Unit
     ) {
         Column(
@@ -456,7 +483,11 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = "当前轮换列表（点击或 ▶ 预览，✕ 移除）",
+                text = if (modeFilterEnabled) {
+                    "当前轮换列表（☀️/🌙/🌓 模式，≡ 拖动排序，✕ 移除）"
+                } else {
+                    "当前轮换列表（≡ 拖动排序，✕ 移除）"
+                },
                 color = style.secondaryText,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(start = 6.dp, top = 6.dp)
@@ -492,6 +523,38 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 .weight(1f)
                                 .clickable { previewRotationEntry(entry) }
                         )
+                        // 白天/黑夜模式按钮（▶ 左边，三态循环）
+                        if (modeFilterEnabled) {
+                            val (pureEntry, mode) = ReadBookConfig.parseRotationEntry(entry)
+                            val modeIcon = when (mode) {
+                                ReadBookConfig.ROTATION_MODE_NIGHT -> "🌙"
+                                ReadBookConfig.ROTATION_MODE_ALL -> "🌓"
+                                else -> "☀️"
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        val nextMode = when (mode) {
+                                            ReadBookConfig.ROTATION_MODE_NIGHT -> ReadBookConfig.ROTATION_MODE_ALL
+                                            ReadBookConfig.ROTATION_MODE_ALL -> ReadBookConfig.ROTATION_MODE_DAY
+                                            else -> ReadBookConfig.ROTATION_MODE_NIGHT
+                                        }
+                                        val mutable = entries.toMutableList()
+                                        mutable[index] = ReadBookConfig.buildRotationEntry(pureEntry, nextMode)
+                                        onChanged(ArrayList(mutable))
+                                        ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
+                                        postReadConfigChanged(9)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = modeIcon,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
                         // ▶ 预览按钮（所有条目：PAG主题→动画预览，其余→大图预览）
                         Box(
                             modifier = Modifier
@@ -506,6 +569,12 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 fontSize = 14.sp
                             )
                         }
+                        // ≡ 拖动手柄（长按拖动排序）
+                        RotationEntryDragHandle(
+                            onMoveBy = { delta ->
+                                moveRotationEntry(entries, index, delta, onChanged)
+                            }
+                        )
                         // ✕ 移除按钮（独立点击区）
                         Box(
                             modifier = Modifier
@@ -532,22 +601,79 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
+    /** 长按拖动排序手柄（参考 RuleSubDragHandle 实现） */
+    @Composable
+    private fun RotationEntryDragHandle(onMoveBy: (Int) -> Unit) {
+        val density = LocalDensity.current
+        val thresholdPx = with(density) { 58.dp.toPx() }
+        var accumulatedY by remember { mutableFloatStateOf(0f) }
+        Icon(
+            painter = painterResource(R.drawable.ic_menu),
+            contentDescription = null,
+            tint = androidx.compose.material3.LocalContentColor.current.copy(alpha = 0.5f),
+            modifier = Modifier
+                .size(32.dp)
+                .padding(8.dp)
+                .pointerInput(Unit) {
+                    detectDragGesturesAfterLongPress(
+                        onDragEnd = {
+                            accumulatedY = 0f
+                        },
+                        onDragCancel = {
+                            accumulatedY = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            accumulatedY += dragAmount.y
+                            while (accumulatedY >= thresholdPx) {
+                                onMoveBy(1)
+                                accumulatedY -= thresholdPx
+                            }
+                            while (accumulatedY <= -thresholdPx) {
+                                onMoveBy(-1)
+                                accumulatedY += thresholdPx
+                            }
+                        }
+                    )
+                }
+        )
+    }
+
+    /** 移动轮换条目位置并持久化 */
+    private fun moveRotationEntry(
+        entries: MutableList<String>,
+        index: Int,
+        delta: Int,
+        onChanged: (ArrayList<String>) -> Unit
+    ) {
+        val target = index + delta
+        if (target in entries.indices) {
+            val mutable = entries.toMutableList()
+            val item = mutable.removeAt(index)
+            mutable.add(target, item)
+            onChanged(ArrayList(mutable))
+            ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
+            postReadConfigChanged(9)
+        }
+    }
+
     private fun rotationEntryLabel(entry: String): String {
+        val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
         return when {
-            entry.startsWith("custom:") -> {
-                val name = entry.removePrefix("custom:").substringAfterLast("/")
-                "📁 $name"
+            pureEntry.startsWith("custom:") -> {
+                val name = pureEntry.removePrefix("custom:").substringAfterLast("/")
+                "🖼️ $name"
             }
-            entry.startsWith("style:") -> {
-                val idx = entry.removePrefix("style:").toIntOrNull() ?: -1
-                val name = ReadBookConfig.getConfig(idx).name.ifBlank { "样式$idx" }
-                "🎨 $name"
+            pureEntry.startsWith("style:") -> {
+                val idx = pureEntry.removePrefix("style:").toIntOrNull() ?: -1
+                val styleConfig = ReadBookConfig.getConfig(idx)
+                "🎨 ${styleConfig.name}"
             }
-            entry.startsWith("pagtheme:") -> {
-                "🎞️ ${entry.removePrefix("pagtheme:").substringAfterLast("/")}"
+            pureEntry.startsWith("pagtheme:") -> {
+                "🎞️ ${pureEntry.removePrefix("pagtheme:").substringAfterLast("/")}"
             }
             else -> {
-                val name = entry.removePrefix("asset:").substringBeforeLast(".")
+                val name = pureEntry.removePrefix("asset:").substringBeforeLast(".")
                 "🖼️ $name"
             }
         }
@@ -555,18 +681,19 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
 
     /** 解析轮换条目对应的预览路径（背景图）；纯色返回 null */
     private fun rotationEntryImagePath(entry: String): String? {
+        val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
         return when {
-            entry.startsWith("custom:") -> entry.removePrefix("custom:")
-            entry.startsWith("style:") -> {
+            pureEntry.startsWith("custom:") -> pureEntry.removePrefix("custom:")
+            pureEntry.startsWith("style:") -> {
                 configBgImagePath(
-                    ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                    ReadBookConfig.getConfig(pureEntry.removePrefix("style:").toIntOrNull() ?: 0)
                 )
             }
-            entry.startsWith("pagtheme:") -> {
-                themeBackground(File(entry.removePrefix("pagtheme:")))?.absolutePath
+            pureEntry.startsWith("pagtheme:") -> {
+                themeBackground(File(pureEntry.removePrefix("pagtheme:")))?.absolutePath
             }
             else -> {
-                val name = entry.removePrefix("asset:")
+                val name = pureEntry.removePrefix("asset:")
                 "file:///android_asset/bg/$name"
             }
         }
@@ -574,13 +701,14 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
 
     /** 统一条目预览：PAG主题→动画预览，样式→完整预览（背景+PAG+文字），其余→大图预览 */
     private fun previewRotationEntry(entry: String) {
+        val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
         when {
-            entry.startsWith("pagtheme:") -> {
-                pagThemePreview(File(entry.removePrefix("pagtheme:")))
+            pureEntry.startsWith("pagtheme:") -> {
+                pagThemePreview(File(pureEntry.removePrefix("pagtheme:")))
             }
-            entry.startsWith("style:") -> {
+            pureEntry.startsWith("style:") -> {
                 stylePreview(
-                    ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                    ReadBookConfig.getConfig(pureEntry.removePrefix("style:").toIntOrNull() ?: 0)
                 )
             }
             else -> showWallpaperPreview(entry)
@@ -665,9 +793,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         if (loadPath != null) {
             ImageLoader.load(requireContext(), loadPath).centerCrop().into(imageView)
         } else {
-            val color = if (entry.startsWith("style:")) {
+            val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
+            val color = if (pureEntry.startsWith("style:")) {
                 configBgColor(
-                    ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                    ReadBookConfig.getConfig(pureEntry.removePrefix("style:").toIntOrNull() ?: 0)
                 )
             } else {
                 0xFFEEEEEE.toInt()
@@ -690,18 +819,19 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 .clip(RoundedCornerShape(6.dp))
                 .background(style.surface)
         ) {
+            val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
             val loadPath = when {
-                entry.startsWith("custom:") -> entry.removePrefix("custom:")
-                entry.startsWith("pagtheme:") -> {
-                    themeBackground(File(entry.removePrefix("pagtheme:")))?.absolutePath
+                pureEntry.startsWith("custom:") -> pureEntry.removePrefix("custom:")
+                pureEntry.startsWith("pagtheme:") -> {
+                    themeBackground(File(pureEntry.removePrefix("pagtheme:")))?.absolutePath
                 }
-                entry.startsWith("asset:") || !entry.contains(":") -> {
-                    val name = entry.removePrefix("asset:")
+                pureEntry.startsWith("asset:") || !pureEntry.contains(":") -> {
+                    val name = pureEntry.removePrefix("asset:")
                     "file:///android_asset/bg/$name"
                 }
-                entry.startsWith("style:") -> {
+                pureEntry.startsWith("style:") -> {
                     configBgImagePath(
-                        ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                        ReadBookConfig.getConfig(pureEntry.removePrefix("style:").toIntOrNull() ?: 0)
                     )
                 }
                 else -> null
@@ -724,9 +854,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 // 纯色背景
                 val color = runCatching {
                     when {
-                        entry.startsWith("style:") -> {
+                        pureEntry.startsWith("style:") -> {
                             configBgColor(
-                                ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                                ReadBookConfig.getConfig(pureEntry.removePrefix("style:").toIntOrNull() ?: 0)
                             )
                         }
                         else -> 0xFFEEEEEE.toInt()
@@ -759,7 +889,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val fileName = "custom_${System.currentTimeMillis()}_${uri.lastPathSegment ?: "wallpaper"}"
                 val destFile = File(bgDir, fileName)
                 destFile.outputStream().use { out -> inputStream.copyTo(out) }
-                val entry = "custom:${destFile.absolutePath}"
+                val entry = ReadBookConfig.buildRotationEntry("custom:${destFile.absolutePath}")
                 val list = ReadBookConfig.durConfig.wallpaperRotationImageList
                 list.add(entry)
                 ReadBookConfig.durConfig.wallpaperRotationImageList = list
@@ -783,7 +913,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             styleThumbnailSpec(config)
         }
         val currentStyleEntries = currentEntries.mapNotNull {
-            if (it.startsWith("style:")) it.removePrefix("style:").toIntOrNull() else null
+            val (pureEntry, _) = ReadBookConfig.parseRotationEntry(it)
+            if (pureEntry.startsWith("style:")) {
+                pureEntry.removePrefix("style:").toIntOrNull()
+            } else null
         }.toSet()
         val checkedIndices = configs.indices.filter { it in currentStyleEntries }.toSet()
         showComposeMultiChoiceDialog(
@@ -799,8 +932,13 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 }
                 val list = ReadBookConfig.durConfig.wallpaperRotationImageList
                 // 移除旧的 style 条目
-                val mutable = list.filter { !it.startsWith("style:") }.toMutableList()
-                newSelected.forEach { i -> mutable.add("style:$i") }
+                val mutable = list.filter { e ->
+                    val (pure, _) = ReadBookConfig.parseRotationEntry(e)
+                    !pure.startsWith("style:")
+                }.toMutableList()
+                newSelected.forEach { i ->
+                    mutable.add(ReadBookConfig.buildRotationEntry("style:$i"))
+                }
                 val result = ArrayList(mutable)
                 onChanged(result)
                 ReadBookConfig.durConfig.wallpaperRotationImageList = result
@@ -877,7 +1015,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             if (thumb != null) "image:${thumb.absolutePath}" else "color:#EEEEEE"
         }
         val currentEntries = entries.mapNotNull {
-            if (it.startsWith("pagtheme:")) it.removePrefix("pagtheme:") else null
+            val (pureEntry, _) = ReadBookConfig.parseRotationEntry(it)
+            if (pureEntry.startsWith("pagtheme:")) {
+                pureEntry.removePrefix("pagtheme:")
+            } else null
         }.toSet()
         val checkedIndices = themeDirs.indices
             .filter { themeDirs[it].absolutePath in currentEntries }
@@ -900,8 +1041,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val newSelected = themeDirs.indices.filter { i ->
                     i < checkedArray.size && checkedArray[i]
                 }
-                val mutable = entries.filter { !it.startsWith("pagtheme:") }.toMutableList()
-                newSelected.forEach { i -> mutable.add("pagtheme:${themeDirs[i].absolutePath}") }
+                val mutable = entries.filter { e ->
+                    val (pure, _) = ReadBookConfig.parseRotationEntry(e)
+                    !pure.startsWith("pagtheme:")
+                }.toMutableList()
+                newSelected.forEach { i ->
+                    mutable.add(
+                        ReadBookConfig.buildRotationEntry("pagtheme:${themeDirs[i].absolutePath}")
+                    )
+                }
                 val result = ArrayList(mutable)
                 onChanged(result)
                 ReadBookConfig.durConfig.wallpaperRotationImageList = result
@@ -989,7 +1137,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             )
         }
         container.addView(textView)
-        alert(title = dir.name, message = "背景图 + PAG动画 + 字体颜色") {
+        alert(title = dir.name) {
             customView { container }
             okButton()
             onDismiss {
@@ -1048,8 +1196,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         onChanged: (ArrayList<String>) -> Unit
     ) {
         val currentAssetEntries = currentEntries.map {
-            if (it.startsWith("asset:")) it.removePrefix("asset:")
-            else if (!it.contains(":")) it
+            val (pureEntry, _) = ReadBookConfig.parseRotationEntry(it)
+            if (pureEntry.startsWith("asset:")) pureEntry.removePrefix("asset:")
+            else if (!pureEntry.contains(":")) pureEntry
             else null
         }.filterNotNull().toSet()
         val labels = presetImages.map { it.substringBeforeLast(".") }
@@ -1068,11 +1217,14 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 }
                 // 移除旧的 asset 条目，添加新选的
                 val mutable = currentEntries.filter { e ->
-                    val assetName = if (e.startsWith("asset:")) e.removePrefix("asset:")
-                        else if (!e.contains(":")) e else null
+                    val (pure, _) = ReadBookConfig.parseRotationEntry(e)
+                    val assetName = if (pure.startsWith("asset:")) pure.removePrefix("asset:")
+                        else if (!pure.contains(":")) pure else null
                     assetName == null || assetName !in currentAssetEntries
                 }.toMutableList()
-                newAssets.forEach { name -> mutable.add("asset:$name") }
+                newAssets.forEach { name ->
+                    mutable.add(ReadBookConfig.buildRotationEntry("asset:$name"))
+                }
                 val result = ArrayList(mutable)
                 onChanged(result)
                 ReadBookConfig.durConfig.wallpaperRotationImageList = result

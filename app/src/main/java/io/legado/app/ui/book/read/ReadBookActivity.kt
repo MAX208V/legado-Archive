@@ -5192,7 +5192,24 @@ class ReadBookActivity : BaseReadBookActivity(),
             refreshPagOverlay()
             return
         }
-        val entries = config.wallpaperRotationImageList
+        val allEntries = config.wallpaperRotationImageList
+        // 按白天/黑夜模式过滤（开关开启时）
+        val modeFilterEnabled = appCtx.defaultSharedPreferences
+            .getBoolean(ReadBookConfig.PREF_ROTATION_MODE_FILTER, false)
+        val entries = if (modeFilterEnabled) {
+            val isNight = AppConfig.isNightTheme
+            allEntries.filter { ReadBookConfig.rotationEntryMatchesMode(it, isNight) }
+        } else {
+            allEntries
+        }
+        if (entries.isEmpty()) {
+            // 当前模式无可轮换条目：恢复样式原始设置
+            ReadBookConfig.clearRotationOverride()
+            binding.readView.upBg()
+            binding.readView.upStyle()
+            refreshPagOverlay()
+            return
+        }
         val intervalMs = (config.wallpaperRotationIntervalSec * 1000L).coerceAtLeast(5000L)
         // 立即显示轮换列表当前条目（轮换优先，不显示样式原始壁纸）
         val startIndex = ReadBookConfig.rotationCurrentIndex.coerceIn(entries.indices)
@@ -5210,6 +5227,8 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     private fun applyRotationEntry(entry: String) {
+        // 拆分条目模式后缀，用纯条目判断来源
+        val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
         // 默认回退到当前样式的 PAG（不残留轮换列表中某样式的 PAG）
         ReadBookConfig.rotationPagEnabled = null
         ReadBookConfig.rotationPagPath = null
@@ -5218,9 +5237,9 @@ class ReadBookActivity : BaseReadBookActivity(),
         // 字体颜色变化时需要重排文本页面
         var needStyleRefresh = false
         when {
-            entry.startsWith("pagtheme:") -> {
+            pureEntry.startsWith("pagtheme:") -> {
                 ReadBookConfig.rotationStyleIndex = null
-                val dir = File(entry.removePrefix("pagtheme:"))
+                val dir = File(pureEntry.removePrefix("pagtheme:"))
                 val themeConfig = ReadBookConfig.parsePagThemeConfig(dir)
                 // 背景：优先 theme.json bg.image，否则扫描 jpg
                 val bgFile = themeConfig?.bgImage
@@ -5246,13 +5265,13 @@ class ReadBookActivity : BaseReadBookActivity(),
                     needStyleRefresh = true
                 }
             }
-            entry.startsWith("custom:") -> {
+            pureEntry.startsWith("custom:") -> {
                 ReadBookConfig.rotationStyleIndex = null
                 ReadBookConfig.rotationBgType = 2
-                ReadBookConfig.rotationBgStr = entry.removePrefix("custom:")
+                ReadBookConfig.rotationBgStr = pureEntry.removePrefix("custom:")
             }
-            entry.startsWith("style:") -> {
-                val styleIndex = entry.removePrefix("style:").toIntOrNull() ?: return
+            pureEntry.startsWith("style:") -> {
+                val styleIndex = pureEntry.removePrefix("style:").toIntOrNull() ?: return
                 val styleConfig = ReadBookConfig.getConfig(styleIndex)
                 // 记录样式索引：upBg 动态取当前模式背景，白天/黑夜自动切换
                 ReadBookConfig.rotationStyleIndex = styleIndex
@@ -5265,16 +5284,16 @@ class ReadBookActivity : BaseReadBookActivity(),
                     ReadBookConfig.rotationPagPath = styleConfig.pagOverlayPath
                 }
             }
-            entry.startsWith("asset:") -> {
+            pureEntry.startsWith("asset:") -> {
                 ReadBookConfig.rotationStyleIndex = null
                 ReadBookConfig.rotationBgType = 1
-                ReadBookConfig.rotationBgStr = entry.removePrefix("asset:")
+                ReadBookConfig.rotationBgStr = pureEntry.removePrefix("asset:")
             }
             else -> {
                 // 向后兼容：纯文件名 = 内置壁纸
                 ReadBookConfig.rotationStyleIndex = null
                 ReadBookConfig.rotationBgType = 1
-                ReadBookConfig.rotationBgStr = entry
+                ReadBookConfig.rotationBgStr = pureEntry
             }
         }
         refreshPagOverlay()

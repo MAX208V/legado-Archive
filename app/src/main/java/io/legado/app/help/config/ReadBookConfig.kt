@@ -128,6 +128,42 @@ object ReadBookConfig {
         rotationPagPath = null
     }
 
+    // ===== 轮换条目模式（白天/黑夜）=====
+    const val ROTATION_MODE_DAY = "D"
+    const val ROTATION_MODE_NIGHT = "N"
+    const val ROTATION_MODE_ALL = "A"
+    const val PREF_ROTATION_MODE_FILTER = "pref_rotation_mode_filter"
+
+    /**
+     * 解析轮换条目：拆出纯条目与模式标记（"xxx|D"/"xxx|N"/"xxx|A"）。
+     * 无后缀的旧条目视为 A（白天黑夜都可用）
+     */
+    fun parseRotationEntry(entry: String): Pair<String, String> {
+        val sep = entry.lastIndexOf('|')
+        if (sep > 0) {
+            val mode = entry.substring(sep + 1)
+            if (mode == ROTATION_MODE_DAY || mode == ROTATION_MODE_NIGHT || mode == ROTATION_MODE_ALL) {
+                return entry.substring(0, sep) to mode
+            }
+        }
+        return entry to ROTATION_MODE_ALL
+    }
+
+    /** 组装轮换条目：默认模式（白天）带后缀，都可用不带后缀 */
+    fun buildRotationEntry(pureEntry: String, mode: String = ROTATION_MODE_DAY): String {
+        return if (mode == ROTATION_MODE_ALL) pureEntry else "$pureEntry|$mode"
+    }
+
+    /** 判断条目是否匹配当前模式（isNight：当前是否为黑夜模式） */
+    fun rotationEntryMatchesMode(entry: String, isNight: Boolean): Boolean {
+        val mode = parseRotationEntry(entry).second
+        return when (mode) {
+            ROTATION_MODE_DAY -> !isNight
+            ROTATION_MODE_NIGHT -> isNight
+            else -> true
+        }
+    }
+
     /**
      * PAG 主题 theme.json 解析结果
      * 完整格式示例：
