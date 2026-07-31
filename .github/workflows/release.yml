@@ -51,15 +51,24 @@ jobs:
           java-version: 17
 
       - name: Release Apk Sign
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEY_STORE }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
         run: |
           # not use this output
           # echo "KeyStore=yes" >> $GITHUB_OUTPUT
           echo -e "\n" >> gradle.properties
-          echo RELEASE_KEY_ALIAS='${{ secrets.RELEASE_KEY_ALIAS }}' >> gradle.properties
-          echo RELEASE_KEY_PASSWORD='${{ secrets.RELEASE_KEY_PASSWORD }}' >> gradle.properties
-          echo RELEASE_STORE_PASSWORD='${{ secrets.RELEASE_STORE_PASSWORD }}' >> gradle.properties
+          echo "RELEASE_KEY_ALIAS='$RELEASE_KEY_ALIAS'" >> gradle.properties
+          echo "RELEASE_KEY_PASSWORD='$RELEASE_KEY_PASSWORD'" >> gradle.properties
+          echo "RELEASE_STORE_PASSWORD='$RELEASE_STORE_PASSWORD'" >> gradle.properties
           echo RELEASE_STORE_FILE='./key.jks' >> gradle.properties
-          echo ${{ secrets.RELEASE_KEY_STORE }} | base64 --decode > $GITHUB_WORKSPACE/app/key.jks
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$GITHUB_WORKSPACE/app/key.jks"
+          if [ ! -s "$GITHUB_WORKSPACE/app/key.jks" ]; then
+            echo "::error::解码后的 key.jks 为空，请检查 RELEASE_KEY_STORE secret"
+            exit 1
+          fi
 
       - name: Unify Version Name
         run: |

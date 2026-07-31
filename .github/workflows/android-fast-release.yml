@@ -27,13 +27,27 @@ jobs:
         run: chmod +x gradlew
 
       - name: Release Apk Sign
+        env:
+          KEYSTORE_B64: ${{ secrets.CI_DEBUG_KEY_STORE_B64 }}
+          RELEASE_KEY_ALIAS: ${{ secrets.CI_DEBUG_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.CI_DEBUG_KEY_PASSWORD }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.CI_DEBUG_STORE_PASSWORD }}
         run: |
           echo -e "\n" >> gradle.properties
-          echo RELEASE_KEY_ALIAS='${{ secrets.CI_DEBUG_KEY_ALIAS }}' >> gradle.properties
-          echo RELEASE_KEY_PASSWORD='${{ secrets.CI_DEBUG_KEY_PASSWORD }}' >> gradle.properties
-          echo RELEASE_STORE_PASSWORD='${{ secrets.CI_DEBUG_STORE_PASSWORD }}' >> gradle.properties
+          echo "RELEASE_KEY_ALIAS='$RELEASE_KEY_ALIAS'" >> gradle.properties
+          echo "RELEASE_KEY_PASSWORD='$RELEASE_KEY_PASSWORD'" >> gradle.properties
+          echo "RELEASE_STORE_PASSWORD='$RELEASE_STORE_PASSWORD'" >> gradle.properties
           echo RELEASE_STORE_FILE='./key.jks' >> gradle.properties
-          echo ${{ secrets.CI_DEBUG_KEY_STORE_B64 }} | base64 --decode > $GITHUB_WORKSPACE/app/key.jks
+          # 通过环境变量 + printf 原样输出，避免 shell 解释破坏 base64
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$GITHUB_WORKSPACE/app/key.jks"
+          # 校验解码产物是否有效 keystore，避免构建到一半才报错
+          if [ ! -s "$GITHUB_WORKSPACE/app/key.jks" ]; then
+            echo "::error::解码后的 key.jks 为空，请检查 CI_DEBUG_KEY_STORE_B64 secret 是否配置正确"
+            exit 1
+          fi
+          keytool -list -keystore "$GITHUB_WORKSPACE/app/key.jks" \
+            -storepass "$RELEASE_STORE_PASSWORD" -alias "$RELEASE_KEY_ALIAS" >/dev/null 2>&1 \
+            || { echo "::error::key.jks 不是有效 keystore（如 Tag number over 30），请重新生成并更新 CI_DEBUG_KEY_STORE_B64 secret"; exit 1; }
 
       - name: Prepare release version
         id: version
