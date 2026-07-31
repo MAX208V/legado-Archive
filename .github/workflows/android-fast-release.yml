@@ -50,11 +50,14 @@ jobs:
             echo "::error::签名 alias/密码 secret 缺失，请检查 RELEASE_KEY 环境配置"
             exit 1
           fi
+          # gradle.properties 是 Java properties 格式：不认单引号，
+          # 转义 \\ : = 避免值被截断/注释
+          props_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/:/\\:/g; s/=/\\=/g'; }
           echo -e "\n" >> gradle.properties
-          echo "RELEASE_KEY_ALIAS='$KEY_ALIAS'" >> gradle.properties
-          echo "RELEASE_KEY_PASSWORD='$KEY_PASSWORD'" >> gradle.properties
-          echo "RELEASE_STORE_PASSWORD='$STORE_PASSWORD'" >> gradle.properties
-          echo RELEASE_STORE_FILE='./key.jks' >> gradle.properties
+          echo "RELEASE_KEY_ALIAS=$(props_escape "$KEY_ALIAS")" >> gradle.properties
+          echo "RELEASE_KEY_PASSWORD=$(props_escape "$KEY_PASSWORD")" >> gradle.properties
+          echo "RELEASE_STORE_PASSWORD=$(props_escape "$STORE_PASSWORD")" >> gradle.properties
+          echo "RELEASE_STORE_FILE=./key.jks" >> gradle.properties
           # printf 原样输出，避免 shell 解释破坏 base64
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$GITHUB_WORKSPACE/app/key.jks"
           if [ ! -s "$GITHUB_WORKSPACE/app/key.jks" ]; then
