@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -100,6 +101,7 @@ import io.legado.app.utils.externalFiles
 import io.legado.app.utils.find
 import io.legado.app.utils.getFile
 import io.legado.app.utils.inputStream
+import io.legado.app.utils.dpToPx
 import io.legado.app.utils.longToast
 import io.legado.app.utils.observeEvent
 import io.legado.app.utils.openInputStream
@@ -523,6 +525,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun showWallpaperPreview(entry: String) {
         val imageView = AppCompatImageView(requireContext()).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                300.dpToPx()
+            )
         }
         val loadPath = when {
             entry.startsWith("custom:") -> entry.removePrefix("custom:")
@@ -1244,7 +1250,11 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val inputStream = requireContext().contentResolver.openInputStream(uri) ?: return@launch
                 val pagDir = File(requireContext().externalFiles, "pag")
                 pagDir.mkdirs()
-                val fileName = "${System.currentTimeMillis()}.pag"
+                // 优先用原始文件名作为内置名称
+                var fileName = queryDisplayName(uri) ?: uri.lastPathSegment
+                    ?: "${System.currentTimeMillis()}.pag"
+                fileName = fileName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
+                    .ifBlank { "${System.currentTimeMillis()}.pag" }
                 val destFile = File(pagDir, fileName)
                 destFile.outputStream().use { output ->
                     inputStream.copyTo(output)
@@ -1256,6 +1266,21 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 requireContext().toastOnUi(e.stackTraceStr)
             }
         }
+    }
+
+    /** 查询 content URI 的显示名称 */
+    private fun queryDisplayName(uri: Uri): String? {
+        return runCatching {
+            requireContext().contentResolver.query(
+                uri,
+                arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        }.getOrNull()
     }
 
     private fun postReadConfigChanged(vararg configKeys: Int) {

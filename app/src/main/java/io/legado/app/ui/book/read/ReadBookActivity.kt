@@ -5180,11 +5180,17 @@ class ReadBookActivity : BaseReadBookActivity(),
     // ── 壁纸轮换 ──
 
     private var wallpaperRotationJob: Job? = null
+    // 轮换期间 PAG 回退基准（进入阅读页时当前样式的 PAG 设置）
+    private var rotationBasePagEnabled = false
+    private var rotationBasePagPath = ""
 
     private fun startWallpaperRotation() {
         stopWallpaperRotation()
         val config = ReadBookConfig.durConfig
         if (!config.wallpaperRotationEnabled || config.wallpaperRotationImageList.isEmpty()) return
+        // 记录当前样式的 PAG，作为轮换中无 PAG 条目的回退
+        rotationBasePagEnabled = config.pagOverlayEnabled
+        rotationBasePagPath = config.pagOverlayPath
         val entries = config.wallpaperRotationImageList
         val intervalMs = (config.wallpaperRotationIntervalSec * 1000L).coerceAtLeast(5000L)
         wallpaperRotationJob = lifecycleScope.launch {
@@ -5200,31 +5206,33 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     private fun applyRotationEntry(entry: String) {
         val config = ReadBookConfig.durConfig
+        // 默认回退到当前样式的 PAG（避免残留轮换列表中某样式的 PAG）
+        config.pagOverlayEnabled = rotationBasePagEnabled
+        config.pagOverlayPath = rotationBasePagPath
         when {
             entry.startsWith("custom:") -> {
                 val path = entry.removePrefix("custom:")
                 config.setCurBg(2, path)
-                config.pagOverlayEnabled = false
             }
             entry.startsWith("style:") -> {
                 val styleIndex = entry.removePrefix("style:").toIntOrNull() ?: return
                 val styleConfig = ReadBookConfig.getConfig(styleIndex)
                 config.setCurBg(styleConfig.curBgType(), styleConfig.curBgStr())
-                // 联动该样式的 PAG 叠加动画
-                config.pagOverlayEnabled = styleConfig.pagOverlayEnabled
-                config.pagOverlayPath = styleConfig.pagOverlayPath
-                refreshPagOverlay()
+                // 该样式启用了 PAG 才覆盖，否则保持当前样式 PAG
+                if (styleConfig.pagOverlayEnabled) {
+                    config.pagOverlayEnabled = true
+                    config.pagOverlayPath = styleConfig.pagOverlayPath
+                }
             }
             entry.startsWith("asset:") -> {
                 config.setCurBg(1, entry.removePrefix("asset:"))
-                config.pagOverlayEnabled = false
             }
             else -> {
                 // 向后兼容：纯文件名 = 内置壁纸
                 config.setCurBg(1, entry)
-                config.pagOverlayEnabled = false
             }
         }
+        refreshPagOverlay()
         binding.readView.upBg()
     }
 
