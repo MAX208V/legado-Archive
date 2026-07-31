@@ -527,13 +527,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         val loadPath = when {
             entry.startsWith("custom:") -> entry.removePrefix("custom:")
             entry.startsWith("style:") -> {
-                val c = ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
-                when (c.bgType) {
-                    0 -> null
-                    1 -> "file:///android_asset/bg/${c.bgStr}"
-                    else -> if (c.bgStr.contains(File.separator)) c.bgStr
-                            else "file:///android_asset/bg/${c.bgStr}"
-                }
+                configBgImagePath(
+                    ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                )
             }
             else -> {
                 val name = entry.removePrefix("asset:")
@@ -543,11 +539,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         if (loadPath != null) {
             ImageLoader.load(requireContext(), loadPath).centerCrop().into(imageView)
         } else {
-            val color = runCatching {
-                ReadBookConfig.getConfig(
-                    entry.removePrefix("style:").toIntOrNull() ?: 0
-                ).bgStr.toColorInt()
-            }.getOrDefault(0xFFEEEEEE.toInt())
+            val color = configBgColor(
+                ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+            )
             imageView.setBackgroundColor(color)
         }
         alert(title = rotationEntryLabel(entry)) {
@@ -573,15 +567,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     "file:///android_asset/bg/$name"
                 }
                 entry.startsWith("style:") -> {
-                    val idx = entry.removePrefix("style:").toIntOrNull() ?: -1
-                    val c = ReadBookConfig.getConfig(idx)
-                    // 使用白天背景，避免夜间/EInk模式影响
-                    when (c.bgType) {
-                        0 -> null
-                        1 -> "file:///android_asset/bg/${c.bgStr}"
-                        else -> if (c.bgStr.contains(File.separator)) c.bgStr
-                                else "file:///android_asset/bg/${c.bgStr}"
-                    }
+                    configBgImagePath(
+                        ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                    )
                 }
                 else -> null
             }
@@ -594,6 +582,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         }
                     },
                     update = { iv ->
+                        iv.setImageDrawable(null)
                         ImageLoader.load(iv.context, loadPath).centerCrop().into(iv)
                     },
                     onRelease = { it.releaseComposeImage() }
@@ -603,9 +592,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val color = runCatching {
                     when {
                         entry.startsWith("style:") -> {
-                            ReadBookConfig.getConfig(
-                                entry.removePrefix("style:").toIntOrNull() ?: 0
-                            ).bgStr.toColorInt()
+                            configBgColor(
+                                ReadBookConfig.getConfig(entry.removePrefix("style:").toIntOrNull() ?: 0)
+                            )
                         }
                         else -> 0xFFEEEEEE.toInt()
                     }
@@ -688,16 +677,31 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         )
     }
 
-    /** 生成样式缩略图 spec（使用白天 bg，避免受夜间/EInk模式影响） */
-    private fun styleThumbnailSpec(config: ReadBookConfig.Config): String {
-        return when (config.bgType) {
-            0 -> "color:${config.bgStr}"
-            1 -> "image:file:///android_asset/bg/${config.bgStr}"
+    /**
+     * 解析样式背景为缩略图 spec（与 curBgDrawable() 逻辑一致，跟随当前模式）
+     * 返回 null 表示纯色背景，用 configBgColor() 取色
+     */
+    private fun configBgImagePath(config: ReadBookConfig.Config): String? {
+        return when (config.curBgType()) {
+            0 -> null
+            1 -> "file:///android_asset/bg/${config.curBgStr()}"
             else -> {
-                val path = config.bgStr
-                if (path.contains(File.separator)) "image:$path" else "image:file:///android_asset/bg/$path"
+                val str = config.curBgStr()
+                if (str.contains(File.separator)) str
+                else FileUtils.getPath(appCtx.externalFiles, "bg", str)
             }
         }
+    }
+
+    private fun configBgColor(config: ReadBookConfig.Config): Int {
+        return runCatching { config.curBgStr().toColorInt() }
+            .getOrDefault(0xFFEEEEEE.toInt())
+    }
+
+    /** 生成样式缩略图 spec（与样式库预览一致） */
+    private fun styleThumbnailSpec(config: ReadBookConfig.Config): String {
+        return configBgImagePath(config)?.let { "image:$it" }
+            ?: "color:${config.curBgStr()}"
     }
 
     private fun showBuiltinWallpaperDialog(
@@ -711,11 +715,13 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             else null
         }.filterNotNull().toSet()
         val labels = presetImages.map { it.substringBeforeLast(".") }
+        val thumbnails = presetImages.map { "image:file:///android_asset/bg/$it" }
         val checkedIndices = presetImages.indices.filter { presetImages[it] in currentAssetEntries }.toSet()
         showComposeMultiChoiceDialog(
             title = getString(R.string.select_rotation_images),
             labels = labels,
             checkedIndices = checkedIndices,
+            thumbnails = thumbnails,
             positiveText = getString(android.R.string.ok),
             negativeText = getString(android.R.string.cancel),
             onPositive = { checkedArray ->

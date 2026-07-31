@@ -1438,7 +1438,12 @@ private fun ChoiceThumbnail(spec: String, size: Dp = 34.dp) {
                         }
                     },
                     update = { iv ->
-                        io.legado.app.help.glide.ImageLoader.load(iv.context, path).centerCrop().into(iv)
+                        // 清空旧图，避免加载失败/复用显示错图
+                        iv.setImageDrawable(null)
+                        io.legado.app.help.glide.ImageLoader.load(iv.context, path)
+                            .error(R.drawable.image_loading_error)
+                            .centerCrop()
+                            .into(iv)
                     },
                     onRelease = { it.releaseComposeImage() }
                 )
