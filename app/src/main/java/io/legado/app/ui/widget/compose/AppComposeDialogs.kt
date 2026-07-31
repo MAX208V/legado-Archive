@@ -1425,7 +1425,7 @@ private fun ChoiceThumbnail(spec: String, size: Dp = 34.dp) {
         modifier = Modifier
             .size(size)
             .clip(RoundedCornerShape(6.dp))
-            .background(LocalContext.current.themeCardColorOrDefault())
+            .background(Color(LocalContext.current.themeCardColorOrDefault()))
     ) {
         when {
             spec.startsWith("image:") -> {
