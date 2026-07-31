@@ -1257,7 +1257,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 }
                 // 优先 PAG 文件内置名称（根合成层名），其次原始文件名
                 var fileName = runCatching {
-                    org.libpag.PAGFile.Load(tempFile.absolutePath)?.layerName?.trim()
+                    org.libpag.PAGFile.Load(tempFile.absolutePath)?.layerName()?.trim()
                 }.getOrNull()?.takeIf { it.isNotBlank() }
                     ?: (queryDisplayName(uri) ?: uri.lastPathSegment)
                     ?: "${System.currentTimeMillis()}.pag"
