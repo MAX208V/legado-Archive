@@ -1110,13 +1110,16 @@ class PageView(context: Context) : FrameLayout(context) {
      */
     fun upPagOverlay() {
         val config = ReadBookConfig.durConfig
-        if (!config.pagOverlayEnabled || config.pagOverlayPath.isBlank()) {
+        // 轮换覆盖优先，其次样式自身设置
+        val pagEnabled = ReadBookConfig.rotationPagEnabled ?: config.pagOverlayEnabled
+        val pagPath = ReadBookConfig.rotationPagPath ?: config.pagOverlayPath
+        if (!pagEnabled || pagPath.isBlank()) {
             clearPagOverlay()
             return
         }
         val pagView = binding.pagOverlay
         try {
-            val path = config.pagOverlayPath
+            val path = pagPath
             if (path.startsWith("file://") || path.contains(File.separator)) {
                 pagView.setPath(path)
             } else {

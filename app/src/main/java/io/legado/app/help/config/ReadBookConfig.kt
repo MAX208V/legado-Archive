@@ -107,8 +107,29 @@ object ReadBookConfig {
         shareConfig = c ?: configList.getOrNull(5) ?: Config()
     }
 
+    // ===== 壁纸轮换覆盖层（不修改样式配置本身）=====
+    // 轮换期间只改这些字段，关闭轮换后 clearRotationOverride() 恢复样式原始设置
+    var rotationBgType: Int? = null
+    var rotationBgStr: String? = null
+    var rotationPagEnabled: Boolean? = null
+    var rotationPagPath: String? = null
+
+    fun clearRotationOverride() {
+        rotationBgType = null
+        rotationBgStr = null
+        rotationPagEnabled = null
+        rotationPagPath = null
+    }
+
     fun upBg(width: Int, height: Int) {
-        val drawable = durConfig.curBgDrawable(width, height)
+        val drawable = if (rotationBgType != null && rotationBgStr != null) {
+            durConfig.buildBgDrawable(
+                width, height,
+                rotationBgType!!, rotationBgStr!!
+            )
+        } else {
+            durConfig.curBgDrawable(width, height)
+        }
         if (drawable is BitmapDrawable && drawable.bitmap != null) {
             bgMeanColor = drawable.bitmap.getMeanColor()
         } else if (drawable is ColorDrawable) {
@@ -824,7 +845,14 @@ object ReadBookConfig {
         }
 
         fun curBgDrawable(width: Int, height: Int): Drawable {
-            val curBgStr = curBgStr()
+            return buildBgDrawable(width, height, curBgType(), curBgStr())
+        }
+
+        /**
+         * 按指定类型/内容构建背景 Drawable（供轮换覆盖层复用）
+         */
+        fun buildBgDrawable(width: Int, height: Int, bgType: Int, bgStr: String): Drawable {
+            val curBgStr = bgStr
             isNineBgImg = curBgStr.endsWith(".9.png")
             if (width == 0 || height == 0) {
                 return appCtx.getCompatColor(R.color.background).toDrawable()
@@ -832,7 +860,7 @@ object ReadBookConfig {
             var bgDrawable: Drawable? = null
             val resources = appCtx.resources
             try {
-                bgDrawable = when (curBgType()) {
+                bgDrawable = when (bgType) {
                     0 -> curBgStr.toColorInt().toDrawable()
                     1 -> {
                         val path = "bg" + File.separator + curBgStr

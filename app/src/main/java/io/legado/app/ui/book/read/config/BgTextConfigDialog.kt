@@ -1250,15 +1250,27 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val inputStream = requireContext().contentResolver.openInputStream(uri) ?: return@launch
                 val pagDir = File(requireContext().externalFiles, "pag")
                 pagDir.mkdirs()
-                // 优先用原始文件名作为内置名称
-                var fileName = queryDisplayName(uri) ?: uri.lastPathSegment
+                // 先写入临时文件，读取 PAG 内置名称后再定名
+                val tempFile = File(pagDir, "tmp_${System.currentTimeMillis()}.pag")
+                tempFile.outputStream().use { output ->
+                    inputStream.copyTo(output)
+                }
+                // 优先 PAG 文件内置名称（根合成层名），其次原始文件名
+                var fileName = runCatching {
+                    org.libpag.PAGFile.Load(tempFile.absolutePath)?.layerName?.trim()
+                }.getOrNull()?.takeIf { it.isNotBlank() }
+                    ?: (queryDisplayName(uri) ?: uri.lastPathSegment)
                     ?: "${System.currentTimeMillis()}.pag"
                 fileName = fileName.replace(Regex("[\\\\/:*?\"<>|]"), "_")
                     .ifBlank { "${System.currentTimeMillis()}.pag" }
-                val destFile = File(pagDir, fileName)
-                destFile.outputStream().use { output ->
-                    inputStream.copyTo(output)
+                var destFile = File(pagDir, fileName)
+                if (destFile.exists()) {
+                    // 重名加时间戳后缀
+                    val base = fileName.substringBeforeLast('.', fileName)
+                    val ext = fileName.substringAfterLast('.', "pag")
+                    destFile = File(pagDir, "${base}_${System.currentTimeMillis()}.$ext")
                 }
+                tempFile.renameTo(destFile)
                 ReadBookConfig.durConfig.pagOverlayPath = destFile.absolutePath
                 refreshTick++
                 (activity as? ReadBookActivity)?.refreshPagOverlay()

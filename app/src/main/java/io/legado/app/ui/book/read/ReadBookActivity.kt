@@ -5180,19 +5180,23 @@ class ReadBookActivity : BaseReadBookActivity(),
     // ── 壁纸轮换 ──
 
     private var wallpaperRotationJob: Job? = null
-    // 轮换期间 PAG 回退基准（进入阅读页时当前样式的 PAG 设置）
-    private var rotationBasePagEnabled = false
-    private var rotationBasePagPath = ""
 
     private fun startWallpaperRotation() {
         stopWallpaperRotation()
         val config = ReadBookConfig.durConfig
-        if (!config.wallpaperRotationEnabled || config.wallpaperRotationImageList.isEmpty()) return
-        // 记录当前样式的 PAG，作为轮换中无 PAG 条目的回退
-        rotationBasePagEnabled = config.pagOverlayEnabled
-        rotationBasePagPath = config.pagOverlayPath
+        if (!config.wallpaperRotationEnabled || config.wallpaperRotationImageList.isEmpty()) {
+            // 轮换未启用/列表为空：恢复样式原始背景与PAG
+            ReadBookConfig.clearRotationOverride()
+            binding.readView.upBg()
+            refreshPagOverlay()
+            return
+        }
         val entries = config.wallpaperRotationImageList
         val intervalMs = (config.wallpaperRotationIntervalSec * 1000L).coerceAtLeast(5000L)
+        // 立即显示轮换列表当前条目（轮换优先，不显示样式原始壁纸）
+        val startIndex = ReadBookConfig.rotationCurrentIndex.coerceIn(entries.indices)
+        ReadBookConfig.rotationCurrentIndex = startIndex
+        applyRotationEntry(entries[startIndex])
         wallpaperRotationJob = lifecycleScope.launch {
             while (isActive) {
                 delay(intervalMs)
@@ -5205,31 +5209,33 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     private fun applyRotationEntry(entry: String) {
-        val config = ReadBookConfig.durConfig
-        // 默认回退到当前样式的 PAG（避免残留轮换列表中某样式的 PAG）
-        config.pagOverlayEnabled = rotationBasePagEnabled
-        config.pagOverlayPath = rotationBasePagPath
+        // 默认回退到当前样式的 PAG（不残留轮换列表中某样式的 PAG）
+        ReadBookConfig.rotationPagEnabled = null
+        ReadBookConfig.rotationPagPath = null
         when {
             entry.startsWith("custom:") -> {
-                val path = entry.removePrefix("custom:")
-                config.setCurBg(2, path)
+                ReadBookConfig.rotationBgType = 2
+                ReadBookConfig.rotationBgStr = entry.removePrefix("custom:")
             }
             entry.startsWith("style:") -> {
                 val styleIndex = entry.removePrefix("style:").toIntOrNull() ?: return
                 val styleConfig = ReadBookConfig.getConfig(styleIndex)
-                config.setCurBg(styleConfig.curBgType(), styleConfig.curBgStr())
-                // 该样式启用了 PAG 才覆盖，否则保持当前样式 PAG
+                ReadBookConfig.rotationBgType = styleConfig.curBgType()
+                ReadBookConfig.rotationBgStr = styleConfig.curBgStr()
+                // 该样式启用了 PAG 才覆盖，否则回退当前样式 PAG
                 if (styleConfig.pagOverlayEnabled) {
-                    config.pagOverlayEnabled = true
-                    config.pagOverlayPath = styleConfig.pagOverlayPath
+                    ReadBookConfig.rotationPagEnabled = true
+                    ReadBookConfig.rotationPagPath = styleConfig.pagOverlayPath
                 }
             }
             entry.startsWith("asset:") -> {
-                config.setCurBg(1, entry.removePrefix("asset:"))
+                ReadBookConfig.rotationBgType = 1
+                ReadBookConfig.rotationBgStr = entry.removePrefix("asset:")
             }
             else -> {
                 // 向后兼容：纯文件名 = 内置壁纸
-                config.setCurBg(1, entry)
+                ReadBookConfig.rotationBgType = 1
+                ReadBookConfig.rotationBgStr = entry
             }
         }
         refreshPagOverlay()
