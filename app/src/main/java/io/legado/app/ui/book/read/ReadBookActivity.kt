@@ -5214,12 +5214,16 @@ class ReadBookActivity : BaseReadBookActivity(),
         ReadBookConfig.rotationPagPath = null
         when {
             entry.startsWith("custom:") -> {
+                ReadBookConfig.rotationStyleIndex = null
                 ReadBookConfig.rotationBgType = 2
                 ReadBookConfig.rotationBgStr = entry.removePrefix("custom:")
             }
             entry.startsWith("style:") -> {
                 val styleIndex = entry.removePrefix("style:").toIntOrNull() ?: return
                 val styleConfig = ReadBookConfig.getConfig(styleIndex)
+                // 记录样式索引：upBg 动态取当前模式背景，白天/黑夜自动切换
+                ReadBookConfig.rotationStyleIndex = styleIndex
+                // 快照兜底（getConfig 异常时仍有值可用）
                 ReadBookConfig.rotationBgType = styleConfig.curBgType()
                 ReadBookConfig.rotationBgStr = styleConfig.curBgStr()
                 // 该样式启用了 PAG 才覆盖，否则回退当前样式 PAG
@@ -5229,11 +5233,13 @@ class ReadBookActivity : BaseReadBookActivity(),
                 }
             }
             entry.startsWith("asset:") -> {
+                ReadBookConfig.rotationStyleIndex = null
                 ReadBookConfig.rotationBgType = 1
                 ReadBookConfig.rotationBgStr = entry.removePrefix("asset:")
             }
             else -> {
                 // 向后兼容：纯文件名 = 内置壁纸
+                ReadBookConfig.rotationStyleIndex = null
                 ReadBookConfig.rotationBgType = 1
                 ReadBookConfig.rotationBgStr = entry
             }

@@ -111,24 +111,37 @@ object ReadBookConfig {
     // 轮换期间只改这些字段，关闭轮换后 clearRotationOverride() 恢复样式原始设置
     var rotationBgType: Int? = null
     var rotationBgStr: String? = null
+    // 当前轮换条目来自哪个样式：非空时 upBg 动态取该样式当前模式的背景，
+    // 实现白天/黑夜模式自动切换（模式变化 → refreshVisualStyle → upBg）
+    var rotationStyleIndex: Int? = null
     var rotationPagEnabled: Boolean? = null
     var rotationPagPath: String? = null
 
     fun clearRotationOverride() {
         rotationBgType = null
         rotationBgStr = null
+        rotationStyleIndex = null
         rotationPagEnabled = null
         rotationPagPath = null
     }
 
     fun upBg(width: Int, height: Int) {
-        val drawable = if (rotationBgType != null && rotationBgStr != null) {
-            durConfig.buildBgDrawable(
-                width, height,
-                rotationBgType!!, rotationBgStr!!
-            )
-        } else {
-            durConfig.curBgDrawable(width, height)
+        val drawable = when {
+            // 轮换条目来自样式：动态取该样式当前模式的背景（白天/黑夜自动切换）
+            rotationStyleIndex != null -> {
+                val styleConfig = getConfig(rotationStyleIndex!!)
+                durConfig.buildBgDrawable(
+                    width, height,
+                    styleConfig.curBgType(), styleConfig.curBgStr()
+                )
+            }
+            rotationBgType != null && rotationBgStr != null -> {
+                durConfig.buildBgDrawable(
+                    width, height,
+                    rotationBgType!!, rotationBgStr!!
+                )
+            }
+            else -> durConfig.curBgDrawable(width, height)
         }
         if (drawable is BitmapDrawable && drawable.bitmap != null) {
             bgMeanColor = drawable.bitmap.getMeanColor()

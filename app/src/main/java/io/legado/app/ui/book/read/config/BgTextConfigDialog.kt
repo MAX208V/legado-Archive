@@ -684,17 +684,32 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     }
 
     /**
-     * 解析样式背景为缩略图 spec（与 curBgDrawable() 逻辑一致，跟随当前模式）
-     * 返回 null 表示纯色背景，用 configBgColor() 取色
+     * 解析样式背景为缩略图 spec。
+     * - 当前模式有壁纸 → 显示当前模式壁纸（白天/黑夜自动切换）
+     * - 当前模式是纯色 → 回退读取黑夜模式壁纸，再回退日间壁纸
+     * - 都没有 → 返回 null（纯色，用 configBgColor() 取色）
      */
     private fun configBgImagePath(config: ReadBookConfig.Config): String? {
-        return when (config.curBgType()) {
-            0 -> null
-            1 -> "file:///android_asset/bg/${config.curBgStr()}"
+        when (config.curBgType()) {
+            1, 2 -> return resolveStyleBgPath(config.curBgType(), config.curBgStr())
+        }
+        // 当前模式纯色：优先读取黑夜模式壁纸
+        if (config.bgTypeNight == 1 || config.bgTypeNight == 2) {
+            return resolveStyleBgPath(config.bgTypeNight, config.bgStrNight)
+        }
+        // 再回退日间壁纸
+        if (config.bgType == 1 || config.bgType == 2) {
+            return resolveStyleBgPath(config.bgType, config.bgStr)
+        }
+        return null
+    }
+
+    private fun resolveStyleBgPath(bgType: Int, bgStr: String): String {
+        return when (bgType) {
+            1 -> "file:///android_asset/bg/$bgStr"
             else -> {
-                val str = config.curBgStr()
-                if (str.contains(File.separator)) str
-                else FileUtils.getPath(appCtx.externalFiles, "bg", str)
+                if (bgStr.contains(File.separator)) bgStr
+                else FileUtils.getPath(appCtx.externalFiles, "bg", bgStr)
             }
         }
     }
