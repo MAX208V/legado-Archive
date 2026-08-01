@@ -791,7 +791,8 @@ object ReadBookConfig {
         var wallpaperRotationImageList: ArrayList<String> = arrayListOf(),
         // PAG叠加动画
         var pagOverlayPath: String = "",
-        var pagOverlayEnabled: Boolean = false
+        /** 是否开启 PAG 叠加动画（默认关闭，启用需手动开启，防止启动自动开书时 native OOM 崩溃/白屏） */
+    var pagOverlayEnabled: Boolean = false
     ) {
 
         @Transient
