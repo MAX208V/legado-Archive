@@ -21,6 +21,7 @@ import io.legado.app.model.localBook.EpubFile
 import io.legado.app.ui.association.OpenUrlConfirmActivity
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.ui.book.read.page.delegate.PageDelegate
+import io.legado.app.ui.book.read.page.entities.PageDirection
 import io.legado.app.ui.book.read.page.entities.TextLine
 import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.page.entities.TextPos
@@ -259,23 +260,25 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             backgroundDelta = pageOffset - startPageOffset
             pageDelegate?.abortAnim()
         } else if (pageOffset > 0) {
-            if (pageFactory.moveToPrev(true)) {
-                pageOffset -= textPage.height.toInt()
-            } else {
-                pageOffset = 0
-                backgroundDelta = pageOffset - startPageOffset
-                pageDelegate?.abortAnim()
-            }
-        } else if (pageOffset < -textPage.height) {
-            val height = textPage.height
-            if (pageFactory.moveToNext(upContent = true)) {
-                pageOffset += height.toInt()
-            } else {
-                pageOffset = -height.toInt()
-                backgroundDelta = pageOffset - startPageOffset
-                pageDelegate?.abortAnim()
-            }
-        }
+                        if (pageFactory.moveToPrev(true)) {
+                            pageOffset -= textPage.height.toInt()
+                            curPage.syncPagProgressForPageTurn(PageDirection.PREV)
+                        } else {
+                            pageOffset = 0
+                            backgroundDelta = pageOffset - startPageOffset
+                            pageDelegate?.abortAnim()
+                        }
+                    } else if (pageOffset < -textPage.height) {
+                        val height = textPage.height
+                        if (pageFactory.moveToNext(upContent = true)) {
+                            pageOffset += height.toInt()
+                            curPage.syncPagProgressForPageTurn(PageDirection.NEXT)
+                        } else {
+                            pageOffset = -height.toInt()
+                            backgroundDelta = pageOffset - startPageOffset
+                            pageDelegate?.abortAnim()
+                        }
+                    }
         backgroundScrollOffset += backgroundDelta
         postInvalidateOnAnimation()
     }

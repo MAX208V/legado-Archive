@@ -1105,6 +1105,35 @@ class PageView(context: Context) : FrameLayout(context) {
         upPagOverlay()
     }
 
+    /** 获取 PAG 当前播放进度（0f-1f） */
+    fun getPagProgress(): Float {
+        return pagOverlayView?.progress ?: 0f
+    }
+
+    /**
+     * 设置 PAG 播放进度（用于翻页时同步三页进度，实现跟随背景效果）
+     */
+    fun setPagProgress(progress: Float) {
+        pagOverlayView?.progress = progress
+    }
+
+    /** PAG 是否正在播放 */
+    fun isPagPlaying(): Boolean {
+        return pagOverlayView?.isPlaying == true
+    }
+
+    /**
+     * 翻页时同步 PAG 进度（用于自动滚动翻页等不走 fillPage 的场景）
+     */
+    fun syncPagProgressForPageTurn(direction: io.legado.app.ui.book.read.page.entities.PageDirection) {
+        val progress = getPagProgress()
+        readBookActivity?.binding?.readView?.let { readView ->
+            readView.curPage.setPagProgress(progress)
+            readView.prevPage.setPagProgress(progress)
+            readView.nextPage.setPagProgress(progress)
+        }
+    }
+
     /**
      * 懒创建的 PAGView：仅当启用 PAG 时才创建，
      * 避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）
