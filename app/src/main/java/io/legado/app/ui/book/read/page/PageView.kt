@@ -1140,8 +1140,8 @@ class PageView(context: Context) : FrameLayout(context) {
             val w = (width.takeIf { it > 0 } ?: dm.widthPixels)
             val h = ((height.takeIf { it > 0 } ?: dm.heightPixels) * 0.7f).toInt()
                 .coerceAtLeast(1)
-            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(w, h)
-            lp.gravity = android.view.Gravity.CENTER
+            // 使用 FrameLayout.LayoutParams 支持 gravity 居中
+            val lp = android.widget.FrameLayout.LayoutParams(w, h, android.view.Gravity.CENTER)
             binding.vwRoot.addView(
                 pagView,
                 binding.vwRoot.indexOfChild(binding.contentTextView)
