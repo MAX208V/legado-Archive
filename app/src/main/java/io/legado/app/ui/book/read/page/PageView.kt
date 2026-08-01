@@ -1132,7 +1132,7 @@ class PageView(context: Context) : FrameLayout(context) {
             // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
             pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
             // 降低渲染内存占用：缓存帧按半分辨率缩放（全屏动画内存大户）
-            runCatching { pagView.cacheScale = 0.5f }
+            runCatching { pagView.setCacheScale(0.5f) }
             pagOverlayView = pagView
             pagView
         } catch (e: OutOfMemoryError) {
