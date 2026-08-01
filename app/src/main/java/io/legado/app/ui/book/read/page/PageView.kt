@@ -108,6 +108,10 @@ class PageView(context: Context) : FrameLayout(context) {
             upStyle()
             binding.vwStatusBar.applyStatusBarPadding()
             binding.vwNavigationBar.applyNavigationBarPadding()
+            // 注册 PAG 位移监听：页面翻动时同步 PAG 位移
+            readBookActivity?.binding?.readView?.setOnPagMoveListener { dx ->
+                updatePagOverlayTranslationX(dx)
+            }
         }
     }
 
@@ -1202,6 +1206,11 @@ class PageView(context: Context) : FrameLayout(context) {
             e.printOnDebug()
             pagView.visibility = GONE
         }
+    }
+
+    /** 页面翻动时同步 PAG 位移（跟随背景移动） */
+    fun updatePagOverlayTranslationX(dx: Float) {
+        pagOverlayView?.translationX = dx
     }
 
     /**

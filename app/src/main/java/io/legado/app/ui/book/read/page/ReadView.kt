@@ -167,6 +167,8 @@ class ReadView(context: Context, attrs: AttributeSet) :
     override fun computeScroll() {
         pageDelegate?.computeScroll()
         autoPager.computeOffset()
+        // 同步 PAG 位移：页面翻动动画期间，PAG 跟随背景移动
+        notifyPagMove()
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
@@ -323,6 +325,28 @@ class ReadView(context: Context, attrs: AttributeSet) :
      */
     fun hasPagPlaying(): Boolean {
         return curPage.isPagPlaying() || prevPage.isPagPlaying() || nextPage.isPagPlaying()
+    }
+
+    /** 页面翻动动画时的位移回调（PAG 跟随背景移动） */
+    private var onPagMoveListener: ((Float) -> Unit)? = null
+
+    fun setOnPagMoveListener(listener: ((Float) -> Unit)?) {
+        onPagMoveListener = listener
+    }
+
+    /** 页面翻动动画期间通知 PAG 位移 */
+    private fun notifyPagMove() {
+        onPagMoveListener?.let {
+            // 只有在页面翻动动画运行时才同步位移
+            pageDelegate?.takeIf { it.isRunning }?.let {
+                it(translateXForPag())
+            }
+        }
+    }
+
+    /** 计算 PAG 应该的水平位移（与页面背景同步） */
+    private fun translateXForPag(): Float {
+        return touchX - startX
     }
 
     /**
