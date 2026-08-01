@@ -109,7 +109,7 @@ class PageView(context: Context) : FrameLayout(context) {
             binding.vwStatusBar.applyStatusBarPadding()
             binding.vwNavigationBar.applyNavigationBarPadding()
             // 注册 PAG 位移监听：页面翻动时同步 PAG 位移
-            readBookActivity?.binding?.readView?.setOnPagMoveListener { dx ->
+            readBookActivity?.readView?.setOnPagMoveListener { dx ->
                 updatePagOverlayTranslationX(dx)
             }
         }
