@@ -80,19 +80,26 @@ jobs:
             echo "tag=${TAG_NAME}"
           } >> "$GITHUB_OUTPUT"
 
-          cat > release-notes.md <<'EOF'
-          阅读 Archive 发现套件与稳定性更新
-
-          本次更新继续完善发现页“套件”模式，并围绕顶栏动画、套件加载、书封显示、内存占用和导入导出稳定性做了一轮修复。
-
-          新增：
-          - 新增发现页“套件”模式，可在“界面设置 - 发现与订阅 - 发现页模式”中选择。
-          - 新增发现套件管理页，支持新建套件、设为当前套件、重命名、设置别名和删除套件。
-          - 新增套件详情页，支持给单个套件添加、编辑、删除控件。
-          - 新增随机推荐、Tag 按键栏、横排滑动、排行榜列表和瀑布流等套件控件。
-          - 新增套件透明度倍率设置，用于在主题透明度基础上单独增强套件卡片不透明度。
-          - 新增新版发现页记住上次选中的 Tag，重新进入后不再每次回到默认分类。
-                   EOF
+      - name: Generate release notes from commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 以最近一个已发布 tag 为对比基准，取真实提交历史作为发布说明
+          PREV_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name' 2>/dev/null || echo "")
+          COMMITS=""
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "$PREV_TAG"..HEAD --pretty=format:'- %s' 2>/dev/null || true)
+          fi
+          if [ -z "$COMMITS" ]; then
+            COMMITS=$(git log -30 --pretty=format:'- %s' HEAD 2>/dev/null || true)
+          fi
+          {
+            echo "阅读 Archive ${{ steps.version.outputs.name }} 更新说明"
+            echo ""
+            echo "本次更新内容："
+            echo "$COMMITS"
+          } > release-notes.md
+          cat release-notes.md
 
       - name: Build arm64 release APK
         run: |
