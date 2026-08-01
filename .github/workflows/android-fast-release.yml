@@ -136,29 +136,8 @@ jobs:
           files: release-apks/*.apk
           body_path: release-notes.md
 
-      - name: Refresh app update channel
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          CHANNEL_TAG="latest-arm64-release"
-          # 404 时 gh api 会原样输出 JSON 错误体（含空格），
-          # 必须用纯数字正则判断 release 是否真实存在，否则下游 URL 会被分词
-          RELEASE_ID=$(gh api repos/${{ github.repository }}/releases/tags/$CHANNEL_TAG --jq '.id' 2>/dev/null || true)
-          if [[ "$RELEASE_ID" =~ ^[0-9]+$ ]]; then
-            gh api repos/${{ github.repository }}/releases/$RELEASE_ID/assets --paginate \
-              --jq '.[] | select(.name | endswith(".apk")) | .id' \
-              | while read -r ASSET_ID; do
-                  gh api -X DELETE repos/${{ github.repository }}/releases/assets/$ASSET_ID
-                done
-            gh release upload "$CHANNEL_TAG" release-apks/*.apk --clobber
-            gh release edit "$CHANNEL_TAG" \
-              --title "阅读 Archive 更新通道" \
-              --notes-file release-notes.md
-          else
-            gh release create "$CHANNEL_TAG" release-apks/*.apk \
-              --title "阅读 Archive 更新通道" \
-              --notes-file release-notes.md
-          fi
+      # 只发一条版本化 Release（make_latest），
+      # 应用更新走 /releases/latest，不再单独创建更新通道 Release
 
       - name: Sync release to Gitee
         env:

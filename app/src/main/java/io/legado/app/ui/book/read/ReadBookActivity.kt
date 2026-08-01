@@ -5194,14 +5194,12 @@ class ReadBookActivity : BaseReadBookActivity(),
             return
         }
         val allEntries = config.wallpaperRotationImageList
-        // 按白天/黑夜模式过滤（开关开启时）
-        val modeFilterEnabled = application.defaultSharedPreferences
-            .getBoolean(ReadBookConfig.PREF_ROTATION_MODE_FILTER, false)
-        val entries = if (modeFilterEnabled) {
-            val isNight = AppConfig.isNightTheme
-            allEntries.filter { ReadBookConfig.rotationEntryMatchesMode(it, isNight) }
-        } else {
-            allEntries
+        // 过滤：来源开关启用 + 白天/黑夜模式匹配（模式过滤默认启用）
+        val prefs = appCtx.defaultSharedPreferences
+        val isNight = AppConfig.isNightTheme
+        val entries = allEntries.filter { entry ->
+            ReadBookConfig.rotationSourceEnabled(entry, prefs) &&
+                ReadBookConfig.rotationEntryMatchesMode(entry, isNight)
         }
         if (entries.isEmpty()) {
             // 当前模式无可轮换条目：恢复样式原始设置

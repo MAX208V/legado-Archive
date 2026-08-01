@@ -133,6 +133,23 @@ object ReadBookConfig {
     const val ROTATION_MODE_NIGHT = "N"
     const val ROTATION_MODE_ALL = "A"
     const val PREF_ROTATION_MODE_FILTER = "pref_rotation_mode_filter"
+    // 轮换来源启用开关（默认启用）
+    const val PREF_ROTATION_SOURCE_CUSTOM = "pref_rotation_source_custom"
+    const val PREF_ROTATION_SOURCE_STYLE = "pref_rotation_source_style"
+    const val PREF_ROTATION_SOURCE_BUILTIN = "pref_rotation_source_builtin"
+    const val PREF_ROTATION_SOURCE_PAGTHEME = "pref_rotation_source_pagtheme"
+
+    /** 判断条目来源是否启用（来源开关） */
+    fun rotationSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
+        val (pureEntry, _) = parseRotationEntry(entry)
+        val key = when {
+            pureEntry.startsWith("custom:") -> PREF_ROTATION_SOURCE_CUSTOM
+            pureEntry.startsWith("style:") -> PREF_ROTATION_SOURCE_STYLE
+            pureEntry.startsWith("pagtheme:") -> PREF_ROTATION_SOURCE_PAGTHEME
+            else -> PREF_ROTATION_SOURCE_BUILTIN
+        }
+        return prefs.getBoolean(key, true)
+    }
 
     /**
      * 解析轮换条目：拆出纯条目与模式标记（"xxx|D"/"xxx|N"/"xxx|A"）。

@@ -88,6 +88,7 @@ import androidx.compose.runtime.MutableState
 import io.legado.app.ui.widget.compose.AppDialogStyle
 import io.legado.app.ui.widget.compose.AppThemedStepperSlider
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
+import io.legado.app.ui.widget.compose.LegadoMiuixSwitch
 import io.legado.app.ui.widget.compose.rememberAppDialogStyle
 import io.legado.app.ui.widget.compose.showComposeChoiceListDialog
 import io.legado.app.ui.widget.compose.showComposeMultiChoiceDialog
@@ -363,44 +364,28 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 postReadConfigChanged(9)
             }
 
-            // --- 按白天/黑夜模式轮换开关 ---
-            var modeFilterEnabled by rememberSaveable(refreshTick) {
-                mutableStateOf(
-                    requireContext().defaultSharedPreferences
-                        .getBoolean(ReadBookConfig.PREF_ROTATION_MODE_FILTER, false)
-                )
-            }
-            ReaderSwitchRow(
-                title = "按白天/黑夜模式轮换",
-                checked = modeFilterEnabled,
-                style = style,
-                summary = if (modeFilterEnabled) {
-                    "列表项可设置白天☀️/黑夜🌙使用，轮换时按当前模式过滤"
-                } else null
-            ) {
-                modeFilterEnabled = it
-                requireContext().defaultSharedPreferences.edit()
-                    .putBoolean(ReadBookConfig.PREF_ROTATION_MODE_FILTER, it)
-                    .apply()
-                postReadConfigChanged(9)
-            }
+            // --- 按白天/黑夜模式轮换（默认启用，无需开关）---
+            // 列表项可设置白天☀️/黑夜🌙/都可用🌓，轮换时按当前模式过滤
 
-            // --- 三种壁纸来源按钮 ---
-            RotationSourceButton(
+            // --- 四种壁纸来源（左侧开关控制该来源是否参与轮换）---
+            RotationSourceRow(
+                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_CUSTOM,
                 icon = R.drawable.ic_image,
                 text = "选择自定义壁纸",
                 count = entries.count { it.startsWith("custom:") },
                 style = style,
                 onClick = { addCustomWallpaper(entries) { entries = it } }
             )
-            RotationSourceButton(
+            RotationSourceRow(
+                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_STYLE,
                 icon = R.drawable.ic_arrange,
                 text = "添加样式壁纸",
                 count = entries.count { it.startsWith("style:") },
                 style = style,
                 onClick = { addStyleWallpaper(entries) { entries = it } }
             )
-            RotationSourceButton(
+            RotationSourceRow(
+                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_BUILTIN,
                 icon = R.drawable.ic_cfg_theme,
                 text = "选择内置壁纸",
                 count = entries.count { it.startsWith("asset:") || !it.contains(":") },
@@ -408,7 +393,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 style = style,
                 onClick = { showBuiltinWallpaperDialog(presetImages, entries) { entries = it } }
             )
-            RotationSourceButton(
+            RotationSourceRow(
+                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_PAGTHEME,
                 icon = R.drawable.ic_play_outline_24dp,
                 text = "选择PAG主题",
                 count = entries.count { it.startsWith("pagtheme:") },
@@ -418,8 +404,45 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
 
             // --- 当前轮换列表 ---
             if (entries.isNotEmpty()) {
-                RotationEntryList(entries, style, modeFilterEnabled) { entries = it }
+                RotationEntryList(entries, style) { entries = it }
             }
+        }
+    }
+
+    /** 来源行：左侧开关（控制该来源是否参与轮换）+ 来源按钮 */
+    @Composable
+    private fun RotationSourceRow(
+        prefKey: String,
+        icon: Int,
+        text: String,
+        count: Int,
+        total: Int? = null,
+        style: AppDialogStyle,
+        onClick: () -> Unit
+    ) {
+        val context = LocalContext.current
+        var enabled by rememberSaveable(prefKey) {
+            mutableStateOf(
+                context.defaultSharedPreferences.getBoolean(prefKey, true)
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            LegadoMiuixSwitch(
+                checked = enabled,
+                onCheckedChange = {
+                    enabled = it
+                    context.defaultSharedPreferences.edit()
+                        .putBoolean(prefKey, it)
+                        .apply()
+                    postReadConfigChanged(9)
+                },
+                palette = style.toMiuixPalette(),
+                modifier = Modifier.padding(start = 2.dp, end = 6.dp)
+            )
+            RotationSourceButton(icon, text, count, total, style, onClick)
         }
     }
 
@@ -475,7 +498,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun RotationEntryList(
         entries: MutableList<String>,
         style: AppDialogStyle,
-        modeFilterEnabled: Boolean,
         onChanged: (ArrayList<String>) -> Unit
     ) {
         Column(
@@ -483,11 +505,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = if (modeFilterEnabled) {
-                    "当前轮换列表（☀️/🌙/🌓 模式，≡ 拖动排序，✕ 移除）"
-                } else {
-                    "当前轮换列表（≡ 拖动排序，✕ 移除）"
-                },
+                text = "当前轮换列表（☀️白天/🌙黑夜/🌓都可用，≡ 拖动排序，✕ 移除）",
                 color = style.secondaryText,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(start = 6.dp, top = 6.dp)
@@ -524,36 +542,34 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 .clickable { previewRotationEntry(entry) }
                         )
                         // 白天/黑夜模式按钮（▶ 左边，三态循环）
-                        if (modeFilterEnabled) {
-                            val (pureEntry, mode) = ReadBookConfig.parseRotationEntry(entry)
-                            val modeIcon = when (mode) {
-                                ReadBookConfig.ROTATION_MODE_NIGHT -> "🌙"
-                                ReadBookConfig.ROTATION_MODE_ALL -> "🌓"
-                                else -> "☀️"
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .clickable {
-                                        val nextMode = when (mode) {
-                                            ReadBookConfig.ROTATION_MODE_NIGHT -> ReadBookConfig.ROTATION_MODE_ALL
-                                            ReadBookConfig.ROTATION_MODE_ALL -> ReadBookConfig.ROTATION_MODE_DAY
-                                            else -> ReadBookConfig.ROTATION_MODE_NIGHT
-                                        }
-                                        val mutable = entries.toMutableList()
-                                        mutable[index] = ReadBookConfig.buildRotationEntry(pureEntry, nextMode)
-                                        onChanged(ArrayList(mutable))
-                                        ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
-                                        postReadConfigChanged(9)
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = modeIcon,
-                                    fontSize = 13.sp
-                                )
-                            }
+                        val (pureEntry, mode) = ReadBookConfig.parseRotationEntry(entry)
+                        val modeIcon = when (mode) {
+                            ReadBookConfig.ROTATION_MODE_NIGHT -> "🌙"
+                            ReadBookConfig.ROTATION_MODE_ALL -> "🌓"
+                            else -> "☀️"
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable {
+                                    val nextMode = when (mode) {
+                                        ReadBookConfig.ROTATION_MODE_NIGHT -> ReadBookConfig.ROTATION_MODE_ALL
+                                        ReadBookConfig.ROTATION_MODE_ALL -> ReadBookConfig.ROTATION_MODE_DAY
+                                        else -> ReadBookConfig.ROTATION_MODE_NIGHT
+                                    }
+                                    val mutable = entries.toMutableList()
+                                    mutable[index] = ReadBookConfig.buildRotationEntry(pureEntry, nextMode)
+                                    onChanged(ArrayList(mutable))
+                                    ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
+                                    postReadConfigChanged(9)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = modeIcon,
+                                fontSize = 13.sp
+                            )
                         }
                         // ▶ 预览按钮（所有条目：PAG主题→动画预览，其余→大图预览）
                         Box(
