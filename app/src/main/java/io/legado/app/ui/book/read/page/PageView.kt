@@ -1107,7 +1107,7 @@ class PageView(context: Context) : FrameLayout(context) {
 
     /** 获取 PAG 当前播放进度（0f-1f） */
     fun getPagProgress(): Float {
-        return pagOverlayView?.progress ?: 0f
+        return (pagOverlayView?.progress as? Number)?.toFloat() ?: 0f
     }
 
     /**
@@ -1127,7 +1127,7 @@ class PageView(context: Context) : FrameLayout(context) {
      */
     fun syncPagProgressForPageTurn(direction: io.legado.app.ui.book.read.page.entities.PageDirection) {
         val progress = getPagProgress()
-        readBookActivity?.binding?.readView?.let { readView ->
+        readBookActivity?.readView?.let { readView ->
             readView.curPage.setPagProgress(progress)
             readView.prevPage.setPagProgress(progress)
             readView.nextPage.setPagProgress(progress)
