@@ -5195,7 +5195,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         val allEntries = config.wallpaperRotationImageList
         // 过滤：来源开关启用 + 白天/黑夜模式匹配（模式过滤默认启用）
-        val prefs = appCtx.defaultSharedPreferences
+        val prefs = application.defaultSharedPreferences
         val isNight = AppConfig.isNightTheme
         val entries = allEntries.filter { entry ->
             ReadBookConfig.rotationSourceEnabled(entry, prefs) &&
