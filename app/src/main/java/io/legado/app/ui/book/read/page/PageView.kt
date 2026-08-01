@@ -1107,19 +1107,23 @@ class PageView(context: Context) : FrameLayout(context) {
 
     private fun getPagOverlayView(): org.libpag.PAGView? {
         pagOverlayView?.let { return it }
+        // 内存预检：native 堆已高水位或 Java 堆使用率过高时不创建 PAG，
+        // 避免 libpag native 分配失败直接崩溃（native OOM 无法用 Java catch 拦截）
+        if (!canAllocatePag()) return null
         var pagView: org.libpag.PAGView? = null
         return try {
             pagView = org.libpag.PAGView(context)
-            // 全屏显示（覆盖整个阅读页，含页眉/页脚区域）
-            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
-                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
-            )
+            // 渲染区域由 attachPagOverlayView 限制为阅读内容区（非全屏），
+            // libpag 渲染 buffer 随 view 尺寸，区域越小 native 内存越省
             val activity = readBookActivity
             if (activity != null) {
-                // 挂在 Activity 根布局（文本层之前：背景壁纸之上、文字之下）
-                activity.attachPagOverlayView(pagView, lp)
+                // 挂在 ReadView 根布局（随翻页位移同步移动）
+                activity.attachPagOverlayView(pagView)
             } else {
+                val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                    androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
+                    androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
+                )
                 binding.vwRoot.addView(
                     pagView,
                     binding.vwRoot.indexOfChild(binding.contentTextView)
@@ -1129,7 +1133,7 @@ class PageView(context: Context) : FrameLayout(context) {
             }
             pagView.visibility = GONE
             pagView.setRepeatCount(-1) // 无限循环
-            // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
+            // ZOOM：等比缩放填满并裁剪，适配不同屏幕大小
             pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
             // 降低渲染内存占用：缓存帧按半分辨率缩放（全屏动画内存大户）
             runCatching { pagView.setCacheScale(0.5f) }
@@ -1149,6 +1153,19 @@ class PageView(context: Context) : FrameLayout(context) {
         }
     }
 
+    /** 内存预检：native 堆高水位或 Java 堆使用率过高时不创建 PAG（防 native OOM 崩溃） */
+    private fun canAllocatePag(): Boolean {
+        return try {
+            val info = android.os.Debug.MemoryInfo()
+            android.os.Debug.getMemoryInfo(info)
+            val heapUsed = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
+            val heapMax = Runtime.getRuntime().maxMemory()
+            info.nativePss < 170 * 1024 && heapUsed < heapMax * 0.85
+        } catch (_: Exception) {
+            true
+        }
+    }
+
     /** 翻页时同步 PAG 动画的横向位移（跟随背景壁纸翻动） */
     fun updatePagOverlayTranslationX(x: Float) {
         pagOverlayView?.let {
@@ -1159,6 +1176,8 @@ class PageView(context: Context) : FrameLayout(context) {
     /**
      * 加载并播放 PAG 叠加动画
      */
+    private var pagCreateScheduled = false
+
     fun upPagOverlay() {
         val config = ReadBookConfig.durConfig
         // 轮换覆盖优先，其次样式自身设置
@@ -1166,6 +1185,15 @@ class PageView(context: Context) : FrameLayout(context) {
         val pagPath = ReadBookConfig.rotationPagPath ?: config.pagOverlayPath
         if (!pagEnabled || pagPath.isBlank()) {
             clearPagOverlay()
+            return
+        }
+        if (pagOverlayView == null && !pagCreateScheduled) {
+            // 页面加载完成后延迟创建，错开进入阅读页的瞬时内存峰值
+            pagCreateScheduled = true
+            readBookActivity?.readView?.postDelayed({
+                pagCreateScheduled = false
+                upPagOverlay()
+            }, 600)
             return
         }
         val pagView = getPagOverlayView() ?: return

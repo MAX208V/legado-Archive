@@ -5327,9 +5327,21 @@ class ReadBookActivity : BaseReadBookActivity(),
     internal val readView get() = binding.readView
 
     /** 将 PAG 叠加层挂到 ReadView（根布局）末尾：
-     * 子 View 绘制在页面文字(canvas)之下、PageView 背景之上，实现全屏叠加 */
-    internal fun attachPagOverlayView(view: View, lp: ViewGroup.LayoutParams) {
-        binding.readView.addView(view, lp)
+     * 子 View 绘制在页面文字(canvas)之下、PageView 背景之上。
+     * 渲染区域限制在阅读内容区（宽=屏幕宽，高≈内容区，居中），
+     * 不做全屏：libpag 渲染 buffer 随 view 尺寸，缩小区域可显著降低 native 内存，
+     * 避免 256MB 堆设备上 OOM/native 崩溃 */
+    internal fun attachPagOverlayView(view: View) {
+        val readView = binding.readView
+        val dm = resources.displayMetrics
+        val w = (readView.width.takeIf { it > 0 } ?: dm.widthPixels)
+        val h = ((readView.height.takeIf { it > 0 } ?: dm.heightPixels) * 0.7f).toInt()
+            .coerceAtLeast(1)
+        // FrameLayout 布局参数，居中于内容区
+        view.layoutParams = android.widget.FrameLayout.LayoutParams(
+            w, h, android.view.Gravity.CENTER
+        )
+        readView.addView(view)
     }
 
     companion object {
