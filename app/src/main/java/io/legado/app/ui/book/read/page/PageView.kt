@@ -1114,7 +1114,7 @@ class PageView(context: Context) : FrameLayout(context) {
      * 设置 PAG 播放进度（用于翻页时同步三页进度，实现跟随背景效果）
      */
     fun setPagProgress(progress: Float) {
-        pagOverlayView?.progress = progress
+        pagOverlayView?.progress = progress.toDouble()
     }
 
     /** PAG 是否正在播放 */
