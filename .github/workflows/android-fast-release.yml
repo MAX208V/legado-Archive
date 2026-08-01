@@ -136,7 +136,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 阅读 Archive 发现套件与稳定性更新
+          name: 阅读 Archive ${{ steps.version.outputs.name }}
           prerelease: false
           make_latest: true
           generate_release_notes: false
