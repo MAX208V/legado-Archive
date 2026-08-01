@@ -1159,7 +1159,7 @@ class PageView(context: Context) : FrameLayout(context) {
         }
         val pagView = getPagOverlayView() ?: return
         // 连接翻页位移同步：PAG 跟随背景翻动（幂等）
-        readBookActivity?.binding?.readView?.let { readView ->
+        readBookActivity?.readView?.let { readView ->
             if (readView.onPageMoveChanged == null) {
                 readView.onPageMoveChanged = { x ->
                     pagOverlayView?.let { if (it.translationX != x) it.translationX = x }

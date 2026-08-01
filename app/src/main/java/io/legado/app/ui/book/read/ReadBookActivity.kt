@@ -5323,12 +5323,13 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readView.curPage.refreshPagOverlay()
     }
 
-    /** 将 PAG 叠加层挂到 Activity 根布局（文本层之前：背景壁纸之上、文字之下） */
+    /** 阅读视图（PAG 挂载点等） */
+    internal val readView get() = binding.readView
+
+    /** 将 PAG 叠加层挂到 ReadView（根布局）末尾：
+     * 子 View 绘制在页面文字(canvas)之下、PageView 背景之上，实现全屏叠加 */
     internal fun attachPagOverlayView(view: View, lp: ViewGroup.LayoutParams) {
-        val root = binding.vwRoot
-        val insertIndex = root.indexOfChild(binding.contentTextView)
-            .coerceIn(0, root.childCount)
-        root.addView(view, insertIndex, lp)
+        binding.readView.addView(view, lp)
     }
 
     companion object {
