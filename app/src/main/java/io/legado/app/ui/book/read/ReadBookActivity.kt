@@ -5323,6 +5323,14 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readView.curPage.refreshPagOverlay()
     }
 
+    /** 将 PAG 叠加层挂到 Activity 根布局（文本层之前：背景壁纸之上、文字之下） */
+    internal fun attachPagOverlayView(view: View, lp: ViewGroup.LayoutParams) {
+        val root = binding.vwRoot
+        val insertIndex = root.indexOfChild(binding.contentTextView)
+            .coerceIn(0, root.childCount)
+        root.addView(view, insertIndex, lp)
+    }
+
     companion object {
         const val RESULT_DELETED = 100
         private val shareNoteProgressPercentRegex = Regex("""(\d+(?:[,.]\d+)?)\s*%""")

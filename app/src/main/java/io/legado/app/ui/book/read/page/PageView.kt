@@ -1105,33 +1105,27 @@ class PageView(context: Context) : FrameLayout(context) {
         upPagOverlay()
     }
 
-    /**
-     * 懒创建的 PAGView（全局单例，挂在阅读 Activity 根布局）：
-     * 仅当启用 PAG 时才创建，避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）。
-     * 挂在 Activity 层而非 PageView 内：翻页截图（screenshot）不包含 PAG，
-     * 翻页动画期间通过 translationX 同步位移，实现 PAG 跟随背景翻动且持续播放
-     */
-    companion object {
-        @Volatile
-        var pagOverlayView: org.libpag.PAGView? = null
-    }
-
     private fun getPagOverlayView(): org.libpag.PAGView? {
         pagOverlayView?.let { return it }
         return try {
             val pagView = org.libpag.PAGView(context)
-            val activity = readBookActivity
-            val root = activity?.binding?.vwRoot ?: binding.vwRoot
             // 全屏显示（覆盖整个阅读页，含页眉/页脚区域）
             val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
                 androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
                 androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
             )
-            // 插在文本层之前（背景壁纸之上、文字之下）
-            val anchorView = activity?.binding?.contentTextView ?: binding.contentTextView
-            val insertIndex = root.indexOfChild(anchorView)
-                .coerceIn(0, root.childCount)
-            root.addView(pagView, insertIndex, lp)
+            val activity = readBookActivity
+            if (activity != null) {
+                // 挂在 Activity 根布局（文本层之前：背景壁纸之上、文字之下）
+                activity.attachPagOverlayView(pagView, lp)
+            } else {
+                binding.vwRoot.addView(
+                    pagView,
+                    binding.vwRoot.indexOfChild(binding.contentTextView)
+                        .coerceIn(0, binding.vwRoot.childCount),
+                    lp
+                )
+            }
             pagView.visibility = GONE
             pagView.setRepeatCount(-1) // 无限循环
             // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
@@ -1213,8 +1207,16 @@ class PageView(context: Context) : FrameLayout(context) {
     }
 
     private companion object {
-        const val ADVANCED_TITLE_SIZE_FACTOR = 1.25f
-        const val ADVANCED_TITLE_WIDTH_FACTOR = 0.86f
-        const val MAX_STYLED_LOTTIE_CACHE_SIZE = 6
+        /**
+         * 全局唯一的 PAG 叠加层（挂在阅读 Activity 根布局，翻页时随位移平移）。
+         * 挂在 Activity 层而非 PageView 内：翻页截图（screenshot）不包含 PAG，
+         * 翻页动画期间通过 translationX 同步位移，实现 PAG 跟随背景翻动且持续播放
+         */
+        @Volatile
+        var pagOverlayView: org.libpag.PAGView? = null
+        const val MAX_STYLED_LOTTIE_CACHE_SIZE = 16
+        const val ADVANCED_TITLE_SIZE_FACTOR = 0.6f
+        const val ADVANCED_TITLE_WIDTH_FACTOR = 0.5f
+
     }
 }
