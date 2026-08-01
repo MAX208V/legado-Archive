@@ -1106,23 +1106,30 @@ class PageView(context: Context) : FrameLayout(context) {
     }
 
     /**
-     * 懒创建的 PAGView：仅当启用 PAG 时才创建，
-     * 避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）
+     * 懒创建的 PAGView（全局单例，挂在阅读 Activity 根布局）：
+     * 仅当启用 PAG 时才创建，避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）。
+     * 挂在 Activity 层而非 PageView 内：翻页截图（screenshot）不包含 PAG，
+     * 翻页动画期间通过 translationX 同步位移，实现 PAG 跟随背景翻动且持续播放
      */
-    private var pagOverlayView: org.libpag.PAGView? = null
+    companion object {
+        @Volatile
+        var pagOverlayView: org.libpag.PAGView? = null
+    }
 
     private fun getPagOverlayView(): org.libpag.PAGView? {
         pagOverlayView?.let { return it }
         return try {
             val pagView = org.libpag.PAGView(context)
-            val root = binding.vwRoot
+            val activity = readBookActivity
+            val root = activity?.binding?.vwRoot ?: binding.vwRoot
             // 全屏显示（覆盖整个阅读页，含页眉/页脚区域）
             val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
                 androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
                 androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
             )
             // 插在文本层之前（背景壁纸之上、文字之下）
-            val insertIndex = root.indexOfChild(binding.contentTextView)
+            val anchorView = activity?.binding?.contentTextView ?: binding.contentTextView
+            val insertIndex = root.indexOfChild(anchorView)
                 .coerceIn(0, root.childCount)
             root.addView(pagView, insertIndex, lp)
             pagView.visibility = GONE
@@ -1134,6 +1141,13 @@ class PageView(context: Context) : FrameLayout(context) {
         } catch (e: Exception) {
             e.printOnDebug()
             null
+        }
+    }
+
+    /** 翻页时同步 PAG 动画的横向位移（跟随背景壁纸翻动） */
+    fun updatePagOverlayTranslationX(x: Float) {
+        pagOverlayView?.let {
+            if (it.translationX != x) it.translationX = x
         }
     }
 
@@ -1150,6 +1164,14 @@ class PageView(context: Context) : FrameLayout(context) {
             return
         }
         val pagView = getPagOverlayView() ?: return
+        // 连接翻页位移同步：PAG 跟随背景翻动（幂等）
+        readBookActivity?.binding?.readView?.let { readView ->
+            if (readView.onPageMoveChanged == null) {
+                readView.onPageMoveChanged = { x ->
+                    pagOverlayView?.let { if (it.translationX != x) it.translationX = x }
+                }
+            }
+        }
         try {
             val path = pagPath
             if (path.startsWith("file://") || path.contains(File.separator)) {
@@ -1184,7 +1206,7 @@ class PageView(context: Context) : FrameLayout(context) {
                 if (pagView.isPlaying) pagView.stop()
             } catch (_: Exception) { }
             try {
-                binding.vwRoot.removeView(pagView)
+                (pagView.parent as? android.view.ViewGroup)?.removeView(pagView)
             } catch (_: Exception) { }
         }
         pagOverlayView = null

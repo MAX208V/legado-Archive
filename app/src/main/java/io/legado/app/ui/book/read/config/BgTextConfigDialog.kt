@@ -500,6 +500,13 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         style: AppDialogStyle,
         onChanged: (ArrayList<String>) -> Unit
     ) {
+        val context = LocalContext.current
+        // 只显示来源开关启用的条目（保留原列表索引，操作/拖动基于原索引）
+        val visible = entries.mapIndexedNotNull { index, entry ->
+            if (ReadBookConfig.rotationSourceEnabled(entry, context.defaultSharedPreferences)) {
+                index to entry
+            } else null
+        }
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -510,7 +517,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 fontSize = 11.sp,
                 modifier = Modifier.padding(start = 6.dp, top = 6.dp)
             )
-            entries.forEachIndexed { index, entry ->
+            visible.forEachIndexed { _, (origIndex, entry) ->
                 val label = rotationEntryLabel(entry)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -559,7 +566,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                         else -> ReadBookConfig.ROTATION_MODE_NIGHT
                                     }
                                     val mutable = entries.toMutableList()
-                                    mutable[index] = ReadBookConfig.buildRotationEntry(pureEntry, nextMode)
+                                    mutable[origIndex] = ReadBookConfig.buildRotationEntry(pureEntry, nextMode)
                                     onChanged(ArrayList(mutable))
                                     ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
                                     postReadConfigChanged(9)
@@ -585,10 +592,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 fontSize = 14.sp
                             )
                         }
-                        // ≡ 拖动手柄（长按拖动排序）
+                        // ≡ 拖动手柄（长按拖动排序，半行阈值换位，跟手）
                         RotationEntryDragHandle(
                             onMoveBy = { delta ->
-                                moveRotationEntry(entries, index, delta, onChanged)
+                                moveRotationEntry(entries, origIndex, delta, onChanged)
                             }
                         )
                         // ✕ 移除按钮（独立点击区）
@@ -598,7 +605,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 .clip(RoundedCornerShape(6.dp))
                                 .clickable {
                                     val mutable = entries.toMutableList()
-                                    mutable.removeAt(index)
+                                    mutable.removeAt(origIndex)
                                     onChanged(ArrayList(mutable))
                                     ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
                                     postReadConfigChanged(9)
@@ -617,11 +624,13 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
-    /** 长按拖动排序手柄（参考 RuleSubDragHandle 实现） */
+    /** 长按拖动排序手柄：半行高度即换位（跟手，接近书源管理拖拽体验） */
     @Composable
     private fun RotationEntryDragHandle(onMoveBy: (Int) -> Unit) {
         val density = LocalDensity.current
-        val thresholdPx = with(density) { 58.dp.toPx() }
+        // 行高：缩略图 36dp + 上下 padding 12dp = 48dp，间距 4dp
+        val rowHeightPx = with(density) { 52.dp.toPx() }
+        val halfRowPx = rowHeightPx / 2f
         var accumulatedY by remember { mutableFloatStateOf(0f) }
         Icon(
             painter = painterResource(R.drawable.ic_menu),
@@ -641,13 +650,14 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         onDrag = { change, dragAmount ->
                             change.consume()
                             accumulatedY += dragAmount.y
-                            while (accumulatedY >= thresholdPx) {
+                            // 累计越过半行即换位（保留余量，连续拖动连续换位）
+                            while (accumulatedY >= halfRowPx) {
                                 onMoveBy(1)
-                                accumulatedY -= thresholdPx
+                                accumulatedY -= rowHeightPx
                             }
-                            while (accumulatedY <= -thresholdPx) {
+                            while (accumulatedY <= -halfRowPx) {
                                 onMoveBy(-1)
-                                accumulatedY += thresholdPx
+                                accumulatedY += rowHeightPx
                             }
                         }
                     )

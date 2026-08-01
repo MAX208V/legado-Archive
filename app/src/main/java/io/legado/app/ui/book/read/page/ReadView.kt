@@ -162,7 +162,16 @@ class ReadView(context: Context, attrs: AttributeSet) :
         super.dispatchDraw(canvas)
         pageDelegate?.onDraw(canvas)
         autoPager.onDraw(canvas)
+        // 翻页动画期间同步位移（PAG 动画跟随背景翻动）
+        onPageMoveChanged?.invoke(pageMoveX)
     }
+
+    /** 当前翻页动画的横向位移（覆盖/滑动/仿真翻页期间，页面随手指或动画移动） */
+    val pageMoveX: Float
+        get() = if (pageDelegate?.isRunning == true) touchX - startX else 0f
+
+    /** 翻页位移回调（同步 PAG 动画层，使其像背景壁纸一样跟随翻页移动） */
+    var onPageMoveChanged: ((Float) -> Unit)? = null
 
     override fun computeScroll() {
         pageDelegate?.computeScroll()
