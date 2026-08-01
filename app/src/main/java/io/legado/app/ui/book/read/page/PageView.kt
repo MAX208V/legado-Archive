@@ -1106,11 +1106,11 @@ class PageView(context: Context) : FrameLayout(context) {
     }
 
     /** PAGView 播放进度同步（供翻页无缝衔接） */
-    fun getPagProgress(): Float {
-        return pagOverlayView?.let { it.progress } ?: 0f
+    fun getPagProgress(): Double {
+        return pagOverlayView?.progress ?: 0.0
     }
 
-    fun setPagProgress(progress: Float) {
+    fun setPagProgress(progress: Double) {
         pagOverlayView?.let { it.progress = progress }
     }
 
@@ -1123,6 +1123,63 @@ class PageView(context: Context) : FrameLayout(context) {
     fun updatePagOverlayTranslationX(x: Float) {
         pagOverlayView?.let {
             if (it.translationX != x) it.translationX = x
+        }
+    }
+
+    /** 获取或懒创建 PAGView（内容区渲染、内存预检、缓存缩放） */
+    private fun getPagOverlayView(): org.libpag.PAGView? {
+        pagOverlayView?.let { return it }
+        // 内存预检：native 堆高水位或 Java 堆使用率过高时不创建 PAG，
+        // 避免 libpag native 分配失败直接崩溃（native OOM 无法用 Java catch 拦截）
+        if (!canAllocatePag()) return null
+        var pagView: org.libpag.PAGView? = null
+        return try {
+            pagView = org.libpag.PAGView(context)
+            // 内容区渲染（非全屏）：libpag 渲染 buffer 随 view 尺寸，大幅降低native内存
+            val dm = resources.displayMetrics
+            val w = (width.takeIf { it > 0 } ?: dm.widthPixels)
+            val h = ((height.takeIf { it > 0 } ?: dm.heightPixels) * 0.7f).toInt()
+                .coerceAtLeast(1)
+            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(w, h)
+            lp.gravity = android.view.Gravity.CENTER
+            binding.vwRoot.addView(
+                pagView,
+                binding.vwRoot.indexOfChild(binding.contentTextView)
+                    .coerceIn(0, binding.vwRoot.childCount),
+                lp
+            )
+            pagView.visibility = GONE
+            pagView.setRepeatCount(-1) // 无限循环
+            // ZOOM：等比缩放填满并裁剪，适配不同屏幕大小
+            pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
+            // 降低渲染内存占用：缓存帧按半分辨率缩放
+            runCatching { pagView.setCacheScale(0.5f) }
+            pagOverlayView = pagView
+            pagView
+        } catch (e: OutOfMemoryError) {
+            // 内存不足：移除并放弃创建，避免 OOM 闪退
+            e.printOnDebug()
+            runCatching { (pagView?.parent as? android.view.ViewGroup)?.removeView(pagView) }
+            pagOverlayView = null
+            null
+        } catch (e: Exception) {
+            e.printOnDebug()
+            runCatching { (pagView?.parent as? android.view.ViewGroup)?.removeView(pagView) }
+            pagOverlayView = null
+            null
+        }
+    }
+
+    /** 内存预检：native 堆高水位或 Java 堆使用率过高时不创建 PAG（防 native OOM 崩溃） */
+    private fun canAllocatePag(): Boolean {
+        return try {
+            val info = android.os.Debug.MemoryInfo()
+            android.os.Debug.getMemoryInfo(info)
+            val heapUsed = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()
+            val heapMax = Runtime.getRuntime().maxMemory()
+            info.nativePss < 170 * 1024 && heapUsed < heapMax * 0.85
+        } catch (_: Exception) {
+            true
         }
     }
 
