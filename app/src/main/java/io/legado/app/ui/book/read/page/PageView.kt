@@ -1107,8 +1107,9 @@ class PageView(context: Context) : FrameLayout(context) {
 
     private fun getPagOverlayView(): org.libpag.PAGView? {
         pagOverlayView?.let { return it }
+        var pagView: org.libpag.PAGView? = null
         return try {
-            val pagView = org.libpag.PAGView(context)
+            pagView = org.libpag.PAGView(context)
             // 全屏显示（覆盖整个阅读页，含页眉/页脚区域）
             val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
                 androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
@@ -1130,10 +1131,20 @@ class PageView(context: Context) : FrameLayout(context) {
             pagView.setRepeatCount(-1) // 无限循环
             // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
             pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
+            // 降低渲染内存占用：缓存帧按半分辨率缩放（全屏动画内存大户）
+            runCatching { pagView.cacheScale = 0.5f }
             pagOverlayView = pagView
             pagView
+        } catch (e: OutOfMemoryError) {
+            // 内存不足：移除并放弃创建，避免 OOM 闪退
+            e.printOnDebug()
+            runCatching { (pagView?.parent as? android.view.ViewGroup)?.removeView(pagView) }
+            pagOverlayView = null
+            null
         } catch (e: Exception) {
             e.printOnDebug()
+            runCatching { (pagView?.parent as? android.view.ViewGroup)?.removeView(pagView) }
+            pagOverlayView = null
             null
         }
     }
@@ -1185,6 +1196,13 @@ class PageView(context: Context) : FrameLayout(context) {
             }
             if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
             pagView.play()
+        } catch (e: OutOfMemoryError) {
+            // 内存不足：停用 PAG 避免反复重试 OOM，阅读页保持可用
+            e.printOnDebug()
+            try { pagView.stop() } catch (_: Exception) { }
+            pagView.visibility = GONE
+            ReadBookConfig.rotationPagEnabled = false
+            ReadBookConfig.rotationPagPath = null
         } catch (e: Exception) {
             e.printOnDebug()
             pagView.visibility = GONE
