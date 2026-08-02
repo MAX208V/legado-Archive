@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -57,9 +58,9 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.tween
-import androidx.compose.animation.animateItemPlacement
+import androidx.compose.animation.core.animateItemPlacement
+import androidx.compose.ui.graphics.graphicsLayer
 import android.view.animation.OvershootInterpolator
 import io.legado.app.ui.widget.compose.releaseComposeImage
 import androidx.compose.ui.res.painterResource
@@ -645,7 +646,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         val halfRowPx = with(density) { 26.dp.toPx() }
         var accumulatedY by remember { mutableFloatStateOf(0f) }
         var isDragging by remember { mutableStateOf(false) }
-        val haptic = remember { androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress }
         val view = LocalView.current
         
         Icon(
@@ -663,7 +663,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     detectDragGesturesAfterLongPress(
                         onDragStart = {
                             isDragging = true
-                            view.performHapticFeedback(haptic)
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                             onDragStart?.invoke()
                         },
                         onDragEnd = {
