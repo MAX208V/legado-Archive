@@ -183,8 +183,8 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     @SuppressLint("SetJavaScriptEnabled")
     private fun renderMarkdown(mark: String) {
         val dictRule = lastDictRule ?: return
-        binding.wvDict.visible()
-        val webView = binding.wvDict
+        binding.wvDict?.visible()
+        val webView = binding.wvDict ?: return
         webView.stopLoading()
         initWebView(webView, dictRule)
         val isNight = AppConfig.isNightTheme
@@ -225,8 +225,8 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     @SuppressLint("SetJavaScriptEnabled")
     private fun renderHtml(content: String) {
         val dictRule = lastDictRule ?: return
-        binding.wvDict.visible()
-        val webView = binding.wvDict
+        binding.wvDict?.visible()
+        val webView = binding.wvDict ?: return
         webView.stopLoading()
         initWebView(webView, dictRule)
         val isNight = AppConfig.isNightTheme
