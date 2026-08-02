@@ -41,6 +41,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
+ * 词典显示模式
+ */
+enum class DictDisplayMode { AUTO, MD, HTML }
+
+/**
  * 词典
  */
 class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
@@ -54,6 +59,9 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     private val viewModel by viewModels<DictViewModel>()
     private val binding by viewBinding(DialogDictBinding::bind)
     private var word: String? = null
+    private var displayMode = DictDisplayMode.AUTO
+    private var lastDictRule: DictRule? = null
+    private var lastContent: String? = null
     private val imgAvailableWidth by lazy {
         val textView = binding.tvDict
         textView.width - textView.paddingLeft - textView.paddingRight
@@ -96,67 +104,23 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 updateDictTabs()
                 val dictRule = tab.tag as DictRule
                 binding.rotateLoading.visible()
-                viewModel.dict(dictRule, word!!) {
-                    binding.rotateLoading.inVisible()
-                    val contentTrimS = it.trimStart()
-                    if (contentTrimS.startsWith("<md>")) {
-                        val lastIndex = contentTrimS.lastIndexOf("<")
-                        if (lastIndex < 4) {
-                            binding.tvDict.text = contentTrimS
-                            return@dict
-                        }
-                        val mark = contentTrimS.substring(4, lastIndex)
-                        viewLifecycleOwner.lifecycleScope.launch {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                binding.tvDict.setTextClassifier(TextClassifier.NO_OP)
-                            }
-                            val markwon: Markwon
-                            val markdown = withContext(IO) {
-                                markwon = Markwon.builder(requireContext())
-                                    .usePlugin(
-                                        GlideImagesPlugin.create(
-                                            Glide.with(requireContext())
-                                                .applyDefaultRequestOptions(
-                                                    RequestOptions()
-                                                        .override(imgAvailableWidth)
-                                                        .encodeQuality(88)
-                                                )
-                                        )
-                                    )
-                                    .usePlugin(HtmlPlugin.create())
-                                    .usePlugin(TablePlugin.create(requireContext()))
-                                    .build()
-                                markwon.toMarkdown(mark)
-                            }
-                            binding.tvDict.setMarkdown(
-                                markwon,
-                                markdown,
-                                imgOnLongClickListener = { source ->
-                                    showDialogFragment(PhotoDialog(source))
-                                }
-                            )
-                        }
-                        return@dict
-                    }
-                    val textViewTagHandler = TextViewTagHandler(object : TextViewTagHandler.OnButtonClickListener {
-                        override fun onButtonClick(name: String, click: String) {
-                            viewModel.onButtonClick(dictRule, "button $name", click)
-                        }
-                    })
-                    binding.tvDict.setHtml(
-                        it,
-                        glideImageGetter,
-                        textViewTagHandler,
-                        imgOnLongClickListener = { source ->
-                            showDialogFragment(PhotoDialog(source))
-                        },
-                        imgOnClickListener = { click  ->
-                            viewModel.onButtonClick(dictRule, "image", click)
-                        }
-                    )
+                viewModel.dict(dictRule, word!!) { content ->
+                    lastDictRule = dictRule
+                    lastContent = content
+                    renderDictContent(content)
                 }
             }
         })
+        binding.tvDictMode.setOnClickListener {
+            displayMode = when (displayMode) {
+                DictDisplayMode.AUTO -> DictDisplayMode.MD
+                DictDisplayMode.MD -> DictDisplayMode.HTML
+                DictDisplayMode.HTML -> DictDisplayMode.AUTO
+            }
+            upDictModeText()
+            lastContent?.let { renderDictContent(it) }
+        }
+        upDictModeText()
         viewModel.initData {
             it.forEach { d  ->
                 binding.tabLayout.addTab(binding.tabLayout.newTab().apply {
@@ -167,6 +131,101 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
             setupTabLayoutMode(it.size)
             updateDictTabs()
         }
+    }
+
+    private fun upDictModeText() {
+        binding.tvDictMode.text = when (displayMode) {
+            DictDisplayMode.AUTO -> getString(R.string.dict_mode_auto)
+            DictDisplayMode.MD -> "MD"
+            DictDisplayMode.HTML -> "HTML"
+        }
+    }
+
+    /**
+     * 按当前显示模式渲染词典内容
+     */
+    private fun renderDictContent(content: String) {
+        binding.rotateLoading.inVisible()
+        val dictRule = lastDictRule ?: return
+        var mark: String? = null
+        when (displayMode) {
+            DictDisplayMode.MD -> {
+                mark = extractMarkdownContent(content.trimStart())
+            }
+
+            DictDisplayMode.HTML -> Unit
+
+            DictDisplayMode.AUTO -> {
+                val contentTrimS = content.trimStart()
+                if (contentTrimS.startsWith("<md>")) {
+                    val lastIndex = contentTrimS.lastIndexOf("<")
+                    if (lastIndex < 4) {
+                        binding.tvDict.text = contentTrimS
+                        return
+                    }
+                    mark = contentTrimS.substring(4, lastIndex)
+                }
+            }
+        }
+        if (mark != null) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    binding.tvDict.setTextClassifier(TextClassifier.NO_OP)
+                }
+                val markwon: Markwon
+                val markdown = withContext(IO) {
+                    markwon = Markwon.builder(requireContext())
+                        .usePlugin(
+                            GlideImagesPlugin.create(
+                                Glide.with(requireContext())
+                                    .applyDefaultRequestOptions(
+                                        RequestOptions()
+                                            .override(imgAvailableWidth)
+                                            .encodeQuality(88)
+                                    )
+                            )
+                        )
+                        .usePlugin(HtmlPlugin.create())
+                        .usePlugin(TablePlugin.create(requireContext()))
+                        .build()
+                    markwon.toMarkdown(mark)
+                }
+                binding.tvDict.setMarkdown(
+                    markwon,
+                    markdown,
+                    imgOnLongClickListener = { source ->
+                        showDialogFragment(PhotoDialog(source))
+                    }
+                )
+            }
+            return
+        }
+        val textViewTagHandler = TextViewTagHandler(object : TextViewTagHandler.OnButtonClickListener {
+            override fun onButtonClick(name: String, click: String) {
+                viewModel.onButtonClick(dictRule, "button $name", click)
+            }
+        })
+        binding.tvDict.setHtml(
+            content,
+            glideImageGetter,
+            textViewTagHandler,
+            imgOnLongClickListener = { source ->
+                showDialogFragment(PhotoDialog(source))
+            },
+            imgOnClickListener = { click  ->
+                viewModel.onButtonClick(dictRule, "image", click)
+            }
+        )
+    }
+
+    /**
+     * 提取 <md> 包裹内的 markdown 内容
+     */
+    private fun extractMarkdownContent(contentTrimS: String): String? {
+        if (!contentTrimS.startsWith("<md>")) return contentTrimS
+        val lastIndex = contentTrimS.lastIndexOf("<")
+        if (lastIndex < 4) return contentTrimS
+        return contentTrimS.substring(4, lastIndex)
     }
 
     private fun createDictTabView(name: String, selected: Boolean): TextView {

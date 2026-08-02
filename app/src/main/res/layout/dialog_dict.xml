@@ -7,7 +7,7 @@
 
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tab_layout"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:paddingStart="8dp"
         android:paddingTop="4dp"
@@ -19,8 +19,25 @@
         app:tabRippleColor="@android:color/transparent"
         app:tabSelectedTextColor="?attr/colorAccent"
         app:tabTextColor="@color/secondaryText"
+        app:layout_constraintEnd_toStartOf="@id/tv_dict_mode"
         app:layout_constraintTop_toTopOf="parent"
         tools:ignore="SpeakableTextPresentCheck" />
+
+    <TextView
+        android:id="@+id/tv_dict_mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:paddingStart="4dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:text="自动"
+        android:textColor="?attr/colorAccent"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:ignore="HardcodedText" />
 
     <io.legado.app.ui.widget.text.ScrollTextView
         android:id="@+id/tv_dict"

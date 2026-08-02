@@ -48,6 +48,7 @@ import io.legado.app.utils.throttle
 import java.text.BreakIterator
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.max
 
 /**
  * 阅读视图
@@ -73,6 +74,14 @@ class ReadView(context: Context, attrs: AttributeSet) :
     private var pressDown = false
     private var isMove = false
     private var ignoreMandatoryGestureTouch = false
+
+    //下拉添加书签：仅页面顶部区域、向下拖动超过阈值时触发
+    private var downInTopRegion = false
+    private var pullDownBookmarkTriggered = false
+    private var pullDownStartX = 0f
+    private var pullDownStartY = 0f
+    private val pullDownBookmarkTopRatio = 0.33f
+    private val pullDownBookmarkDistance: Float get() = (height * 0.2f).coerceAtLeast(120f)
 
     //起始点
     var startX: Float = 0f
@@ -217,6 +226,11 @@ class ReadView(context: Context, attrs: AttributeSet) :
                 pageDelegate?.onTouch(event)
                 pageDelegate?.onDown()
                 setStartPoint(event.x, event.y, false)
+                //下拉添加书签：仅页面顶部区域、未选中文本时启用
+                downInTopRegion = !isTextSelected && event.y < height * pullDownBookmarkTopRatio
+                pullDownBookmarkTriggered = false
+                pullDownStartX = event.x
+                pullDownStartY = event.y
             }
 
             MotionEvent.ACTION_MOVE -> {
@@ -232,13 +246,36 @@ class ReadView(context: Context, attrs: AttributeSet) :
                     if (isTextSelected) {
                         selectText(event.x, event.y)
                         showSelectionMagnifier(event.x, event.y)
-                    } else {
+                    } else if (!pullDownBookmarkTriggered) {
                         pageDelegate?.onTouch(event)
+                    }
+                }
+                //顶部区域下拉手势 → 添加书签
+                if (!pullDownBookmarkTriggered && downInTopRegion && !isTextSelected
+                    && event.pointerCount == 1
+                ) {
+                    val dy = event.y - pullDownStartY
+                    val dx = event.x - pullDownStartX
+                    if (dy > pullDownBookmarkDistance && abs(dx) < max(slopSquare.toFloat(), dy * 0.6f)) {
+                        pullDownBookmarkTriggered = true
+                        longPressed = false
+                        removeCallbacks(longPressRunnable)
+                        pageDelegate?.abortAnim()
+                        invalidate()
                     }
                 }
             }
 
             MotionEvent.ACTION_UP -> {
+                if (pullDownBookmarkTriggered) {
+                    pullDownBookmarkTriggered = false
+                    downInTopRegion = false
+                    dismissSelectionMagnifier()
+                    removeCallbacks(longPressRunnable)
+                    pressDown = false
+                    callBack.addBookmarkDirect()
+                    return true
+                }
                 dismissSelectionMagnifier()
                 callBack.screenOffTimerStart()
                 removeCallbacks(longPressRunnable)
@@ -261,6 +298,8 @@ class ReadView(context: Context, attrs: AttributeSet) :
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                pullDownBookmarkTriggered = false
+                downInTopRegion = false
                 dismissSelectionMagnifier()
                 removeCallbacks(longPressRunnable)
                 if (!pressDown) return true
@@ -801,6 +840,7 @@ class ReadView(context: Context, attrs: AttributeSet) :
         fun autoPageStop()
         fun openChapterList()
         fun addBookmark()
+        fun addBookmarkDirect()
         fun changeReplaceRuleState()
         fun openSearchActivity(searchWord: String?)
         fun upSystemUiVisibility()

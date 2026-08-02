@@ -136,7 +136,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: 阅读 Archive 发现套件与稳定性更新
+          name: "阅读 Archive ${{ steps.version.outputs.name }}"
           prerelease: false
           make_latest: true
           generate_release_notes: false
@@ -158,7 +158,7 @@ jobs:
           set +e
           API="https://gitee.com/api/v5/repos/zziji/legado"
           TAG_NAME="${{ steps.version.outputs.tag }}"
-          RELEASE_NAME="阅读 Archive 发现套件与稳定性更新"
+          RELEASE_NAME="阅读 Archive ${{ steps.version.outputs.name }}"
           CHANNEL_TAG="latest-arm64-release"
           TOKEN_QUERY="$(python3 -c 'import os, urllib.parse; print(urllib.parse.urlencode({"access_token": os.environ["GITEE_TOKEN"]}))')"
 

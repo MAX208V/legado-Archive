@@ -4724,6 +4724,30 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
     }
 
+    /**
+     * 顶部下拉直接添加书签（不弹编辑框）
+     */
+    override fun addBookmarkDirect() {
+        val book = ReadBook.book
+        val page = ReadBook.curTextChapter?.getPage(ReadBook.durPageIndex)
+        if (book != null && page != null) {
+            val bookmark = book.createBookMark().apply {
+                chapterIndex = ReadBook.durChapterIndex
+                chapterPos = ReadBook.durChapterPos
+                chapterName = page.title
+                bookText = page.text.trim()
+            }
+            lifecycleScope.launch {
+                withContext(Dispatchers.IO) {
+                    appDb.bookmarkDao.insert(bookmark)
+                }
+                toastOnUi(R.string.bookmark_added)
+            }
+        } else {
+            toastOnUi(R.string.create_bookmark_error)
+        }
+    }
+
     override fun changeReplaceRuleState() {
         ReadBook.book?.let {
             it.setUseReplaceRule(!it.getUseReplaceRule())
