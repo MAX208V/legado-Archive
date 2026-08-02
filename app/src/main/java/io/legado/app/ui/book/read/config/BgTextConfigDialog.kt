@@ -56,6 +56,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.tween
+import androidx.compose.animation.animateItemPlacement
+import android.view.animation.OvershootInterpolator
 import io.legado.app.ui.widget.compose.releaseComposeImage
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -500,6 +505,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         style: AppDialogStyle,
         onChanged: (ArrayList<String>) -> Unit
     ) {
+        var draggedIndex by remember { mutableStateOf<Int?>(null) }
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -512,13 +518,21 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             )
             entries.forEachIndexed { index, entry ->
                 val label = rotationEntryLabel(entry)
+                val isDragged = draggedIndex == index
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            scaleX = if (draggedIndex == index) 1.02f else 1f
+                            scaleY = if (draggedIndex == index) 1.02f else 1f
+                            shadowElevation = if (draggedIndex == index) 8.dp else 0.dp
+                        }
+                        .animateItemPlacement(tween(150, 0, OvershootInterpolator(1.2f))),
                     shape = RoundedCornerShape(style.actionRadius),
-                    color = style.fieldSurface,
+                    color = if (draggedIndex == index) style.accent.copy(alpha = 0.1f) else style.fieldSurface,
                     contentColor = style.primaryText,
-                    tonalElevation = 0.dp,
-                    shadowElevation = 0.dp
+                    tonalElevation = if (draggedIndex == index) 4.dp else 0.dp,
+                    shadowElevation = if (draggedIndex == index) 8.dp else 0.dp
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -589,7 +603,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         RotationEntryDragHandle(
                             onMoveBy = { delta ->
                                 moveRotationEntry(entries, index, delta, onChanged)
-                            }
+                            },
+                            onDragStart = { draggedIndex = index },
+                            onDragEnd = { draggedIndex = null }
                         )
                         // ✕ 移除按钮（独立点击区）
                         Box(
@@ -617,37 +633,58 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
-    /** 长按拖动排序手柄（参考 RuleSubDragHandle 实现） */
+    /** 长按拖动排序手柄（长按拖动排序，带高亮与触觉反馈） */
     @Composable
-    private fun RotationEntryDragHandle(onMoveBy: (Int) -> Unit) {
+    private fun RotationEntryDragHandle(
+        onMoveBy: (Int) -> Unit,
+        onDragStart: (() -> Unit)? = null,
+        onDragEnd: (() -> Unit)? = null
+    ) {
         val density = LocalDensity.current
         val thresholdPx = with(density) { 58.dp.toPx() }
+        val halfRowPx = with(density) { 26.dp.toPx() }
         var accumulatedY by remember { mutableFloatStateOf(0f) }
+        var isDragging by remember { mutableStateOf(false) }
+        val haptic = remember { androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress }
+        val view = LocalView.current
+        
         Icon(
             painter = painterResource(R.drawable.ic_menu),
             contentDescription = null,
-            tint = androidx.compose.material3.LocalContentColor.current.copy(alpha = 0.5f),
+            tint = androidx.compose.material3.LocalContentColor.current.copy(alpha = if (isDragging) 1f else 0.5f),
             modifier = Modifier
                 .size(32.dp)
                 .padding(8.dp)
+                .graphicsLayer {
+                    scaleX = if (isDragging) 1.1f else 1f
+                    scaleY = if (isDragging) 1.1f else 1f
+                }
                 .pointerInput(Unit) {
                     detectDragGesturesAfterLongPress(
+                        onDragStart = {
+                            isDragging = true
+                            view.performHapticFeedback(haptic)
+                            onDragStart?.invoke()
+                        },
                         onDragEnd = {
                             accumulatedY = 0f
+                            isDragging = false
+                            onDragEnd?.invoke()
                         },
                         onDragCancel = {
                             accumulatedY = 0f
+                            isDragging = false
                         },
                         onDrag = { change, dragAmount ->
                             change.consume()
                             accumulatedY += dragAmount.y
-                            while (accumulatedY >= thresholdPx) {
+                            while (accumulatedY >= halfRowPx) {
                                 onMoveBy(1)
-                                accumulatedY -= thresholdPx
+                                accumulatedY -= halfRowPx * 2
                             }
-                            while (accumulatedY <= -thresholdPx) {
+                            while (accumulatedY <= -halfRowPx) {
                                 onMoveBy(-1)
-                                accumulatedY += thresholdPx
+                                accumulatedY += halfRowPx * 2
                             }
                         }
                     )
