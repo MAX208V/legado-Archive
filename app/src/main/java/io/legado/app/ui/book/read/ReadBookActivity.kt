@@ -4738,7 +4738,7 @@ class ReadBookActivity : BaseReadBookActivity(),
                 bookText = page.text.trim()
             }
             lifecycleScope.launch {
-                withContext(Dispatchers.IO) {
+                withContext(IO) {
                     appDb.bookmarkDao.insert(bookmark)
                 }
                 toastOnUi(R.string.bookmark_added)
