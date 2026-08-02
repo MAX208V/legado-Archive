@@ -28,6 +28,8 @@ import io.legado.app.ui.book.read.page.delegate.LinkedCoverPageDelegate
 import io.legado.app.ui.book.read.page.delegate.NoAnimPageDelegate
 import io.legado.app.ui.book.read.page.delegate.PageDelegate
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
+import io.legado.app.utils.printOnDebug
+import java.io.File
 import io.legado.app.ui.book.read.page.delegate.SimulationPageDelegate
 import io.legado.app.ui.book.read.page.delegate.SlidePageDelegate
 import io.legado.app.ui.book.read.page.entities.PageDirection
@@ -380,31 +382,48 @@ class ReadView(context: Context, attrs: AttributeSet) :
     private var savedPagProgress: Float = 0f
 
     /**
-     * 保存当前页面的 PAG 播放进度（翻页开始前调用，用于同步到新页面）
+     * 保存当前 PAG 播放进度（翻页开始前调用）
      */
     fun savePagProgress() {
-        savedPagProgress = curPage.getPagProgress()
+        savedPagProgress = getPagProgress()
     }
 
     /**
-     * 恢复 PAG 播放进度到当前页面（翻页结束后调用）
+     * 恢复 PAG 播放进度（翻页结束后调用）
      */
     fun restorePagProgress() {
-        curPage.setPagProgress(savedPagProgress)
-        // 同步到 prev/next，保证后续翻页也连续
-        prevPage.setPagProgress(savedPagProgress)
-        nextPage.setPagProgress(savedPagProgress)
+        setPagProgress(savedPagProgress)
         // 确保 PAG 正在播放
-        if (!curPage.isPagPlaying()) {
-            curPage.refreshPagOverlay()
+        if (!isPagPlaying()) {
+            upPagOverlay()
         }
+    }
+
+    /** 获取当前 PAG 播放进度 */
+    fun getPagProgress(): Float {
+        return (pagOverlayView?.progress as? Number)?.toFloat() ?: 0f
+    }
+
+    /** 设置 PAG 播放进度 */
+    fun setPagProgress(progress: Float) {
+        pagOverlayView?.progress = progress.toDouble()
+    }
+
+    /** PAG 是否正在播放 */
+    fun isPagPlaying(): Boolean {
+        return pagOverlayView?.isPlaying == true
+    }
+
+    /** 刷新 PAG（委托 upPagOverlay） */
+    fun refreshPagOverlay() {
+        upPagOverlay()
     }
 
     /**
      * 当前是否有 PAG 正在播放
      */
     fun hasPagPlaying(): Boolean {
-        return curPage.isPagPlaying() || prevPage.isPagPlaying() || nextPage.isPagPlaying()
+        return isPagPlaying()
     }
 
     /** 页面翻动动画时的位移回调（PAG 跟随背景移动） */

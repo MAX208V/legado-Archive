@@ -184,7 +184,6 @@ class PageView(context: Context) : FrameLayout(context) {
         }
         upTime()
         upBattery(battery)
-        upPagOverlay()
         invalidateTextRenderCache()
     }
 
