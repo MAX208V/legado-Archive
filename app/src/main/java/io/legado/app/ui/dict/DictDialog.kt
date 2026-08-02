@@ -1,44 +1,37 @@
 package io.legado.app.ui.dict
 
-import android.os.Build
+import android.annotation.SuppressLint
 import android.os.Bundle
-import android.text.method.LinkMovementMethod
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.textclassifier.TextClassifier
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.TextView
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
-import com.bumptech.glide.request.RequestOptions
 import com.google.android.material.tabs.TabLayout
 import io.legado.app.R
 import io.legado.app.base.BaseDialogFragment
 import io.legado.app.data.entities.DictRule
 import io.legado.app.databinding.DialogDictBinding
-import io.legado.app.help.GlideImageGetter
-import io.legado.app.help.TextViewTagHandler
-import io.legado.app.lib.theme.UiCorner
+import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.secondaryTextColor
 import io.legado.app.lib.theme.uiTypeface
 import io.legado.app.ui.widget.dialog.PhotoDialog
 import io.legado.app.utils.dpToPx
-import io.legado.app.utils.setHtml
+import io.legado.app.utils.getPrefString
+import io.legado.app.utils.putPrefString
 import io.legado.app.utils.setLayout
-import io.legado.app.utils.setMarkdown
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.viewbindingdelegate.viewBinding
-import io.noties.markwon.Markwon
-import io.noties.markwon.ext.tables.TablePlugin
-import io.noties.markwon.html.HtmlPlugin
-import io.noties.markwon.image.glide.GlideImagesPlugin
-import kotlinx.coroutines.Dispatchers.IO
+import io.legado.app.utils.visible
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import org.json.JSONArray
 
 /**
  * 词典显示模式
@@ -62,20 +55,9 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     private var displayMode = DictDisplayMode.AUTO
     private var lastDictRule: DictRule? = null
     private var lastContent: String? = null
-    private val imgAvailableWidth by lazy {
-        val textView = binding.tvDict
-        textView.width - textView.paddingLeft - textView.paddingRight
-    }
-    private var initGetter = false
-    private val glideImageGetter by lazy {
-        initGetter = true
-        GlideImageGetter(
-            requireContext(),
-            binding.tvDict,
-            this@DictDialog.lifecycle,
-            imgAvailableWidth
-        )
-    }
+
+    private val markedJs by lazy { loadAssetText("web/help/js/marked.min.js") }
+    private val markdownCss by lazy { loadAssetText("web/help/css/github-markdown-light.min.css") }
 
     override fun onStart() {
         super.onStart()
@@ -83,7 +65,6 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     }
 
     override fun onFragmentCreated(view: View, savedInstanceState: Bundle?) {
-        binding.tvDict.movementMethod = LinkMovementMethod()
         word = arguments?.getString("word")
         if (word.isNullOrEmpty()) {
             toastOnUi(R.string.cannot_empty)
@@ -103,6 +84,9 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 updateDictTabs()
                 val dictRule = tab.tag as DictRule
+                // 记忆该字典自身的显示模式
+                displayMode = loadDictMode(dictRule)
+                upDictModeText()
                 binding.rotateLoading.visible()
                 viewModel.dict(dictRule, word!!) { content ->
                     lastDictRule = dictRule
@@ -117,12 +101,13 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 DictDisplayMode.MD -> DictDisplayMode.HTML
                 DictDisplayMode.HTML -> DictDisplayMode.AUTO
             }
+            lastDictRule?.let { saveDictMode(it, displayMode) }
             upDictModeText()
             lastContent?.let { renderDictContent(it) }
         }
         upDictModeText()
         viewModel.initData {
-            it.forEach { d  ->
+            it.forEach { d ->
                 binding.tabLayout.addTab(binding.tabLayout.newTab().apply {
                     customView = createDictTabView(d.name, false)
                     tag = d
@@ -142,11 +127,28 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     }
 
     /**
+     * 读取某字典记忆的显示模式
+     */
+    private fun loadDictMode(rule: DictRule): DictDisplayMode {
+        return when (requireContext().getPrefString("dictMode_${rule.name}", "AUTO")) {
+            "MD" -> DictDisplayMode.MD
+            "HTML" -> DictDisplayMode.HTML
+            else -> DictDisplayMode.AUTO
+        }
+    }
+
+    /**
+     * 记忆某字典的显示模式
+     */
+    private fun saveDictMode(rule: DictRule, mode: DictDisplayMode) {
+        requireContext().putPrefString("dictMode_${rule.name}", mode.name)
+    }
+
+    /**
      * 按当前显示模式渲染词典内容
      */
     private fun renderDictContent(content: String) {
         binding.rotateLoading.inVisible()
-        val dictRule = lastDictRule ?: return
         var mark: String? = null
         when (displayMode) {
             DictDisplayMode.MD -> {
@@ -160,7 +162,8 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 if (contentTrimS.startsWith("<md>")) {
                     val lastIndex = contentTrimS.lastIndexOf("<")
                     if (lastIndex < 4) {
-                        binding.tvDict.text = contentTrimS
+                        // 异常 <md> 包裹，按原始内容 HTML 渲染
+                        renderHtml(contentTrimS)
                         return
                     }
                     mark = contentTrimS.substring(4, lastIndex)
@@ -168,54 +171,137 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
             }
         }
         if (mark != null) {
-            viewLifecycleOwner.lifecycleScope.launch {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    binding.tvDict.setTextClassifier(TextClassifier.NO_OP)
-                }
-                val markwon: Markwon
-                val markdown = withContext(IO) {
-                    markwon = Markwon.builder(requireContext())
-                        .usePlugin(
-                            GlideImagesPlugin.create(
-                                Glide.with(requireContext())
-                                    .applyDefaultRequestOptions(
-                                        RequestOptions()
-                                            .override(imgAvailableWidth)
-                                            .encodeQuality(88)
-                                    )
-                            )
-                        )
-                        .usePlugin(HtmlPlugin.create())
-                        .usePlugin(TablePlugin.create(requireContext()))
-                        .build()
-                    markwon.toMarkdown(mark)
-                }
-                binding.tvDict.setMarkdown(
-                    markwon,
-                    markdown,
-                    imgOnLongClickListener = { source ->
-                        showDialogFragment(PhotoDialog(source))
-                    }
-                )
-            }
+            renderMarkdown(mark)
             return
         }
-        val textViewTagHandler = TextViewTagHandler(object : TextViewTagHandler.OnButtonClickListener {
-            override fun onButtonClick(name: String, click: String) {
-                viewModel.onButtonClick(dictRule, "button $name", click)
+        renderHtml(content)
+    }
+
+    /**
+     * MD 模式：marked.js 标准 markdown 渲染（WebView，含表格/代码高亮）
+     */
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun renderMarkdown(mark: String) {
+        val dictRule = lastDictRule ?: return
+        binding.wvDict.visible()
+        val webView = binding.wvDict
+        webView.stopLoading()
+        initWebView(webView, dictRule)
+        val isNight = AppConfig.isNightTheme
+        val bgColor = if (isNight) "#1F1F1F" else "#FFFFFF"
+        val textColor = if (isNight) "#DDDDDD" else "#333333"
+        val linkColor = if (isNight) "#8AB4F8" else "#1A73E8"
+        webView.setBackgroundColor(if (isNight) 0xFF1F1F1F.toInt() else 0xFFFFFFFF.toInt())
+        val markdownJson = JSONArray().put(mark).toString()
+        val html = buildString {
+            append("<!DOCTYPE html><html><head>")
+            append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"/>")
+            append("<style>$markdownCss</style>")
+            append("<style>")
+            append("html,body{margin:0;padding:12px;background:$bgColor;}")
+            append("body{color:$textColor;}")
+            append(".markdown-body{color:$textColor;background:transparent;}")
+            append(".markdown-body img{max-width:100%;height:auto;}")
+            append(".markdown-body a{color:$linkColor;}")
+            append("pre,code{background:${if (isNight) "#2D2D2D" else "#F6F8FA"};}")
+            append("</style></head><body class=\"markdown-body\">")
+            append("<div id=\"md\"></div>")
+            append("<script>$markedJs</script>")
+            append("<script>")
+            append("document.getElementById('md').innerHTML=marked.parse($markdownJson);")
+            append("var imgs=document.getElementsByTagName('img');")
+            append("for(var i=0;i<imgs.length;i++){(function(im){")
+            append("im.addEventListener('click',function(){Android.onImageClick(im.src);});")
+            append("})(imgs[i]);}")
+            append("</script></body></html>")
+        }
+        webView.webViewClient = WebViewClient()
+        webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+    }
+
+    /**
+     * HTML 模式：WebView 渲染，按钮/图片通过 JS 桥回调字典规则
+     */
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun renderHtml(content: String) {
+        val dictRule = lastDictRule ?: return
+        binding.wvDict.visible()
+        val webView = binding.wvDict
+        webView.stopLoading()
+        initWebView(webView, dictRule)
+        val isNight = AppConfig.isNightTheme
+        val bgColor = if (isNight) "#1F1F1F" else "#FFFFFF"
+        val textColor = if (isNight) "#DDDDDD" else "#333333"
+        val linkColor = if (isNight) "#8AB4F8" else "#1A73E8"
+        webView.setBackgroundColor(if (isNight) 0xFF1F1F1F.toInt() else 0xFFFFFFFF.toInt())
+        val html = buildString {
+            append("<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"/>")
+            append("<style>")
+            append("html,body{margin:0;padding:12px;background:$bgColor;color:$textColor;")
+            append("font-size:16px;line-height:1.7;word-break:break-word;}")
+            append("img{max-width:100%;height:auto;}")
+            append("a{color:$linkColor;}")
+            append("button{padding:6px 14px;margin:4px 2px;border:none;border-radius:8px;")
+            append("background:#2E7CF6;color:#FFFFFF;font-size:14px;}")
+            append("</style></head><body>")
+            append(content)
+            append("</body></html>")
+        }
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                view?.evaluateJavascript(
+                    "(function(){" +
+                        "var btns=document.getElementsByTagName('button');" +
+                        "for(var i=0;i<btns.length;i++){(function(b){" +
+                        "var t=b.textContent||'';" +
+                        "var idx=t.indexOf('@onclick:');" +
+                        "var name=idx>=0?t.substring(0,idx):t;" +
+                        "var click=idx>=0?t.substring(idx+9):'';" +
+                        "b.textContent=name;" +
+                        "b.addEventListener('click',function(e){e.preventDefault();" +
+                        "Android.onButtonClick(name,click);});" +
+                        "})(btns[i]);" +
+                        "}" +
+                        "var imgs=document.getElementsByTagName('img');" +
+                        "for(var i=0;i<imgs.length;i++){(function(im){" +
+                        "im.addEventListener('click',function(){Android.onImageClick(im.src);});" +
+                        "})(imgs[i]);}" +
+                        "})();",
+                    null
+                )
             }
-        })
-        binding.tvDict.setHtml(
-            content,
-            glideImageGetter,
-            textViewTagHandler,
-            imgOnLongClickListener = { source ->
-                showDialogFragment(PhotoDialog(source))
-            },
-            imgOnClickListener = { click  ->
-                viewModel.onButtonClick(dictRule, "image", click)
+        }
+        webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+    }
+
+    /**
+     * WebView 基础配置 + JS 桥
+     */
+    private fun initWebView(webView: WebView, dictRule: DictRule) {
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.settings.useWideViewPort = true
+        webView.settings.loadWithOverviewMode = true
+        webView.settings.textZoom = 100
+        webView.removeJavascriptInterface("Android")
+        webView.addJavascriptInterface(DictJsBridge(dictRule), "Android")
+    }
+
+    /**
+     * WebView JS 回调桥
+     */
+    private inner class DictJsBridge(private val dictRule: DictRule) {
+        @JavascriptInterface
+        fun onButtonClick(name: String, click: String) {
+            viewModel.onButtonClick(dictRule, "button $name", click)
+        }
+
+        @JavascriptInterface
+        fun onImageClick(src: String) {
+            viewLifecycleOwner.lifecycleScope.launch {
+                showDialogFragment(PhotoDialog(src))
             }
-        )
+        }
     }
 
     /**
@@ -228,33 +314,14 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         return contentTrimS.substring(4, lastIndex)
     }
 
-    private fun createDictTabView(name: String, selected: Boolean): TextView {
-        return TextView(requireContext()).apply {
-            text = name
-            gravity = Gravity.CENTER
-            maxLines = 1
-            includeFontPadding = false
-            isSelected = selected
-            setTextColor(if (selected) accentColor else secondaryTextColor)
-            textSize = 14f
-            typeface = requireContext().uiTypeface()
-            setPadding(14.dpToPx(), 8.dpToPx(), 14.dpToPx(), 8.dpToPx())
-            background = UiCorner.actionSelector(
-                android.graphics.Color.TRANSPARENT,
-                backgroundColor,
-                UiCorner.actionRadius(requireContext())
-            )
-        }
-    }
-
-    private fun updateDictTabs() {
-        for (index in 0 until binding.tabLayout.tabCount) {
-            val tab = binding.tabLayout.getTabAt(index) ?: continue
-            val selected = tab.isSelected
-            (tab.customView as? TextView)?.run {
-                isSelected = selected
-                setTextColor(if (selected) accentColor else secondaryTextColor)
-            }
+    /**
+     * 读取 assets 内文本资源
+     */
+    private fun loadAssetText(path: String): String {
+        return try {
+            requireContext().assets.open(path).bufferedReader().use { it.readText() }
+        } catch (e: Exception) {
+            ""
         }
     }
 
@@ -269,10 +336,36 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        if (initGetter) {
-            glideImageGetter.clear()
+    private fun createDictTabView(name: String, selected: Boolean): TextView {
+        return TextView(requireContext()).apply {
+            text = name
+            textSize = 13f
+            setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
+            setTextColor(
+                when {
+                    selected -> accentColor
+                    else -> secondaryTextColor
+                }
+            )
+            typeface = uiTypeface
+            gravity = Gravity.CENTER
         }
+    }
+
+    private fun updateDictTabs() {
+        val selectedTab = binding.tabLayout.selectedTabPosition
+        for (i in 0 until binding.tabLayout.tabCount) {
+            val tab = binding.tabLayout.getTabAt(i) ?: continue
+            val view = tab.customView as? TextView ?: continue
+            view.setTextColor(if (i == selectedTab) accentColor else secondaryTextColor)
+        }
+    }
+
+    override fun onDestroyView() {
+        binding.wvDict.removeJavascriptInterface("Android")
+        binding.wvDict.stopLoading()
+        binding.wvDict.removeAllViews()
+        binding.wvDict.destroy()
+        super.onDestroyView()
     }
 }
