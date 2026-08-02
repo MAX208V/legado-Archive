@@ -340,14 +340,14 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         return TextView(requireContext()).apply {
             text = name
             textSize = 13f
-            setPadding(dpToPx(4f), 0, dpToPx(4f), 0)
+            setPadding(4f.dpToPx(), 0, 4f.dpToPx(), 0)
             setTextColor(
                 when {
                     selected -> accentColor
                     else -> secondaryTextColor
                 }
             )
-            typeface = uiTypeface
+            typeface = requireContext().uiTypeface()
             gravity = Gravity.CENTER
         }
     }
