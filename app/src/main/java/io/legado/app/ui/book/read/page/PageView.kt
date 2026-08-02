@@ -1102,130 +1102,30 @@ class PageView(context: Context) : FrameLayout(context) {
 
     val selectStartPos get() = binding.contentTextView.selectStart
 
-    /**
-     * 刷新 PAG叠加动画（从当前配置重新加载）
-     */
+    /** 刷新 PAG叠加动画（委托给 ReadView） */
     fun refreshPagOverlay() {
-        upPagOverlay()
+        readBookActivity?.readView?.upPagOverlay()
     }
 
-    /** 获取 PAG 当前播放进度（0f-1f） */
+    /** 获取 PAG 当前播放进度（委托给 ReadView） */
     fun getPagProgress(): Float {
-        return (pagOverlayView?.progress as? Number)?.toFloat() ?: 0f
+        return readBookActivity?.readView?.let { (it.pagOverlayView?.progress as? Number)?.toFloat() } ?: 0f
     }
 
-    /**
-     * 设置 PAG 播放进度（用于翻页时同步三页进度，实现跟随背景效果）
-     */
+    /** 设置 PAG 播放进度（委托给 ReadView） */
     fun setPagProgress(progress: Float) {
-        pagOverlayView?.progress = progress.toDouble()
+        readBookActivity?.readView?.pagOverlayView?.progress = progress.toDouble()
     }
 
     /** PAG 是否正在播放 */
     fun isPagPlaying(): Boolean {
-        return pagOverlayView?.isPlaying == true
+        return readBookActivity?.readView?.pagOverlayView?.isPlaying == true
     }
 
-    /**
-     * 翻页时同步 PAG 进度（用于自动滚动翻页等不走 fillPage 的场景）
-     */
+    /** 翻页时同步 PAG 进度（委托给 ReadView） */
     fun syncPagProgressForPageTurn(direction: io.legado.app.ui.book.read.page.entities.PageDirection) {
         val progress = getPagProgress()
-        readBookActivity?.readView?.let { readView ->
-            readView.curPage.setPagProgress(progress)
-            readView.prevPage.setPagProgress(progress)
-            readView.nextPage.setPagProgress(progress)
-        }
-    }
-
-    /**
-     * 懒创建的 PAGView：仅当启用 PAG 时才创建，
-     * 避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）
-     */
-    private var pagOverlayView: org.libpag.PAGView? = null
-
-    private fun getPagOverlayView(): org.libpag.PAGView? {
-        pagOverlayView?.let { return it }
-        return try {
-            val pagView = org.libpag.PAGView(context)
-            val root = binding.vwRoot
-            // 全屏显示（覆盖整个阅读页，含页眉/页脚区域）
-            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
-                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
-            )
-            // 插在文本层之前（背景壁纸之上、文字之下）
-            val insertIndex = root.indexOfChild(binding.contentTextView)
-                .coerceIn(0, root.childCount)
-            root.addView(pagView, insertIndex, lp)
-            pagView.visibility = GONE
-            pagView.setRepeatCount(-1) // 无限循环
-            // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
-            pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
-            pagOverlayView = pagView
-            pagView
-        } catch (e: Exception) {
-            e.printOnDebug()
-            null
-        }
-    }
-
-    /**
-     * 加载并播放 PAG 叠加动画
-     */
-    fun upPagOverlay() {
-        val config = ReadBookConfig.durConfig
-        // 轮换覆盖优先，其次样式自身设置
-        val pagEnabled = ReadBookConfig.rotationPagEnabled ?: config.pagOverlayEnabled
-        val pagPath = ReadBookConfig.rotationPagPath ?: config.pagOverlayPath
-        if (!pagEnabled || pagPath.isBlank()) {
-            clearPagOverlay()
-            return
-        }
-        val pagView = getPagOverlayView() ?: return
-        try {
-            val path = pagPath
-            if (path.startsWith("file://") || path.contains(File.separator)) {
-                pagView.setPath(path)
-            } else {
-                // 从 assets/bg/ 下加载 PAG 文件
-                val assetPath = "bg" + File.separator + path
-                val tempFile = File(context.cacheDir, "pag_asset_${path.hashCode()}.pag")
-                if (!tempFile.exists()) {
-                    context.assets.open(assetPath).use { input ->
-                        tempFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                }
-                pagView.setPath(tempFile.absolutePath)
-            }
-            if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
-            pagView.play()
-        } catch (e: Exception) {
-            e.printOnDebug()
-            pagView.visibility = GONE
-        }
-    }
-
-    /** 页面翻动时同步 PAG 位移（跟随背景移动） */
-    fun updatePagOverlayTranslationX(dx: Float) {
-        pagOverlayView?.translationX = dx
-    }
-
-    /**
-     * 停止并清除 PAG 叠加动画（移除视图以释放 libpag 原生内存）
-     */
-    fun clearPagOverlay() {
-        pagOverlayView?.let { pagView ->
-            try {
-                if (pagView.isPlaying) pagView.stop()
-            } catch (_: Exception) { }
-            try {
-                binding.vwRoot.removeView(pagView)
-            } catch (_: Exception) { }
-        }
-        pagOverlayView = null
+        readBookActivity?.readView?.pagOverlayView?.progress = progress.toDouble()
     }
 
     private companion object {

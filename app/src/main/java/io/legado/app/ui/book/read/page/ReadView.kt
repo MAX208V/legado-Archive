@@ -69,6 +69,79 @@ class ReadView(context: Context, attrs: AttributeSet) :
     val prevPage by lazy { PageView(context) }
     val curPage by lazy { PageView(context) }
     val nextPage by lazy { PageView(context) }
+    
+    // PAG 叠加层：单例挂在 ReadView 根布局，不参与页面截图，翻页时同步平移
+    private var pagOverlayView: org.libpag.PAGView? = null
+    
+    private fun getPagOverlayView(): org.libpag.PAGView? {
+        pagOverlayView?.let { return it }
+        return try {
+            val pagView = org.libpag.PAGView(context)
+            val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
+            // 插在 curPage 之前（背景之上、文字之下）
+            val insertIndex = indexOfChild(curPage).coerceIn(0, childCount)
+            addView(pagView, insertIndex, lp)
+            pagView.visibility = GONE
+            pagView.setRepeatCount(-1)
+            pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
+            pagOverlayView = pagView
+            pagView
+        } catch (e: Exception) {
+            e.printOnDebug()
+            null
+        }
+    }
+    
+    fun upPagOverlay() {
+        val config = ReadBookConfig.durConfig
+        val pagEnabled = ReadBookConfig.rotationPagEnabled ?: config.pagOverlayEnabled
+        val pagPath = ReadBookConfig.rotationPagPath ?: config.pagOverlayPath
+        if (!pagEnabled || pagPath.isBlank()) {
+            clearPagOverlay()
+            return
+        }
+        val pagView = getPagOverlayView() ?: return
+        try {
+            val path = pagPath
+            if (path.startsWith("file://") || path.contains(File.separator)) {
+                pagView.setPath(path)
+            } else {
+                val assetPath = "bg" + File.separator + path
+                val tempFile = File(context.cacheDir, "pag_asset_${path.hashCode()}.pag")
+                if (!tempFile.exists()) {
+                    context.assets.open(assetPath).use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+                pagView.setPath(tempFile.absolutePath)
+            }
+            if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
+            pagView.play()
+        } catch (e: Exception) {
+            e.printOnDebug()
+            pagView.visibility = GONE
+        }
+    }
+    
+    fun clearPagOverlay() {
+        pagOverlayView?.let { pagView ->
+            try {
+                if (pagView.isPlaying) pagView.stop()
+            } catch (_: Exception) { }
+            try {
+                removeView(pagView)
+            } catch (_: Exception) { }
+        }
+        pagOverlayView = null
+    }
+    
+    /** 翻页时同步 PAG 平移（跟随页面移动） */
+    fun updatePagOverlayTranslation(dx: Float) {
+        pagOverlayView?.translationX = dx
+    }
+    
     val defaultAnimationSpeed = 300
     private var pressDown = false
     private var isMove = false

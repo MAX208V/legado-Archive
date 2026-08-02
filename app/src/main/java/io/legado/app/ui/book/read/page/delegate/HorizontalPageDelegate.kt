@@ -102,14 +102,22 @@ abstract class HorizontalPageDelegate(readView: ReadView) : PageDelegate(readVie
             }
         }
         if (isMoved) {
-            isCancel = if (mDirection == PageDirection.NEXT) sumX > lastX else sumX < lastX
-            isRunning = true
-            //设置触摸点
-            readView.setTouchPoint(sumX, sumY)
-        }
-    }
+                    isCancel = if (mDirection == PageDirection.NEXT) sumX > lastX else sumX < lastX
+                    isRunning = true
+                    //设置触摸点
+                    readView.setTouchPoint(sumX, sumY)
+                    // 同步 PAG 平移（跟随页面翻动）
+                    readView.updatePagOverlayTranslation(readView.touchX - readView.startX)
+                }
+            }
 
-    override fun abortAnim() {
+            override fun computeScroll() {
+                super.computeScroll()
+                // 动画期间同步 PAG 平移
+                readView.updatePagOverlayTranslation(readView.touchX - readView.startX)
+            }
+
+            override fun abortAnim() {
         isStarted = false
         isMoved = false
         isRunning = false
