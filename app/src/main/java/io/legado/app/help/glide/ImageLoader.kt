@@ -34,6 +34,8 @@ object ImageLoader {
             path.isDataUrl() -> Glide.with(context).load(path)
             path.isAbsUrl() -> Glide.with(context).load(path)
             path.isContentScheme() -> Glide.with(context).load(path.toUri())
+            // assets 不是真实文件系统路径，直接传字符串让 Glide 的 AssetUriLoader 处理
+            path.startsWith("file:///android_asset/", true) -> Glide.with(context).load(path)
             path.startsWith("file://", true) -> Glide.with(context).load(path.toUri())
             else -> kotlin.runCatching {
                 Glide.with(context).load(File(path))

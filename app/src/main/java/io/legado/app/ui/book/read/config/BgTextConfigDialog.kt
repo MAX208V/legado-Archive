@@ -840,7 +840,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
         val loadPath = rotationEntryImagePath(entry)
         if (loadPath != null) {
-            ImageLoader.load(requireContext(), loadPath).centerCrop().into(imageView)
+            ImageLoader.load(requireContext(), loadPath)
+                .error(R.drawable.image_loading_error)
+                .centerCrop()
+                .into(imageView)
         } else {
             val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
             val color = if (pureEntry.startsWith("style:")) {
@@ -935,7 +938,24 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val inputStream = requireContext().contentResolver.openInputStream(uri) ?: return@launch
                 val bgDir = File(requireContext().externalFiles, "bg")
                 bgDir.mkdirs()
-                val fileName = "custom_${System.currentTimeMillis()}_${uri.lastPathSegment ?: "wallpaper"}"
+                // 按 MIME 类型推断扩展名，避免无扩展名文件导致 Glide 无法识别
+                val mimeType = runCatching {
+                    requireContext().contentResolver.getType(uri)
+                }.getOrNull().orEmpty()
+                val ext = when (mimeType.lowercase()) {
+                    "image/jpeg", "image/jpg" -> "jpg"
+                    "image/png" -> "png"
+                    "image/webp" -> "webp"
+                    "image/gif" -> "gif"
+                    "image/bmp" -> "bmp"
+                    "image/heic", "image/heif" -> "heic"
+                    else -> null
+                }
+                val baseName = (uri.lastPathSegment ?: "wallpaper")
+                    .substringBeforeLast('.').replace(Regex("[^a-zA-Z0-9_-]"), "_")
+                    .ifBlank { "wallpaper" }
+                val fileName = "custom_${System.currentTimeMillis()}_$baseName" +
+                    (ext?.let { ".$it" } ?: "")
                 val destFile = File(bgDir, fileName)
                 destFile.outputStream().use { out -> inputStream.copyTo(out) }
                 val entry = ReadBookConfig.buildRotationEntry("custom:${destFile.absolutePath}")
