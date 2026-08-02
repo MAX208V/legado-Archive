@@ -28,8 +28,6 @@ import io.legado.app.ui.book.read.page.delegate.LinkedCoverPageDelegate
 import io.legado.app.ui.book.read.page.delegate.NoAnimPageDelegate
 import io.legado.app.ui.book.read.page.delegate.PageDelegate
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
-import io.legado.app.utils.printOnDebug
-import java.io.File
 import io.legado.app.ui.book.read.page.delegate.SimulationPageDelegate
 import io.legado.app.ui.book.read.page.delegate.SlidePageDelegate
 import io.legado.app.ui.book.read.page.entities.PageDirection
@@ -71,86 +69,6 @@ class ReadView(context: Context, attrs: AttributeSet) :
     val prevPage by lazy { PageView(context) }
     val curPage by lazy { PageView(context) }
     val nextPage by lazy { PageView(context) }
-    
-    // PAG 叠加层：单例挂在 ReadView 根布局，不参与页面截图，翻页时同步平移
-    private var pagOverlayView: org.libpag.PAGView? = null
-    
-    private fun getPagOverlayView(): org.libpag.PAGView? {
-        pagOverlayView?.let { return it }
-        return try {
-            val pagView = org.libpag.PAGView(context)
-            val lp = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
-            // 插在 curPage 之前（背景之上、文字之下）
-            val insertIndex = indexOfChild(curPage).coerceIn(0, childCount)
-            addView(pagView, insertIndex, lp)
-            pagView.visibility = GONE
-            pagView.setRepeatCount(-1)
-            pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
-            pagOverlayView = pagView
-            pagView
-        } catch (e: Exception) {
-            e.printOnDebug()
-            null
-        }
-    }
-    
-    fun upPagOverlay() {
-        val config = ReadBookConfig.durConfig
-        val pagEnabled = ReadBookConfig.rotationPagEnabled ?: config.pagOverlayEnabled
-        val pagPath = ReadBookConfig.rotationPagPath ?: config.pagOverlayPath
-        if (!pagEnabled || pagPath.isBlank()) {
-            clearPagOverlay()
-            return
-        }
-        val pagView = getPagOverlayView() ?: return
-        try {
-            val path = pagPath
-            if (path.startsWith("file://") || path.contains(File.separator)) {
-                pagView.setPath(path)
-            } else {
-                val assetPath = "bg" + File.separator + path
-                val tempFile = File(context.cacheDir, "pag_asset_${path.hashCode()}.pag")
-                if (!tempFile.exists()) {
-                    context.assets.open(assetPath).use { input ->
-                        tempFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                }
-                pagView.setPath(tempFile.absolutePath)
-            }
-            if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
-            pagView.play()
-        } catch (e: Exception) {
-            e.printOnDebug()
-            pagView.visibility = GONE
-        }
-    }
-    
-    fun clearPagOverlay() {
-        pagOverlayView?.let { pagView ->
-            try {
-                if (pagView.isPlaying) pagView.stop()
-            } catch (_: Exception) { }
-            try {
-                removeView(pagView)
-            } catch (_: Exception) { }
-        }
-        pagOverlayView = null
-    }
-    
-    /** 翻页时同步 PAG 平移（跟随页面移动） */
-    fun updatePagOverlayTranslation(dx: Float) {
-        pagOverlayView?.translationX = dx
-    }
-
-    /** 翻页时同步 PAG 进度（跟随背景连续播放） */
-    fun syncPagProgressForPageTurn(direction: io.legado.app.ui.book.read.page.entities.PageDirection) {
-        val pagView = pagOverlayView ?: return
-        val progress = (pagView.progress as? Number)?.toFloat() ?: 0f
-        pagView.progress = progress.toDouble()
-    }
-    
     val defaultAnimationSpeed = 300
     private var pressDown = false
     private var isMove = false
@@ -249,8 +167,6 @@ class ReadView(context: Context, attrs: AttributeSet) :
     override fun computeScroll() {
         pageDelegate?.computeScroll()
         autoPager.computeOffset()
-        // 同步 PAG 位移：页面翻动动画期间，PAG 跟随背景移动
-        notifyPagMove()
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
@@ -300,7 +216,7 @@ class ReadView(context: Context, attrs: AttributeSet) :
                 isMove = false
                 pageDelegate?.onTouch(event)
                 pageDelegate?.onDown()
-                savePagProgress() // 保存当前页 PAG 进度，翻页时同步到新页
+                savePagProgress() // 保存当前页 PAG 进度，翻页后恢复到新页面
                 setStartPoint(event.x, event.y, false)
             }
 
@@ -379,75 +295,6 @@ class ReadView(context: Context, attrs: AttributeSet) :
         nextPage.upStatusBar()
     }
 
-    private var savedPagProgress: Float = 0f
-
-    /**
-     * 保存当前 PAG 播放进度（翻页开始前调用）
-     */
-    fun savePagProgress() {
-        savedPagProgress = getPagProgress()
-    }
-
-    /**
-     * 恢复 PAG 播放进度（翻页结束后调用）
-     */
-    fun restorePagProgress() {
-        setPagProgress(savedPagProgress)
-        // 确保 PAG 正在播放
-        if (!isPagPlaying()) {
-            upPagOverlay()
-        }
-    }
-
-    /** 获取当前 PAG 播放进度 */
-    fun getPagProgress(): Float {
-        return (pagOverlayView?.progress as? Number)?.toFloat() ?: 0f
-    }
-
-    /** 设置 PAG 播放进度 */
-    fun setPagProgress(progress: Float) {
-        pagOverlayView?.progress = progress.toDouble()
-    }
-
-    /** PAG 是否正在播放 */
-    fun isPagPlaying(): Boolean {
-        return pagOverlayView?.isPlaying == true
-    }
-
-    /** 刷新 PAG（委托 upPagOverlay） */
-    fun refreshPagOverlay() {
-        upPagOverlay()
-    }
-
-    /**
-     * 当前是否有 PAG 正在播放
-     */
-    fun hasPagPlaying(): Boolean {
-        return isPagPlaying()
-    }
-
-    /** 页面翻动动画时的位移回调（PAG 跟随背景移动） */
-    private var onPagMoveListener: ((Float) -> Unit)? = null
-
-    fun setOnPagMoveListener(listener: ((Float) -> Unit)?) {
-        onPagMoveListener = listener
-    }
-
-    /** 页面翻动动画期间通知 PAG 位移 */
-    private fun notifyPagMove() {
-        onPagMoveListener?.let {
-            // 只有在页面翻动动画运行时才同步位移
-            pageDelegate?.takeIf { it.isRunning }?.let {
-                it(translateXForPag())
-            }
-        }
-    }
-
-    /** 计算 PAG 应该的水平位移（与页面背景同步） */
-    private fun translateXForPag(): Float {
-        return touchX - startX
-    }
-
     /**
      * 保存开始位置
      */
@@ -458,10 +305,38 @@ class ReadView(context: Context, attrs: AttributeSet) :
         lastY = y
         touchX = x
         touchY = y
-
         if (invalidate) {
             invalidate()
         }
+    }
+
+    private var savedPagProgress: Float = 0f
+
+    /**
+     * 保存当前页 PAG 播放进度（翻页开始前调用，翻页后恢复到新页面）
+     */
+    fun savePagProgress() {
+        savedPagProgress = curPage.getPagProgress()
+    }
+
+    /**
+     * 恢复 PAG 播放进度到新页面（翻页结束后调用），实现连续播放
+     */
+    fun restorePagProgress() {
+        curPage.setPagProgress(savedPagProgress)
+        prevPage.setPagProgress(savedPagProgress)
+        nextPage.setPagProgress(savedPagProgress)
+        // 确保 PAG 正在播放
+        if (!curPage.isPagPlaying()) {
+            curPage.refreshPagOverlay()
+        }
+    }
+
+    /**
+     * 当前是否有 PAG 正在播放
+     */
+    fun hasPagPlaying(): Boolean {
+        return curPage.isPagPlaying() || prevPage.isPagPlaying() || nextPage.isPagPlaying()
     }
 
     /**
@@ -702,7 +577,7 @@ class ReadView(context: Context, attrs: AttributeSet) :
 
             else -> false
         }
-        // 翻页完成后恢复 PAG 进度到新页面，实现跟随背景效果
+        // 翻页完成后恢复 PAG 进度到新页面，实现连续播放
         if (result) restorePagProgress()
         return result
     }

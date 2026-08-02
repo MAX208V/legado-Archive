@@ -5318,9 +5318,10 @@ class ReadBookActivity : BaseReadBookActivity(),
     /**
      * 刷新页面上的 PAG 叠加动画
      */
-    /** 阅读视图（供 PAG 进度同步、位移同步访问） */
     internal fun refreshPagOverlay() {
-        binding.readView.upPagOverlay()
+        binding.readView.curPage.refreshPagOverlay()
+        binding.readView.nextPage.refreshPagOverlay()
+        binding.readView.prevPage.refreshPagOverlay()
     }
 
     companion object {

@@ -3,6 +3,7 @@ package io.legado.app.ui.book.read.page
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
@@ -10,6 +11,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.LayerDrawable
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import com.airbnb.lottie.ImageAssetDelegate
 import android.widget.FrameLayout
@@ -118,6 +120,8 @@ class PageView(context: Context) : FrameLayout(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        // 视图 attach 后重新触发 PAG 加载（init 时 view 尚未 attach）
+        upPagOverlay()
     }
 
     override fun onDetachedFromWindow() {
@@ -129,6 +133,7 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.advancedTitleLottiePair.cancelAnimation()
         binding.contentTextView.setScrollFollowBackground(null, 255)
         binding.vwRoot.background = null
+        clearPagOverlay()
         synchronized(styledLottieJsonCache) {
             styledLottieJsonCache.clear()
         }
@@ -184,6 +189,7 @@ class PageView(context: Context) : FrameLayout(context) {
         }
         upTime()
         upBattery(battery)
+        upPagOverlay()
         invalidateTextRenderCache()
     }
 
@@ -1093,6 +1099,151 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.contentTextView.getSelectedReadPosition()
 
     val selectStartPos get() = binding.contentTextView.selectStart
+
+    /**
+     * 刷新 PAG叠加动画（从当前配置重新加载）
+     */
+    fun refreshPagOverlay() {
+        upPagOverlay()
+    }
+
+    /** 获取 PAG 当前播放进度（0f-1f） */
+    fun getPagProgress(): Float {
+        return (pagOverlayView?.progress as? Number)?.toFloat() ?: 0f
+    }
+
+    /** 设置 PAG 播放进度（翻页后恢复，实现连续播放） */
+    fun setPagProgress(progress: Float) {
+        pagOverlayView?.progress = progress.toDouble()
+    }
+
+    /** PAG 是否正在播放 */
+    fun isPagPlaying(): Boolean {
+        return pagOverlayView?.isPlaying == true
+    }
+
+    /**
+     * 翻页时同步 PAG 进度（用于自动滚动翻页等场景）
+     */
+    fun syncPagProgressForPageTurn(direction: io.legado.app.ui.book.read.page.entities.PageDirection) {
+        val progress = getPagProgress()
+        pagOverlayView?.progress = progress.toDouble()
+    }
+
+    /**
+     * PAG 快照层：解决翻页截图（软件 Canvas draw()）无法捕获 GPU 渲染的 PAGView 内容的问题。
+     * - 屏幕显示（硬件加速）：onDraw 直接返回，透明，由 PAGView 正常渲染动画
+     * - 翻页截图（软件 Canvas）：补画 PAG 当前帧，层级为背景之上、文字之下
+     */
+    private inner class PagSnapshotLayer(context: Context) : View(context) {
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            // 硬件加速（屏幕绘制）时不补画，避免性能开销
+            if (canvas.isHardwareAccelerated) return
+            val pagView = pagOverlayView ?: return
+            if (pagView.visibility != VISIBLE) return
+            try {
+                val snapshot = pagView.makeSnapshot() ?: return
+                canvas.drawBitmap(snapshot, 0f, 0f, null)
+                snapshot.recycle()
+            } catch (e: Exception) {
+                e.printOnDebug()
+            }
+        }
+    }
+
+    /**
+     * 懒创建的 PAGView：仅当启用 PAG 时才创建，
+     * 避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）
+     */
+    private var pagOverlayView: org.libpag.PAGView? = null
+
+    private fun getPagOverlayView(): org.libpag.PAGView? {
+        pagOverlayView?.let { return it }
+        return try {
+            val pagView = org.libpag.PAGView(context)
+            val root = binding.vwRoot
+            // 全屏显示（覆盖整个阅读页，含页眉/页脚区域）
+            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
+            )
+            // 插在文本层之前（背景壁纸之上、文字之下）
+            val insertIndex = root.indexOfChild(binding.contentTextView)
+                .coerceIn(0, root.childCount)
+            root.addView(pagView, insertIndex, lp)
+            // PAG 快照层紧随其后（同一层级，截图时补画 PAG 帧）
+            root.addView(PagSnapshotLayer(context), insertIndex + 1, lp)
+            pagView.visibility = GONE
+            pagView.setRepeatCount(-1) // 无限循环
+            // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
+            pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
+            pagOverlayView = pagView
+            pagView
+        } catch (e: Exception) {
+            e.printOnDebug()
+            null
+        }
+    }
+
+    /**
+     * 加载并播放 PAG 叠加动画
+     */
+    fun upPagOverlay() {
+        val config = ReadBookConfig.durConfig
+        // 轮换覆盖优先，其次样式自身设置
+        val pagEnabled = ReadBookConfig.rotationPagEnabled ?: config.pagOverlayEnabled
+        val pagPath = ReadBookConfig.rotationPagPath ?: config.pagOverlayPath
+        if (!pagEnabled || pagPath.isBlank()) {
+            clearPagOverlay()
+            return
+        }
+        val pagView = getPagOverlayView() ?: return
+        try {
+            val path = pagPath
+            if (path.startsWith("file://") || path.contains(File.separator)) {
+                pagView.setPath(path)
+            } else {
+                // 从 assets/bg/ 下加载 PAG 文件
+                val assetPath = "bg" + File.separator + path
+                val tempFile = File(context.cacheDir, "pag_asset_${path.hashCode()}.pag")
+                if (!tempFile.exists()) {
+                    context.assets.open(assetPath).use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+                pagView.setPath(tempFile.absolutePath)
+            }
+            if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
+            pagView.play()
+        } catch (e: Exception) {
+            e.printOnDebug()
+            pagView.visibility = GONE
+        }
+    }
+
+    /**
+     * 停止并清除 PAG 叠加动画（移除视图以释放 libpag 原生内存）
+     */
+    fun clearPagOverlay() {
+        pagOverlayView?.let { pagView ->
+            try {
+                if (pagView.isPlaying) pagView.stop()
+            } catch (_: Exception) { }
+            try {
+                binding.vwRoot.removeView(pagView)
+            } catch (_: Exception) { }
+        }
+        pagOverlayView = null
+        // 同时移除 PAG 快照层
+        try {
+            val root = binding.vwRoot
+            val snapshotLayers = root.children.filter { it is PagSnapshotLayer }.toList()
+            snapshotLayers.forEach { root.removeView(it) }
+        } catch (_: Exception) { }
+    }
 
     private companion object {
         const val ADVANCED_TITLE_SIZE_FACTOR = 1.25f
