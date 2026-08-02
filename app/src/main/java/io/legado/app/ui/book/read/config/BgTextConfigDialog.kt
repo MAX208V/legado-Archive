@@ -58,8 +58,6 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.animateItemPlacement
 import androidx.compose.ui.graphics.graphicsLayer
 import io.legado.app.ui.widget.compose.releaseComposeImage
 import androidx.compose.ui.res.painterResource
