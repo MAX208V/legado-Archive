@@ -141,6 +141,13 @@ class ReadView(context: Context, attrs: AttributeSet) :
     fun updatePagOverlayTranslation(dx: Float) {
         pagOverlayView?.translationX = dx
     }
+
+    /** 翻页时同步 PAG 进度（跟随背景连续播放） */
+    fun syncPagProgressForPageTurn(direction: io.legado.app.ui.book.read.page.entities.PageDirection) {
+        val pagView = pagOverlayView ?: return
+        val progress = (pagView.progress as? Number)?.toFloat() ?: 0f
+        pagView.progress = progress.toDouble()
+    }
     
     val defaultAnimationSpeed = 300
     private var pressDown = false

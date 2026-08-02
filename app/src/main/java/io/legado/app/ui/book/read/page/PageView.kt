@@ -108,10 +108,6 @@ class PageView(context: Context) : FrameLayout(context) {
             upStyle()
             binding.vwStatusBar.applyStatusBarPadding()
             binding.vwNavigationBar.applyNavigationBarPadding()
-            // 注册 PAG 位移监听：页面翻动时同步 PAG 位移
-            readBookActivity?.readView?.setOnPagMoveListener { dx ->
-                updatePagOverlayTranslationX(dx)
-            }
         }
     }
 
@@ -122,8 +118,6 @@ class PageView(context: Context) : FrameLayout(context) {
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        // 视图 attach 后重新触发 PAG 加载（init 时 view 尚未 attach）
-        upPagOverlay()
     }
 
     override fun onDetachedFromWindow() {
@@ -135,7 +129,6 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.advancedTitleLottiePair.cancelAnimation()
         binding.contentTextView.setScrollFollowBackground(null, 255)
         binding.vwRoot.background = null
-        clearPagOverlay()
         synchronized(styledLottieJsonCache) {
             styledLottieJsonCache.clear()
         }
@@ -1101,32 +1094,6 @@ class PageView(context: Context) : FrameLayout(context) {
         binding.contentTextView.getSelectedReadPosition()
 
     val selectStartPos get() = binding.contentTextView.selectStart
-
-    /** 刷新 PAG叠加动画（委托给 ReadView） */
-    fun refreshPagOverlay() {
-        readBookActivity?.readView?.upPagOverlay()
-    }
-
-    /** 获取 PAG 当前播放进度（委托给 ReadView） */
-    fun getPagProgress(): Float {
-        return readBookActivity?.readView?.let { (it.pagOverlayView?.progress as? Number)?.toFloat() } ?: 0f
-    }
-
-    /** 设置 PAG 播放进度（委托给 ReadView） */
-    fun setPagProgress(progress: Float) {
-        readBookActivity?.readView?.pagOverlayView?.progress = progress.toDouble()
-    }
-
-    /** PAG 是否正在播放 */
-    fun isPagPlaying(): Boolean {
-        return readBookActivity?.readView?.pagOverlayView?.isPlaying == true
-    }
-
-    /** 翻页时同步 PAG 进度（委托给 ReadView） */
-    fun syncPagProgressForPageTurn(direction: io.legado.app.ui.book.read.page.entities.PageDirection) {
-        val progress = getPagProgress()
-        readBookActivity?.readView?.pagOverlayView?.progress = progress.toDouble()
-    }
 
     private companion object {
         const val ADVANCED_TITLE_SIZE_FACTOR = 1.25f

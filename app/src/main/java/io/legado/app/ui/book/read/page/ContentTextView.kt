@@ -262,7 +262,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         } else if (pageOffset > 0) {
                         if (pageFactory.moveToPrev(true)) {
                             pageOffset -= textPage.height.toInt()
-                            (callBack as? ReadView)?.curPage?.syncPagProgressForPageTurn(PageDirection.PREV)
+                            (callBack as? ReadView)?.syncPagProgressForPageTurn(PageDirection.PREV)
                         } else {
                             pageOffset = 0
                             backgroundDelta = pageOffset - startPageOffset
@@ -272,7 +272,7 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
                         val height = textPage.height
                         if (pageFactory.moveToNext(upContent = true)) {
                             pageOffset += height.toInt()
-                            (callBack as? ReadView)?.curPage?.syncPagProgressForPageTurn(PageDirection.NEXT)
+                            (callBack as? ReadView)?.syncPagProgressForPageTurn(PageDirection.NEXT)
                         } else {
                             pageOffset = -height.toInt()
                             backgroundDelta = pageOffset - startPageOffset
