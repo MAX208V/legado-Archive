@@ -362,10 +362,10 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     }
 
     override fun onDestroyView() {
-        binding.wvDict.removeJavascriptInterface("Android")
-        binding.wvDict.stopLoading()
-        binding.wvDict.removeAllViews()
-        binding.wvDict.destroy()
+        binding.wvDict?.removeJavascriptInterface("Android")
+        binding.wvDict?.stopLoading()
+        binding.wvDict?.removeAllViews()
+        binding.wvDict?.destroy()
         super.onDestroyView()
     }
 }
