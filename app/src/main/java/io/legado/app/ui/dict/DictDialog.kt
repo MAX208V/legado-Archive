@@ -340,7 +340,7 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         return TextView(requireContext()).apply {
             text = name
             textSize = 13f
-            setPadding(4f.dpToPx(), 0, 4f.dpToPx(), 0)
+            setPadding(4.dpToPx(), 0, 4.dpToPx(), 0)
             setTextColor(
                 when {
                     selected -> accentColor
