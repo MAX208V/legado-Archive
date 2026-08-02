@@ -57,11 +57,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.unit.tween
-import androidx.compose.animation.core.animateItemPlacement
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.animateItemPlacement
 import androidx.compose.ui.graphics.graphicsLayer
-import android.view.animation.OvershootInterpolator
 import io.legado.app.ui.widget.compose.releaseComposeImage
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -526,9 +525,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         .graphicsLayer {
                             scaleX = if (draggedIndex == index) 1.02f else 1f
                             scaleY = if (draggedIndex == index) 1.02f else 1f
-                            shadowElevation = if (draggedIndex == index) 8.dp else 0.dp
-                        }
-                        .animateItemPlacement(tween(150, 0, OvershootInterpolator(1.2f))),
+                            shadowElevation = if (draggedIndex == index) 8f else 0f
+                        },
                     shape = RoundedCornerShape(style.actionRadius),
                     color = if (draggedIndex == index) style.accent.copy(alpha = 0.1f) else style.fieldSurface,
                     contentColor = style.primaryText,
