@@ -99,6 +99,7 @@ import io.legado.app.utils.FileDoc
 import io.legado.app.utils.FileUtils
 import io.legado.app.utils.GSON
 import io.legado.app.utils.MD5Utils
+import io.legado.app.utils.SystemUtils
 import io.legado.app.utils.compress.ZipUtils
 import io.legado.app.utils.createFileIfNotExist
 import io.legado.app.utils.createFileReplace
@@ -736,9 +737,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun stylePreview(config: ReadBookConfig.Config) {
         val context = requireContext()
         val container = FrameLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                320.dpToPx()
+            // 明确像素宽高，避免 dialog wrap_content 下 MATCH_PARENT 宽测为 0（预览空白）
+            layoutParams = FrameLayout.LayoutParams(
+                (SystemUtils.screenWidthPx * 0.92f).toInt(),
+                (SystemUtils.screenHeightPx * 0.72f).toInt()
             )
         }
         val bgView = AppCompatImageView(context).apply {
@@ -750,7 +752,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
         val bgPath = configBgImagePath(config)
         if (bgPath != null) {
-            ImageLoader.load(context, bgPath).centerCrop().into(bgView)
+            ImageLoader.load(context, bgPath)
+                .centerCrop()
+                .error(R.drawable.image_loading_error)
+                .into(bgView)
         } else {
             bgView.setBackgroundColor(configBgColor(config))
         }
@@ -799,16 +804,21 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
 
     /** 点击轮换条目预览大图 */
     private fun showWallpaperPreview(entry: String) {
-        val imageView = AppCompatImageView(requireContext()).apply {
+        val context = requireContext()
+        // 用明确的像素宽高（不用 MATCH_PARENT），避免 dialog wrap_content 下宽测为 0
+        // 导致 Glide 拿不到有效尺寸而不绘制（表现为空白）
+        val maxW = (SystemUtils.screenWidthPx * 0.92f).toInt()
+        val maxH = (SystemUtils.screenHeightPx * 0.72f).toInt()
+        val imageView = AppCompatImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                300.dpToPx()
-            )
+            layoutParams = FrameLayout.LayoutParams(maxW, maxH)
         }
         val loadPath = rotationEntryImagePath(entry)
         if (loadPath != null) {
-            ImageLoader.load(requireContext(), loadPath).centerCrop().into(imageView)
+            ImageLoader.load(context, loadPath)
+                .centerCrop()
+                .error(R.drawable.image_loading_error)
+                .into(imageView)
         } else {
             val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
             val color = if (pureEntry.startsWith("style:")) {
@@ -1145,9 +1155,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun pagThemePreview(dir: File) {
         val context = requireContext()
         val container = FrameLayout(context).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                320.dpToPx()
+            // 明确像素宽高，避免 dialog wrap_content 下 MATCH_PARENT 宽测为 0（预览空白）
+            layoutParams = FrameLayout.LayoutParams(
+                (SystemUtils.screenWidthPx * 0.92f).toInt(),
+                (SystemUtils.screenHeightPx * 0.72f).toInt()
             )
         }
         val bgView = AppCompatImageView(context).apply {
@@ -1159,7 +1170,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
         val bg = themeBackground(dir)
         if (bg != null) {
-            ImageLoader.load(context, bg.absolutePath).centerCrop().into(bgView)
+            ImageLoader.load(context, bg.absolutePath)
+                .centerCrop()
+                .error(R.drawable.image_loading_error)
+                .into(bgView)
         } else {
             val bgColor = ReadBookConfig.parsePagThemeConfig(dir)?.backgroundColor
                 ?: 0xFFEEEEEE.toInt()
