@@ -18,6 +18,7 @@ import com.script.rhino.RhinoWrapFactory
 import io.legado.app.base.AppContextWrapper
 import io.legado.app.constant.AppConst.channelIdDownload
 import io.legado.app.constant.AppConst.channelIdAiTask
+import io.legado.app.constant.AppConst.channelIdAiMcp
 import io.legado.app.constant.AppConst.channelIdReadAloud
 import io.legado.app.constant.AppConst.channelIdWeb
 import io.legado.app.constant.PreferKey
