@@ -347,6 +347,7 @@ class DictRuleActivity : VMBaseActivity<ActivityDictRuleBinding, DictRuleViewMod
             old.urlRule == new.urlRule &&
             old.showRule == new.showRule &&
             old.enabled == new.enabled &&
-            old.sortNumber == new.sortNumber
+            old.sortNumber == new.sortNumber &&
+            old.htmlMode == new.htmlMode
     }
 }

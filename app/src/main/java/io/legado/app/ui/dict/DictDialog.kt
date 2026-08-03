@@ -4,11 +4,9 @@ import android.annotation.SuppressLint
 import android.os.Build
 import android.os.Bundle
 import android.text.method.LinkMovementMethod
-import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.textclassifier.TextClassifier
-import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -25,16 +23,14 @@ import io.legado.app.data.entities.DictRule
 import io.legado.app.databinding.DialogDictBinding
 import io.legado.app.help.GlideImageGetter
 import io.legado.app.help.TextViewTagHandler
-import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.secondaryTextColor
 import io.legado.app.lib.theme.uiTypeface
+import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.ui.widget.dialog.PhotoDialog
 import io.legado.app.utils.dpToPx
-import io.legado.app.utils.getPrefString
 import io.legado.app.utils.invisible
-import io.legado.app.utils.putPrefString
 import io.legado.app.utils.setHtml
 import io.legado.app.utils.setLayout
 import io.legado.app.utils.setMarkdown
@@ -51,11 +47,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * 词典显示模式
- */
-enum class DictDisplayMode { HTML, RAW }
-
-/**
  * 词典
  */
 class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
@@ -69,9 +60,6 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     private val viewModel by viewModels<DictViewModel>()
     private val binding by viewBinding(DialogDictBinding::bind)
     private var word: String? = null
-    private var displayMode = DictDisplayMode.HTML
-    private var lastDictRule: DictRule? = null
-    private var lastContent: String? = null
     private val imgAvailableWidth by lazy {
         val textView = binding.tvDict
         textView.width - textView.paddingLeft - textView.paddingRight
@@ -112,27 +100,19 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 updateDictTabs()
                 val dictRule = tab.tag as DictRule
-                // 记忆该字典自身的显示模式
-                displayMode = loadDictMode(dictRule)
-                upDictModeText()
                 binding.rotateLoading.visible()
-                viewModel.dict(dictRule, word!!) { content ->
-                    lastDictRule = dictRule
-                    lastContent = content
-                    renderDictContent(content)
+                if (dictRule.htmlMode) {
+                    // HTML 模式：直接以浏览器方式加载完整网页（CSS/JS 完整显示）
+                    renderHtml(dictRule)
+                } else {
+                    // 原始模式：原版 ScrollTextView + Markwon 渲染
+                    viewModel.dict(dictRule, word!!) { content ->
+                        binding.rotateLoading.inVisible()
+                        renderRaw(dictRule, content)
+                    }
                 }
             }
         })
-        binding.tvDictMode.setOnClickListener {
-            displayMode = when (displayMode) {
-                DictDisplayMode.HTML -> DictDisplayMode.RAW
-                DictDisplayMode.RAW -> DictDisplayMode.HTML
-            }
-            lastDictRule?.let { saveDictMode(it, displayMode) }
-            upDictModeText()
-            lastContent?.let { renderDictContent(it) }
-        }
-        upDictModeText()
         viewModel.initData {
             it.forEach { d ->
                 binding.tabLayout.addTab(binding.tabLayout.newTab().apply {
@@ -145,47 +125,11 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         }
     }
 
-    private fun upDictModeText() {
-        binding.tvDictMode.text = when (displayMode) {
-            DictDisplayMode.HTML -> "HTML"
-            DictDisplayMode.RAW -> getString(R.string.dict_mode_raw)
-        }
-    }
-
-    /**
-     * 读取某字典记忆的显示模式
-     */
-    private fun loadDictMode(rule: DictRule): DictDisplayMode {
-        return when (requireContext().getPrefString("dictMode_${rule.name}", "HTML")) {
-            "RAW", "AUTO", "MD" -> DictDisplayMode.RAW
-            else -> DictDisplayMode.HTML
-        }
-    }
-
-    /**
-     * 记忆某字典的显示模式
-     */
-    private fun saveDictMode(rule: DictRule, mode: DictDisplayMode) {
-        requireContext().putPrefString("dictMode_${rule.name}", mode.name)
-    }
-
-    /**
-     * 按当前显示模式渲染词典内容
-     */
-    private fun renderDictContent(content: String) {
-        binding.rotateLoading.inVisible()
-        when (displayMode) {
-            DictDisplayMode.HTML -> renderHtml(content)
-            DictDisplayMode.RAW -> renderRaw(content)
-        }
-    }
-
     /**
      * 原始模式：与原版阅读一致，ScrollTextView + Markwon 渲染。
      * <md> 前缀 → markdown 渲染；否则 → HTML setHtml 渲染（图片/按钮回调）
      */
-    private fun renderRaw(content: String) {
-        val dictRule = lastDictRule ?: return
+    private fun renderRaw(dictRule: DictRule, content: String) {
         binding.wvDict?.invisible()
         binding.tvDict?.visible()
         binding.tvDict.movementMethod = LinkMovementMethod()
@@ -248,66 +192,44 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     }
 
     /**
-     * HTML 模式：浏览器级别 WebView 渲染，按钮/图片通过 JS 桥回调字典规则
+     * HTML 模式：直接调用 WebView 加载 urlRule 生成的完整网页（浏览器级别，CSS/JS 正常显示）
      */
     @SuppressLint("SetJavaScriptEnabled")
-    private fun renderHtml(content: String) {
-        val dictRule = lastDictRule ?: return
+    private fun renderHtml(dictRule: DictRule) {
         binding.tvDict?.invisible()
         binding.wvDict?.visible()
         val webView = binding.wvDict ?: return
         webView.stopLoading()
-        initWebView(webView, dictRule)
-        val isNight = AppConfig.isNightTheme
-        val bgColor = if (isNight) "#1F1F1F" else "#FFFFFF"
-        val textColor = if (isNight) "#DDDDDD" else "#333333"
-        val linkColor = if (isNight) "#8AB4F8" else "#1A73E8"
-        webView.setBackgroundColor(if (isNight) 0xFF1F1F1F.toInt() else 0xFFFFFFFF.toInt())
-        val html = buildString {
-            append("<!DOCTYPE html><html><head><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"/>")
-            append("<style>")
-            append("html,body{margin:0;padding:12px;background:$bgColor;color:$textColor;")
-            append("font-size:16px;line-height:1.7;word-break:break-word;}")
-            append("img{max-width:100%;height:auto;}")
-            append("a{color:$linkColor;}")
-            append("button{padding:6px 14px;margin:4px 2px;border:none;border-radius:8px;")
-            append("background:#2E7CF6;color:#FFFFFF;font-size:14px;}")
-            append("</style></head><body>")
-            append(content)
-            append("</body></html>")
-        }
-        webView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                view?.evaluateJavascript(
-                    "(function(){" +
-                        "var btns=document.getElementsByTagName('button');" +
-                        "for(var i=0;i<btns.length;i++){(function(b){" +
-                        "var t=b.textContent||'';" +
-                        "var idx=t.indexOf('@onclick:');" +
-                        "var name=idx>=0?t.substring(0,idx):t;" +
-                        "var click=idx>=0?t.substring(idx+9):'';" +
-                        "b.textContent=name;" +
-                        "b.addEventListener('click',function(e){e.preventDefault();" +
-                        "Android.onButtonClick(name,click);});" +
-                        "})(btns[i]);" +
-                        "}" +
-                        "var imgs=document.getElementsByTagName('img');" +
-                        "for(var i=0;i<imgs.length;i++){(function(im){" +
-                        "im.addEventListener('click',function(){Android.onImageClick(im.src);});" +
-                        "})(imgs[i]);}" +
-                        "})();",
-                    null
-                )
+        initWebView(webView)
+        webView.webViewClient = WebViewClient()
+        binding.rotateLoading.visible()
+        viewLifecycleOwner.lifecycleScope.launch {
+            val url = withContext(IO) {
+                runCatching {
+                    val analyzeUrl = AnalyzeUrl(
+                        dictRule.urlRule,
+                        key = word,
+                        coroutineContext = kotlinx.coroutines.currentCoroutineContext()
+                    )
+                    analyzeUrl.url
+                }.getOrNull()
             }
+            binding.rotateLoading.inVisible()
+            if (url.isNullOrBlank()) {
+                binding.wvDict?.invisible()
+                binding.tvDict?.visible()
+                binding.tvDict.text = "URL 解析失败"
+                return@launch
+            }
+            webView.loadUrl(url)
         }
-        webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     }
 
     /**
-     * WebView 基础配置（浏览器级别）+ JS 桥
+     * WebView 基础配置（浏览器级别）
      */
     @SuppressLint("SetJavaScriptEnabled")
-    private fun initWebView(webView: WebView, dictRule: DictRule) {
+    private fun initWebView(webView: WebView) {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
@@ -323,25 +245,6 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
         webView.settings.setSupportMultipleWindows(false)
         webView.webChromeClient = WebChromeClient()
-        webView.removeJavascriptInterface("Android")
-        webView.addJavascriptInterface(DictJsBridge(dictRule), "Android")
-    }
-
-    /**
-     * WebView JS 回调桥
-     */
-    private inner class DictJsBridge(private val dictRule: DictRule) {
-        @JavascriptInterface
-        fun onButtonClick(name: String, click: String) {
-            viewModel.onButtonClick(dictRule, "button $name", click)
-        }
-
-        @JavascriptInterface
-        fun onImageClick(src: String) {
-            viewLifecycleOwner.lifecycleScope.launch {
-                showDialogFragment(PhotoDialog(src))
-            }
-        }
     }
 
     //根据已启用词典数动态选取布局
@@ -367,7 +270,7 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 }
             )
             typeface = requireContext().uiTypeface()
-            gravity = Gravity.CENTER
+            gravity = android.view.Gravity.CENTER
         }
     }
 

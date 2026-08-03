@@ -26,7 +26,7 @@ object DatabaseMigrations {
             migration_103_104, migration_104_105, migration_105_106,
             migration_106_107, migration_107_108, migration_108_109,
             migration_109_110, migration_110_111, migration_111_112,
-            migration_112_113,
+            migration_112_113, migration_113_114,
         )
     }
 
@@ -254,6 +254,16 @@ object DatabaseMigrations {
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_novel_video_character_sheets_jobId` ON `novel_video_character_sheets` (`jobId`)")
             // 实体声明 unique = true，迁移必须用 UNIQUE INDEX，否则 Room schema 校验失败
             db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_novel_video_character_sheets_jobId_characterId` ON `novel_video_character_sheets` (`jobId`, `characterId`)")
+        }
+    }
+
+    /**
+     * v113 → v114：字典规则新增 htmlMode 列（HTML 模式开关）。
+     * 默认 0（原始模式），仅明确开启后才使用 WebView 直接加载网页。
+     */
+    private val migration_113_114 = object : Migration(113, 114) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `dictRules` ADD COLUMN `htmlMode` INTEGER NOT NULL DEFAULT 0")
         }
     }
 

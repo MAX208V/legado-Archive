@@ -30,6 +30,7 @@ import io.legado.app.data.appDb
 import io.legado.app.data.entities.DictRule
 import io.legado.app.ui.code.CodeEditActivity
 import io.legado.app.ui.widget.compose.AppDialogFrame
+import io.legado.app.ui.widget.compose.AppDialogSwitchRow
 import io.legado.app.ui.widget.compose.AppRuleFieldSpacer
 import io.legado.app.ui.widget.compose.AppRuleTextField
 import io.legado.app.ui.widget.compose.ComposeConfirmDialog
@@ -52,6 +53,7 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
     private var nameValue by mutableStateOf(TextFieldValue(""))
     private var urlRuleValue by mutableStateOf(TextFieldValue(""))
     private var showRuleValue by mutableStateOf(TextFieldValue(""))
+    private var htmlModeValue by mutableStateOf(false)
     private var focusedField: EditField? = null
     private var loaded by mutableStateOf(false)
     private var forceDismiss = false
@@ -84,6 +86,8 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
                         onUrlRuleChange = { urlRuleValue = it },
                         showRule = showRuleValue,
                         onShowRuleChange = { showRuleValue = it },
+                        htmlMode = htmlModeValue,
+                        onHtmlModeChange = { htmlModeValue = it },
                         onFieldFocused = { focusedField = it },
                         onFullEdit = ::onFullEditClicked,
                         onSave = {
@@ -164,6 +168,7 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
         nameValue = TextFieldValue(dictRule?.name.orEmpty())
         urlRuleValue = TextFieldValue(dictRule?.urlRule.orEmpty())
         showRuleValue = TextFieldValue(dictRule?.showRule.orEmpty())
+        htmlModeValue = dictRule?.htmlMode ?: false
     }
 
     private fun getDictRule(): DictRule {
@@ -171,6 +176,7 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
         dictRule.name = nameValue.text
         dictRule.urlRule = urlRuleValue.text
         dictRule.showRule = showRuleValue.text
+        dictRule.htmlMode = htmlModeValue
         return dictRule
     }
 
@@ -178,7 +184,8 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
         val dictRule = viewModel.dictRule ?: return nameValue.text.isEmpty()
         return dictRule.name == nameValue.text &&
             dictRule.urlRule == urlRuleValue.text &&
-            dictRule.showRule == showRuleValue.text
+            dictRule.showRule == showRuleValue.text &&
+            dictRule.htmlMode == htmlModeValue
     }
 
     override fun dismiss() {
@@ -261,6 +268,8 @@ private fun DictRuleEditContent(
     onUrlRuleChange: (TextFieldValue) -> Unit,
     showRule: TextFieldValue,
     onShowRuleChange: (TextFieldValue) -> Unit,
+    htmlMode: Boolean,
+    onHtmlModeChange: (Boolean) -> Unit,
     onFieldFocused: (DictRuleEditDialog.EditField) -> Unit,
     onFullEdit: () -> Unit,
     onSave: () -> Unit,
@@ -300,6 +309,12 @@ private fun DictRuleEditContent(
                     maxLines = 12,
                     style = style,
                     onFocused = { onFieldFocused(DictRuleEditDialog.EditField.ShowRule) }
+                )
+                AppRuleFieldSpacer()
+                AppDialogSwitchRow(
+                    text = stringResource(R.string.dict_rule_html_mode),
+                    checked = htmlMode,
+                    onCheckedChange = onHtmlModeChange
                 )
             }
         },
