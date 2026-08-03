@@ -321,7 +321,7 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         webView.settings.loadWithOverviewMode = true
         webView.settings.textZoom = 100
         webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
-        webView.setSupportMultipleWindows(false)
+        webView.settings.setSupportMultipleWindows(false)
         webView.webChromeClient = WebChromeClient()
         webView.removeJavascriptInterface("Android")
         webView.addJavascriptInterface(DictJsBridge(dictRule), "Android")
