@@ -700,6 +700,9 @@
             android:name=".ui.book.cache.AudioCacheActionReceiver"
             android:exported="false" />
         <receiver
+            android:name=".receiver.McpServerActionReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".receiver.ReadGoalWidgetProvider"
             android:exported="true">
             <intent-filter>

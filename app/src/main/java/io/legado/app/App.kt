@@ -277,13 +277,25 @@ class App : Application() {
             lockscreenVisibility = Notification.VISIBILITY_PUBLIC
         }
 
+        val aiMcpChannel = NotificationChannel(
+            channelIdAiMcp,
+            getString(R.string.ai_mcp_server_out),
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            enableLights(false)
+            enableVibration(false)
+            setSound(null, null)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+
         //向notification manager 提交channel
         notificationManager.createNotificationChannels(
             listOf(
                 downloadChannel,
                 readAloudChannel,
                 webChannel,
-                aiTaskChannel
+                aiTaskChannel,
+                aiMcpChannel
             )
         )
     }

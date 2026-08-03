@@ -25,9 +25,11 @@ import io.legado.app.ui.main.ai.AiMcpServerConfig
 import io.legado.app.ui.main.ai.AiImageGalleryActivity
 import io.legado.app.ui.main.ai.AiSkillConfig
 import io.legado.app.ui.file.FileManageActivity
+import io.legado.app.utils.NetworkUtils
 import io.legado.app.utils.observeEvent
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
+import io.legado.app.web.mcp.McpServerNotification
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -261,15 +263,16 @@ class AiConfigFragment : ComposeSettingFragment() {
                         SettingSwitchSpec(
                             key = PreferKey.aiMcpEnabled,
                             title = getString(R.string.ai_mcp_server_out_enable),
-                            summary = getString(
-                                if (AppConfig.aiMcpEnabled) {
-                                    R.string.ai_mcp_server_out_enable_summary_on
-                                } else {
-                                    R.string.ai_mcp_server_out_enable_summary_off
-                                }
-                            ),
+                            summary = if (AppConfig.aiMcpEnabled) {
+                                getString(R.string.ai_mcp_server_out_enable_summary_on, mcpServerUrl())
+                            } else {
+                                getString(R.string.ai_mcp_server_out_enable_summary_off)
+                            },
                             checked = AppConfig.aiMcpEnabled,
-                            onCheckedChange = { AppConfig.aiMcpEnabled = it }
+                            onCheckedChange = { enable ->
+                                AppConfig.aiMcpEnabled = enable
+                                McpServerNotification.refresh(requireContext(), enable)
+                            }
                         ),
                         SettingActionSpec(
                             key = KEY_SET_MCP_TOKEN,
@@ -349,7 +352,10 @@ class AiConfigFragment : ComposeSettingFragment() {
             PreferKey.aiReadAloudRoleModelId,
             PreferKey.aiCurrentImageProviderId -> refreshUi()
             PreferKey.aiReadToolMode -> refreshUi()
-            PreferKey.aiMcpEnabled -> refreshUi()
+            PreferKey.aiMcpEnabled -> {
+                refreshUi()
+                McpServerNotification.refresh(requireContext(), AppConfig.aiMcpEnabled)
+            }
         }
     }
 
@@ -583,6 +589,12 @@ class AiConfigFragment : ComposeSettingFragment() {
                 toastOnUi(R.string.ai_mcp_server_saved)
             }
         )
+    }
+
+    private fun mcpServerUrl(): String {
+        val ip = NetworkUtils.getLocalIPAddress().firstOrNull()?.hostAddress
+            ?: getString(R.string.ai_mcp_server_ip_placeholder)
+        return "http://$ip:${AppConfig.webPort}/mcp"
     }
 
     private fun showSetMcpTokenDialog() {
