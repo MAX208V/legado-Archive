@@ -1,5 +1,6 @@
 package io.legado.app.ui.book.read.config
 
+import android.content.Context
 import android.content.DialogInterface
 import android.net.Uri
 import android.os.Bundle
@@ -899,10 +900,11 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun addCustomWallpaperFromUri(uri: Uri) {
         lifecycleScope.launch {
             try {
-                val inputStream = requireContext().contentResolver.openInputStream(uri) ?: return@launch
-                val bgDir = File(requireContext().externalFiles, "bg")
+                val context = requireContext()
+                val inputStream = context.contentResolver.openInputStream(uri) ?: return@launch
+                val bgDir = File(context.externalFiles, "bg")
                 bgDir.mkdirs()
-                val fileName = "custom_${System.currentTimeMillis()}_${uri.lastPathSegment ?: "wallpaper"}"
+                val fileName = buildCustomWallpaperFileName(context, uri)
                 val destFile = File(bgDir, fileName)
                 destFile.outputStream().use { out -> inputStream.copyTo(out) }
                 val entry = ReadBookConfig.buildRotationEntry("custom:${destFile.absolutePath}")
@@ -915,6 +917,45 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 requireContext().toastOnUi(e.stackTraceStr)
             }
         }
+    }
+
+    /**
+     * 生成自定义壁纸文件名：
+     * - 保留原始扩展名（取 MIME 类型映射，其次取原文件名后缀）
+     * - 净化 URL 编码与非法文件名字符
+     * - 加时间戳前缀避免重名覆盖
+     *
+     * 注意：Uri.getLastPathSegment() 已返回解码后的字符串（中文/空格已还原），
+     * 无需再做 URLDecoder.decode，避免 `+`→空格、非法 `%` 序列等双重解码问题。
+     */
+    private fun buildCustomWallpaperFileName(context: Context, uri: Uri): String {
+        // 1. 从 MIME 推断扩展名（content:// 场景最可靠）
+        val mimeExt = runCatching {
+            context.contentResolver.getType(uri)
+        }.getOrNull()?.let { mime ->
+            when (mime.lowercase()) {
+                "image/jpeg", "image/jpg" -> ".jpg"
+                "image/png" -> ".png"
+                "image/webp" -> ".webp"
+                "image/bmp" -> ".bmp"
+                "image/gif" -> ".gif"
+                else -> null
+            }
+        }
+        // 2. 取原文件名（Uri.getLastPathSegment 已解码）
+        val rawName = uri.lastPathSegment ?: ""
+        // 3. 扩展名回退：原文件名后缀
+        val nameExt = rawName.substringAfterLast('.', "").takeIf {
+            it.isNotBlank() && it.length <= 5 && it.all { c -> c.isLetterOrDigit() }
+        }?.let { ".$it" }
+        val ext = mimeExt ?: nameExt ?: ".jpg"
+        // 4. 净化文件名主体（保留中文/字母/数字/下划线/中划线）
+        val base = rawName.substringBeforeLast('.', rawName)
+            .ifBlank { "wallpaper" }
+            .replace(Regex("[^\\u4e00-\\u9fa5a-zA-Z0-9_-]"), "_")
+            .take(40)
+            .ifBlank { "wallpaper" }
+        return "custom_${System.currentTimeMillis()}_$base$ext"
     }
 
     private fun addStyleWallpaper(

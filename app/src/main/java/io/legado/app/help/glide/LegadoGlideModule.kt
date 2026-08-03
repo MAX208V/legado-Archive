@@ -1,6 +1,7 @@
 package io.legado.app.help.glide
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import com.bumptech.glide.Glide
 import com.bumptech.glide.GlideBuilder
@@ -35,6 +36,12 @@ class LegadoGlideModule : AppGlideModule() {
             String::class.java,
             File::class.java,
             FilePathLoader.Factory()
+        )
+        // Register AssetUriLoader for file:///android_asset/ scheme
+        registry.prepend(
+            Uri::class.java,
+            InputStream::class.java,
+            AssetUriLoader.Factory(context)
         )
     }
 
