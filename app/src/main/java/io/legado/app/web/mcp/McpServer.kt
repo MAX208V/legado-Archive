@@ -79,6 +79,15 @@ object McpServer {
         val method = request.optString("method")
         val params = request.optJSONObject("params") ?: JSONObject()
 
+        // JSON-RPC notification（无 id）：MCP 规范要求返回 202 Accepted 且无响应体
+        if (!request.has("id") || request.isNull("id")) {
+            return NanoHTTPD.newChunkedResponse(
+                Response.Status.ACCEPTED,
+                "text/plain",
+                ByteArrayInputStream(ByteArray(0))
+            )
+        }
+
         // 头部与 body _meta 版本一致性校验
         val metaVer = params.optJSONObject("_meta")?.optString("io.modelcontextprotocol/protocolVersion")
         if (!metaVer.isNullOrBlank() && metaVer != protocolVer) {
