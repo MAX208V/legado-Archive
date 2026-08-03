@@ -41,7 +41,7 @@ object McpServerNotification {
 
         val ip = NetworkUtils.getLocalIPAddress().firstOrNull()?.hostAddress
             ?: context.getString(R.string.ai_mcp_server_ip_placeholder)
-        val url = "http://$ip:${AppConfig.webPort}/mcp"
+        val url = "http://$ip:${AppConfig.aiMcpPort}/mcp"
 
         val openPi = PendingIntent.getActivity(
             context, 1,

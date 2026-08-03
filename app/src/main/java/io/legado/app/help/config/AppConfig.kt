@@ -553,6 +553,13 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             else appCtx.putPrefString(PreferKey.aiMcpToken, value.trim())
         }
 
+    // AI MCP Server 独立端口（默认 1123，避开 Web 服务 1122）
+    var aiMcpPort: Int
+        get() = appCtx.getPrefInt(PreferKey.aiMcpPort, 1123)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.aiMcpPort, value.coerceIn(1024, 65535))
+        }
+
     var aiProviderList: List<AiProviderConfig>
         get() {
             val providers = readAiProviders()

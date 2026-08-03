@@ -12,34 +12,52 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
+import java.io.IOException
 
 /**
  * Streamable HTTP MCP Server（协议版本 2025-06-18，兼容 Claude Desktop / Cursor）
  *
- * 挂载于现有 HttpServer 的 `/mcp` 端点（POST + OPTIONS），
- * 将 legado 全部原生 AI 工具（80+）与内置 Skill（prompts）对外暴露。
+ * 独立 NanoHTTPD 服务器：由「对外 MCP 服务」开关直接控制启停，
+ * 不依赖 Web 服务。端点：POST /mcp（独立端口 AppConfig.aiMcpPort，默认 1123）。
  *
- * 端点：POST /mcp
  * 方法：initialize / ping / tools/list / tools/call / prompts/list / prompts/get
  * 鉴权：配置 AppConfig.aiMcpToken 后要求 `Authorization: Bearer <token>`
  */
-object McpServer {
+class McpServer private constructor(port: Int) : NanoHTTPD(port) {
 
-    private const val PROTOCOL_VERSION = "2025-06-18"
-    private const val TOOLS_PAGE_SIZE = 50
-    private val tag = "McpServer"
+    companion object {
+        const val PROTOCOL_VERSION = "2025-06-18"
+        private const val TOOLS_PAGE_SIZE = 50
+        private const val TAG = "McpServer"
+        private var instance: McpServer? = null
 
-    /** HttpServer.serve() 中 /mcp 路径委托入口 */
-    fun serve(session: IHTTPSession): Response {
-        // 对外开关：默认关闭（端点表现为不存在）
-        if (!AppConfig.aiMcpEnabled) {
-            return NanoHTTPD.newChunkedResponse(
-                Response.Status.NOT_FOUND,
-                "text/plain",
-                ByteArrayInputStream("Not Found".toByteArray())
-            )
+        val running: Boolean get() = instance?.isAlive == true
+
+        /** 启动独立 MCP 服务器，返回是否成功 */
+        @Synchronized
+        fun start(port: Int): Boolean {
+            stop()
+            return try {
+                val server = McpServer(port)
+                server.start(0) // 无 socket 读超时，容忍长耗时工具
+                instance = server
+                LogUtils.d(TAG) { "MCP server started on port $port" }
+                true
+            } catch (e: IOException) {
+                LogUtils.d(TAG) { "MCP server start failed: $e\n${e.stackTraceStr}" }
+                false
+            }
         }
 
+        @Synchronized
+        fun stop() {
+            instance?.stop()
+            instance = null
+            LogUtils.d(TAG) { "MCP server stopped" }
+        }
+    }
+
+    override fun serve(session: IHTTPSession): Response {
         // CORS 预检
         if (session.method == NanoHTTPD.Method.OPTIONS) {
             return corsResponse(NanoHTTPD.newChunkedResponse(
@@ -88,15 +106,6 @@ object McpServer {
         val method = request.optString("method")
         val params = request.optJSONObject("params") ?: JSONObject()
 
-        // JSON-RPC notification（无 id）：MCP 规范要求返回 202 Accepted 且无响应体
-        if (!request.has("id") || request.isNull("id")) {
-            return NanoHTTPD.newChunkedResponse(
-                Response.Status.ACCEPTED,
-                "text/plain",
-                ByteArrayInputStream(ByteArray(0))
-            )
-        }
-
         // 头部与 body _meta 版本一致性校验
         val metaVer = params.optJSONObject("_meta")?.optString("io.modelcontextprotocol/protocolVersion")
         if (!metaVer.isNullOrBlank() && metaVer != protocolVer) {
@@ -104,11 +113,20 @@ object McpServer {
                 "HeaderMismatch: MCP-Protocol-Version ($protocolVer) != _meta ($metaVer)", id)
         }
 
+        // JSON-RPC notification（无 id，如 notifications/initialized）：202 Accepted
+        if (request.isNull("id")) {
+            return NanoHTTPD.newChunkedResponse(
+                Response.Status.ACCEPTED,
+                "text/plain",
+                ByteArrayInputStream(ByteArray(0))
+            )
+        }
+
         val wantSse = (session.headers["accept"] ?: "").contains("text/event-stream")
         return try {
             dispatch(method, params, id, wantSse)
         } catch (e: Exception) {
-            LogUtils.d(tag) { "MCP dispatch error: $e\n${e.stackTraceStr}" }
+            LogUtils.d(TAG) { "MCP dispatch error: $e\n${e.stackTraceStr}" }
             jsonRpcError(Response.Status.INTERNAL_ERROR, -32603, "Internal error: ${e.message}", id)
         }
     }
@@ -271,11 +289,10 @@ object McpServer {
     }
 
     private fun jsonResponse(json: JSONObject): Response {
-        val bytes = json.toString().toByteArray()
         return corsResponse(NanoHTTPD.newChunkedResponse(
             Response.Status.OK,
             "application/json",
-            ByteArrayInputStream(bytes)
+            ByteArrayInputStream(json.toString().toByteArray())
         ))
     }
 
@@ -303,11 +320,10 @@ object McpServer {
                 put("message", message)
             })
         }
-        val bytes = json.toString().toByteArray()
         return corsResponse(NanoHTTPD.newChunkedResponse(
             httpStatus,
             "application/json",
-            ByteArrayInputStream(bytes)
+            ByteArrayInputStream(json.toString().toByteArray())
         ))
     }
 

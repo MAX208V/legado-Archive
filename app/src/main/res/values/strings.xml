@@ -786,6 +786,10 @@
     <string name="ai_mcp_server_noti_title">AI MCP 服务已开启</string>
     <string name="ai_mcp_server_noti_text">局域网内可通过 %1$s 连接（点击进入 AI 设置）</string>
     <string name="ai_mcp_server_noti_stop">关闭</string>
+    <string name="ai_mcp_server_out_port">端口</string>
+    <string name="ai_mcp_server_out_port_hint">1024-65535，默认 1123</string>
+    <string name="ai_mcp_server_out_port_summary">当前：%1$d（修改后自动重启服务）</string>
+    <string name="ai_mcp_server_out_port_saved">端口已保存，服务已重启</string>
     <string name="ai_edit_mcp_server">编辑 MCP 服务器</string>
     <string name="ai_remove_mcp_server">删除 MCP 服务器</string>
     <string name="ai_remove_mcp_server_confirm">确定删除这个 MCP 服务器吗？</string>

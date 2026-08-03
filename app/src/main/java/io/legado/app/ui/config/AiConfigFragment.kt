@@ -29,6 +29,7 @@ import io.legado.app.utils.NetworkUtils
 import io.legado.app.utils.observeEvent
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
+import io.legado.app.web.mcp.McpServer
 import io.legado.app.web.mcp.McpServerNotification
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
@@ -56,6 +57,7 @@ class AiConfigFragment : ComposeSettingFragment() {
         const val KEY_ADD_MCP_SERVER = "aiAddMcpServer"
         const val KEY_MANAGE_MCP_SERVERS = "aiManageMcpServers"
         const val KEY_SET_MCP_TOKEN = "aiSetMcpToken"
+        const val KEY_SET_MCP_PORT = "aiSetMcpPort"
     }
 
     override val titleRes: Int = R.string.ai_setting
@@ -75,8 +77,8 @@ class AiConfigFragment : ComposeSettingFragment() {
     override fun buildPageSpec(): SettingPageSpec {
         val canEnable = AppConfig.aiCurrentModelConfig != null
         val currentProvider = AppConfig.aiCurrentProvider
-        val mcpServers = AppConfig.aiMcpServerList
-        val enabledMcpCount = mcpServers.count { it.enabled }
+        // MCP Streamable HTTP 端点独立运行，由开关直接控制启停
+        val mcpRunning = io.legado.app.web.mcp.McpServer.running
         val imageProviders = AppConfig.aiImageProviderList
         val skills = AppConfig.aiSkillList
         val enabledSkillCount = skills.count { it.enabled }
@@ -271,8 +273,16 @@ class AiConfigFragment : ComposeSettingFragment() {
                             checked = AppConfig.aiMcpEnabled,
                             onCheckedChange = { enable ->
                                 AppConfig.aiMcpEnabled = enable
+                                if (enable) McpServer.start(AppConfig.aiMcpPort)
+                                else McpServer.stop()
                                 McpServerNotification.refresh(requireContext(), enable)
                             }
+                        ),
+                        SettingActionSpec(
+                            key = KEY_SET_MCP_PORT,
+                            title = getString(R.string.ai_mcp_server_out_port),
+                            summary = getString(R.string.ai_mcp_server_out_port_summary, AppConfig.aiMcpPort),
+                            onClick = ::showSetMcpPortDialog
                         ),
                         SettingActionSpec(
                             key = KEY_SET_MCP_TOKEN,
@@ -355,6 +365,13 @@ class AiConfigFragment : ComposeSettingFragment() {
             PreferKey.aiMcpEnabled -> {
                 refreshUi()
                 McpServerNotification.refresh(requireContext(), AppConfig.aiMcpEnabled)
+            }
+            PreferKey.aiMcpPort -> {
+                if (AppConfig.aiMcpEnabled) {
+                    McpServer.stop()
+                    McpServer.start(AppConfig.aiMcpPort)
+                }
+                refreshUi()
             }
         }
     }
@@ -594,7 +611,21 @@ class AiConfigFragment : ComposeSettingFragment() {
     private fun mcpServerUrl(): String {
         val ip = NetworkUtils.getLocalIPAddress().firstOrNull()?.hostAddress
             ?: getString(R.string.ai_mcp_server_ip_placeholder)
-        return "http://$ip:${AppConfig.webPort}/mcp"
+        return "http://$ip:${AppConfig.aiMcpPort}/mcp"
+    }
+
+    private fun showSetMcpPortDialog() {
+        showComposeNumberPickerDialog(
+            title = getString(R.string.ai_mcp_server_out_port),
+            min = 1024,
+            max = 65535,
+            initialValue = AppConfig.aiMcpPort,
+            onPositive = { value ->
+                AppConfig.aiMcpPort = value
+                toastOnUi(R.string.ai_mcp_server_out_port_saved)
+                refreshUi()
+            }
+        )
     }
 
     private fun showSetMcpTokenDialog() {
