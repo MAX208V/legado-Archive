@@ -18,16 +18,30 @@ Claude Desktop / Cursor 等支持远程 Streamable HTTP 的 MCP 客户端，可�
 
 ### 开启方式
 
-1. 打开 App「设置 → Web服务」，启动 Web 服务（建议关闭「Open Web 访问」，仅局域网）。
-2. 手机记录 Web 服务地址（如 `192.168.1.100:8080`）。
-3. （推荐）在 App 的 AI 设置中配置一个 **MCP 访问令牌**（`AppConfig.aiMcpToken`）。
-   - 配置后，所有 `/mcp` 请求必须携带 `Authorization: Bearer <token>`，否则返回 `403`。
-   - 留空则 **无鉴权** —— 请务必仅在受信局域网内使用，避免他人调用本机写工具。
+默认 **关闭**，需在 App 内显式开启：
+
+1. 打开 App「设置 → 通用 → AI 设置」→ 找到「**对外 MCP 服务**」区块。
+2. 打开「对外开放 /mcp 端点」开关（默认关闭）。开启后，`POST /mcp` 端点方可访问。
+3. （推荐）点击「**访问令牌**」设置一个 Bearer 令牌：
+   - 设置后，所有 `/mcp` 请求必须携带 `Authorization: Bearer <令牌>`，否则返回 `403`。
+   - 留空则 **无鉴权** —— 请务必仅在受信局域网内使用。
+4. 打开 App「设置 → Web服务」，启动 Web 服务（仅局域网即可，不建议公网）。
+5. 在手机 Web 服务界面确认局域网地址（如 `192.168.1.100:8080`）。
 
 > ⚠️ 安全提醒：该端点暴露的是**完整读写能力**（可改书架、书源、读本地文件、调用 TTS 等）。请务必：
-> - 绑定受信局域网，勿直接暴露公网；
-> - 配置访问令牌；
+> - 仅在受信局域网使用，勿直接暴露公网；
+> - 强烈建议设置访问令牌；
 > - 客户端鉴权信息不要提交到公开仓库。
+
+### 连接测试
+
+仓库提供了冒烟测试脚本，可在电脑上一键验证（需手机已开启 MCP 服务与 Web 服务）：
+
+```bash
+bash docs/mcp-smoke-test.sh <手机IP:端口> [Bearer Token]
+# 例：bash docs/mcp-smoke-test.sh 192.168.1.100:8080
+#     bash docs/mcp-smoke-test.sh 192.168.1.100:8080 mytoken123
+```
 
 ---
 
@@ -120,4 +134,6 @@ App「AI 设置 → 技能」中所有 **启用** 的 Skill，作为 MCP Prompts
 - 挂载：`HttpServer.serve()` 拦截 `/mcp` → `McpServer.serve(session)`
 - 工具来源：`AiToolRegistry.allNativeTools()`
 - Skill 来源：`AppConfig.aiSkillList`
+- 对外开关：`AppConfig.aiMcpEnabled`（`PreferKey.aiMcpEnabled`，默认关闭）
 - 鉴权令牌：`AppConfig.aiMcpToken`（`PreferKey.aiMcpToken`）
+- 设置入口：`AiConfigFragment`「对外 MCP 服务」区块

@@ -538,6 +538,13 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.aiAssistantEnabled, value && aiCurrentModelConfig != null)
         }
 
+    // AI MCP Server：对外暴露开关（默认关闭，开启后 /mcp 端点可用）
+    var aiMcpEnabled: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.aiMcpEnabled, false)
+        set(value) {
+            appCtx.putPrefBoolean(PreferKey.aiMcpEnabled, value)
+        }
+
     // AI MCP Server token（可选）
     var aiMcpToken: String
         get() = appCtx.getPrefString(PreferKey.aiMcpToken).orEmpty()

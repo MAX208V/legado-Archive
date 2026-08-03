@@ -773,6 +773,15 @@
     <string name="ai_mcp_server_enabled">启用这个 MCP 服务器</string>
     <string name="ai_mcp_server_saved">已保存 MCP 服务器</string>
     <string name="ai_mcp_server_removed">已删除 MCP 服务器</string>
+    <string name="ai_mcp_server_out">对外 MCP 服务</string>
+    <string name="ai_mcp_server_out_enable">对外开放 /mcp 端点</string>
+    <string name="ai_mcp_server_out_enable_summary_on">已开启：局域网内可通过 http://手机IP:端口/mcp 连接</string>
+    <string name="ai_mcp_server_out_enable_summary_off">默认关闭。开启后向局域网暴露全部 AI 工具（含读写）</string>
+    <string name="ai_mcp_server_out_token">访问令牌（可选）</string>
+    <string name="ai_mcp_server_out_token_hint">留空则不校验；建议设置复杂令牌</string>
+    <string name="ai_mcp_server_out_token_summary_missing">未设置（无鉴权，仅限受信局域网）</string>
+    <string name="ai_mcp_server_out_token_summary_set">已设置：请求需携带 Authorization: Bearer &lt;令牌&gt;</string>
+    <string name="ai_mcp_server_out_token_saved">已保存访问令牌</string>
     <string name="ai_edit_mcp_server">编辑 MCP 服务器</string>
     <string name="ai_remove_mcp_server">删除 MCP 服务器</string>
     <string name="ai_remove_mcp_server_confirm">确定删除这个 MCP 服务器吗？</string>

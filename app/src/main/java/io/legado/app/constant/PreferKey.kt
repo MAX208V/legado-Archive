@@ -436,5 +436,6 @@ object PreferKey {
     const val showBoardLine = "showBoardLine"
 
     // AI MCP 服务器（对外暴露原生工具/Skill）
+    const val aiMcpEnabled = "aiMcpEnabled"
     const val aiMcpToken = "aiMcpToken"
 }

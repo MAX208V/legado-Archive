@@ -53,6 +53,7 @@ class AiConfigFragment : ComposeSettingFragment() {
         const val KEY_MANAGE_PROVIDERS = "aiManageProviders"
         const val KEY_ADD_MCP_SERVER = "aiAddMcpServer"
         const val KEY_MANAGE_MCP_SERVERS = "aiManageMcpServers"
+        const val KEY_SET_MCP_TOKEN = "aiSetMcpToken"
     }
 
     override val titleRes: Int = R.string.ai_setting
@@ -255,6 +256,36 @@ class AiConfigFragment : ComposeSettingFragment() {
                     )
                 ),
                 SettingSectionSpec(
+                    title = getString(R.string.ai_mcp_server_out),
+                    items = listOf(
+                        SettingSwitchSpec(
+                            key = PreferKey.aiMcpEnabled,
+                            title = getString(R.string.ai_mcp_server_out_enable),
+                            summary = getString(
+                                if (AppConfig.aiMcpEnabled) {
+                                    R.string.ai_mcp_server_out_enable_summary_on
+                                } else {
+                                    R.string.ai_mcp_server_out_enable_summary_off
+                                }
+                            ),
+                            checked = AppConfig.aiMcpEnabled,
+                            onCheckedChange = { AppConfig.aiMcpEnabled = it }
+                        ),
+                        SettingActionSpec(
+                            key = KEY_SET_MCP_TOKEN,
+                            title = getString(R.string.ai_mcp_server_out_token),
+                            summary = getString(
+                                if (AppConfig.aiMcpToken.isBlank()) {
+                                    R.string.ai_mcp_server_out_token_summary_missing
+                                } else {
+                                    R.string.ai_mcp_server_out_token_summary_set
+                                }
+                            ),
+                            onClick = ::showSetMcpTokenDialog
+                        )
+                    )
+                ),
+                SettingSectionSpec(
                     title = getString(R.string.ai_web_tools),
                     items = listOf(
                         SettingSwitchSpec(
@@ -318,6 +349,7 @@ class AiConfigFragment : ComposeSettingFragment() {
             PreferKey.aiReadAloudRoleModelId,
             PreferKey.aiCurrentImageProviderId -> refreshUi()
             PreferKey.aiReadToolMode -> refreshUi()
+            PreferKey.aiMcpEnabled -> refreshUi()
         }
     }
 
@@ -549,6 +581,19 @@ class AiConfigFragment : ComposeSettingFragment() {
                 AppConfig.aiMcpServerList = servers
                 refreshUi()
                 toastOnUi(R.string.ai_mcp_server_saved)
+            }
+        )
+    }
+
+    private fun showSetMcpTokenDialog() {
+        showComposeTextInputDialog(
+            title = getString(R.string.ai_mcp_server_out_token),
+            hint = getString(R.string.ai_mcp_server_out_token_hint),
+            initialValue = AppConfig.aiMcpToken,
+            onPositive = { value ->
+                AppConfig.aiMcpToken = value.trim()
+                toastOnUi(R.string.ai_mcp_server_out_token_saved)
+                refreshUi()
             }
         )
     }

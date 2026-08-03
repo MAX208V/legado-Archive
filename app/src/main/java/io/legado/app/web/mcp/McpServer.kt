@@ -31,6 +31,15 @@ object McpServer {
 
     /** HttpServer.serve() 中 /mcp 路径委托入口 */
     fun serve(session: IHTTPSession): Response {
+        // 对外开关：默认关闭（端点表现为不存在）
+        if (!AppConfig.aiMcpEnabled) {
+            return NanoHTTPD.newChunkedResponse(
+                Response.Status.NOT_FOUND,
+                "text/plain",
+                ByteArrayInputStream("Not Found".toByteArray())
+            )
+        }
+
         // CORS 预检
         if (session.method == NanoHTTPD.Method.OPTIONS) {
             return corsResponse(NanoHTTPD.newChunkedResponse(
