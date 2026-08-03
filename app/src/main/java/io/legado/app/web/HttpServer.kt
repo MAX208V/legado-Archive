@@ -13,6 +13,7 @@ import io.legado.app.service.WebService
 import io.legado.app.utils.GSON
 import io.legado.app.utils.LogUtils
 import io.legado.app.utils.stackTraceStr
+import io.legado.app.web.mcp.McpServer
 import io.legado.app.web.utils.AssetsWeb
 import kotlinx.coroutines.runBlocking
 import okio.Pipe
@@ -29,6 +30,11 @@ class HttpServer(port: Int) : NanoHTTPD(port) {
         val ct = ContentType(session.headers["content-type"]).tryUTF8()
         session.headers["content-type"] = ct.contentTypeHeader
         var uri = session.uri
+
+        // MCP Streamable HTTP 端点：委托给 McpServer 处理
+        if (uri == "/mcp") {
+            return McpServer.serve(session)
+        }
 
         val startAt = System.currentTimeMillis()
         LogUtils.d(TAG) {

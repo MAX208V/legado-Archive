@@ -413,6 +413,8 @@ object AiToolRegistry {
         return tools.distinctBy { it.name }
     }
 
+    fun allNativeTools(): List<AiResolvedTool> = nativeResolvedTools()
+
     suspend fun resolveAllToolNamesForManage(): List<String> {
         val dynamic = mutableSetOf<String>()
         dynamic += nativeResolvedTools().map { it.name }

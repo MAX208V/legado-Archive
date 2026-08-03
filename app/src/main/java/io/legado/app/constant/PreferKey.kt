@@ -434,4 +434,7 @@ object PreferKey {
     const val editAutoWrap = "editAutoWrap"
     const val editAutoComplete = "editAutoComplete"
     const val showBoardLine = "showBoardLine"
+
+    // AI MCP 服务器（对外暴露原生工具/Skill）
+    const val aiMcpToken = "aiMcpToken"
 }

@@ -538,6 +538,14 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.aiAssistantEnabled, value && aiCurrentModelConfig != null)
         }
 
+    // AI MCP Server token（可选）
+    var aiMcpToken: String
+        get() = appCtx.getPrefString(PreferKey.aiMcpToken)
+        set(value) {
+            if (value.isBlank()) appCtx.removePref(PreferKey.aiMcpToken)
+            else appCtx.putPrefString(PreferKey.aiMcpToken, value.trim())
+        }
+
     var aiProviderList: List<AiProviderConfig>
         get() {
             val providers = readAiProviders()
