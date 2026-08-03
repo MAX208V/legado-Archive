@@ -315,7 +315,7 @@
     <string name="bookmark">Bookmarks</string>
     <string name="bookmark_add">Add to Bookmarks</string>
     <string name="bookmark_added">Bookmark added</string>
-    <string name="dict_mode_auto">Auto</string>
+    <string name="dict_mode_raw">Raw</string>
     <string name="action_del">Delete</string>
     <string name="load_over_time">Loading timeout</string>
     <string name="join_group">Follow:%s</string>

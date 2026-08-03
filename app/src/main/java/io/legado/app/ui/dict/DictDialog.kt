@@ -29,14 +29,14 @@ import io.legado.app.utils.setLayout
 import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.viewbindingdelegate.viewBinding
+import io.legado.app.utils.invisible
 import io.legado.app.utils.visible
 import kotlinx.coroutines.launch
-import org.json.JSONArray
 
 /**
  * 词典显示模式
  */
-enum class DictDisplayMode { AUTO, MD, HTML }
+enum class DictDisplayMode { HTML, RAW }
 
 /**
  * 词典
@@ -52,12 +52,9 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     private val viewModel by viewModels<DictViewModel>()
     private val binding by viewBinding(DialogDictBinding::bind)
     private var word: String? = null
-    private var displayMode = DictDisplayMode.AUTO
+    private var displayMode = DictDisplayMode.HTML
     private var lastDictRule: DictRule? = null
     private var lastContent: String? = null
-
-    private val markedJs by lazy { loadAssetText("web/help/js/marked.min.js") }
-    private val markdownCss by lazy { loadAssetText("web/help/css/github-markdown-light.min.css") }
 
     override fun onStart() {
         super.onStart()
@@ -97,9 +94,8 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         })
         binding.tvDictMode.setOnClickListener {
             displayMode = when (displayMode) {
-                DictDisplayMode.AUTO -> DictDisplayMode.MD
-                DictDisplayMode.MD -> DictDisplayMode.HTML
-                DictDisplayMode.HTML -> DictDisplayMode.AUTO
+                DictDisplayMode.HTML -> DictDisplayMode.RAW
+                DictDisplayMode.RAW -> DictDisplayMode.HTML
             }
             lastDictRule?.let { saveDictMode(it, displayMode) }
             upDictModeText()
@@ -120,9 +116,8 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
 
     private fun upDictModeText() {
         binding.tvDictMode.text = when (displayMode) {
-            DictDisplayMode.AUTO -> getString(R.string.dict_mode_auto)
-            DictDisplayMode.MD -> "MD"
             DictDisplayMode.HTML -> "HTML"
+            DictDisplayMode.RAW -> getString(R.string.dict_mode_raw)
         }
     }
 
@@ -130,10 +125,9 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
      * 读取某字典记忆的显示模式
      */
     private fun loadDictMode(rule: DictRule): DictDisplayMode {
-        return when (requireContext().getPrefString("dictMode_${rule.name}", "AUTO")) {
-            "MD" -> DictDisplayMode.MD
-            "HTML" -> DictDisplayMode.HTML
-            else -> DictDisplayMode.AUTO
+        return when (requireContext().getPrefString("dictMode_${rule.name}", "HTML")) {
+            "RAW" -> DictDisplayMode.RAW
+            else -> DictDisplayMode.HTML
         }
     }
 
@@ -149,74 +143,19 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
      */
     private fun renderDictContent(content: String) {
         binding.rotateLoading.inVisible()
-        var mark: String? = null
         when (displayMode) {
-            DictDisplayMode.MD -> {
-                mark = extractMarkdownContent(content.trimStart())
-            }
-
-            DictDisplayMode.HTML -> Unit
-
-            DictDisplayMode.AUTO -> {
-                val contentTrimS = content.trimStart()
-                if (contentTrimS.startsWith("<md>")) {
-                    val lastIndex = contentTrimS.lastIndexOf("<")
-                    if (lastIndex < 4) {
-                        // 异常 <md> 包裹，按原始内容 HTML 渲染
-                        renderHtml(contentTrimS)
-                        return
-                    }
-                    mark = contentTrimS.substring(4, lastIndex)
-                }
-            }
+            DictDisplayMode.HTML -> renderHtml(content)
+            DictDisplayMode.RAW -> renderRaw(content)
         }
-        if (mark != null) {
-            renderMarkdown(mark)
-            return
-        }
-        renderHtml(content)
     }
 
     /**
-     * MD 模式：marked.js 标准 markdown 渲染（WebView，含表格/代码高亮）
+     * 原始模式：直接显示字典规则提取的原始内容（纯文本，不做任何渲染）
      */
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun renderMarkdown(mark: String) {
-        val dictRule = lastDictRule ?: return
-        binding.wvDict?.visible()
-        val webView = binding.wvDict ?: return
-        webView.stopLoading()
-        initWebView(webView, dictRule)
-        val isNight = AppConfig.isNightTheme
-        val bgColor = if (isNight) "#1F1F1F" else "#FFFFFF"
-        val textColor = if (isNight) "#DDDDDD" else "#333333"
-        val linkColor = if (isNight) "#8AB4F8" else "#1A73E8"
-        webView.setBackgroundColor(if (isNight) 0xFF1F1F1F.toInt() else 0xFFFFFFFF.toInt())
-        val markdownJson = JSONArray().put(mark).toString()
-        val html = buildString {
-            append("<!DOCTYPE html><html><head>")
-            append("<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"/>")
-            append("<style>$markdownCss</style>")
-            append("<style>")
-            append("html,body{margin:0;padding:12px;background:$bgColor;}")
-            append("body{color:$textColor;}")
-            append(".markdown-body{color:$textColor;background:transparent;}")
-            append(".markdown-body img{max-width:100%;height:auto;}")
-            append(".markdown-body a{color:$linkColor;}")
-            append("pre,code{background:${if (isNight) "#2D2D2D" else "#F6F8FA"};}")
-            append("</style></head><body class=\"markdown-body\">")
-            append("<div id=\"md\"></div>")
-            append("<script>$markedJs</script>")
-            append("<script>")
-            append("document.getElementById('md').innerHTML=marked.parse($markdownJson);")
-            append("var imgs=document.getElementsByTagName('img');")
-            append("for(var i=0;i<imgs.length;i++){(function(im){")
-            append("im.addEventListener('click',function(){Android.onImageClick(im.src);});")
-            append("})(imgs[i]);}")
-            append("</script></body></html>")
-        }
-        webView.webViewClient = WebViewClient()
-        webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
+    private fun renderRaw(content: String) {
+        binding.wvDict?.invisible()
+        binding.svDictRaw?.visible()
+        binding.tvDictRaw?.text = content
     }
 
     /**
@@ -225,6 +164,7 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     @SuppressLint("SetJavaScriptEnabled")
     private fun renderHtml(content: String) {
         val dictRule = lastDictRule ?: return
+        binding.svDictRaw?.invisible()
         binding.wvDict?.visible()
         val webView = binding.wvDict ?: return
         webView.stopLoading()
@@ -301,27 +241,6 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
             viewLifecycleOwner.lifecycleScope.launch {
                 showDialogFragment(PhotoDialog(src))
             }
-        }
-    }
-
-    /**
-     * 提取 <md> 包裹内的 markdown 内容
-     */
-    private fun extractMarkdownContent(contentTrimS: String): String? {
-        if (!contentTrimS.startsWith("<md>")) return contentTrimS
-        val lastIndex = contentTrimS.lastIndexOf("<")
-        if (lastIndex < 4) return contentTrimS
-        return contentTrimS.substring(4, lastIndex)
-    }
-
-    /**
-     * 读取 assets 内文本资源
-     */
-    private fun loadAssetText(path: String): String {
-        return try {
-            requireContext().assets.open(path).bufferedReader().use { it.readText() }
-        } catch (e: Exception) {
-            ""
         }
     }
 
