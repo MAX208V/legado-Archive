@@ -81,18 +81,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes from commits
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          # 以最近一个已发布 tag 为对比基准，取真实提交历史作为发布说明
-          PREV_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name' 2>/dev/null || echo "")
-          COMMITS=""
-          if [ -n "$PREV_TAG" ]; then
-            COMMITS=$(git log "$PREV_TAG"..HEAD --pretty=format:'- %s' 2>/dev/null || true)
-          fi
-          if [ -z "$COMMITS" ]; then
-            COMMITS=$(git log -30 --pretty=format:'- %s' HEAD 2>/dev/null || true)
-          fi
+          # 只取最新一条提交作为发布说明，避免堆叠历史提交
+          COMMITS=$(git log -1 --pretty=format:'- %s' HEAD 2>/dev/null || true)
           {
             echo "阅读 Archive ${{ steps.version.outputs.name }} 更新说明"
             echo ""

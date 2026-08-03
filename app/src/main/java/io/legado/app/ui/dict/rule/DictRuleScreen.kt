@@ -9,10 +9,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.referentialEqualityPolicy
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -32,6 +32,7 @@ internal fun DictRuleScreen(
     rules: List<DictRule>,
     selectedNames: Set<String>,
     isSelectMode: Boolean,
+    reorderEnabled: Boolean,
     onReorder: (List<DictRule>) -> Unit,
     onToggleSelection: (DictRule) -> Unit,
     onToggleEnabled: (DictRule, Boolean) -> Unit,
@@ -45,7 +46,7 @@ internal fun DictRuleScreen(
     var orderedRules by remember {
         mutableStateOf(rulesSnapshot, referentialEqualityPolicy())
     }
-    LaunchedEffect(rulesSignature) {
+    LaunchedEffect(reorderEnabled, rulesSignature) {
         orderedRules = rulesSnapshot
     }
     val reorderState = rememberReorderableLazyListState(lazyListState) { from, to ->
@@ -54,29 +55,37 @@ internal fun DictRuleScreen(
         }
     }
 
+    @Composable
+    fun itemRow(rule: DictRule, dragHandle: (@Composable () -> Unit)? = null) {
+        DictRuleItemRow(
+            name = rule.name,
+            enabled = rule.enabled,
+            isSelected = rule.name in selectedNames,
+            isSelectMode = isSelectMode,
+            palette = palette,
+            onToggleSelection = { onToggleSelection(rule) },
+            onToggleEnabled = { enabled -> onToggleEnabled(rule, enabled) },
+            onEdit = { onEdit(rule) },
+            onDelete = { onDelete(rule) },
+            dragHandle = dragHandle
+        )
+    }
+
     AppManagementLazyColumn(
         palette = palette,
         state = lazyListState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 24.dp)
     ) {
+        val displayedRules = if (reorderEnabled) orderedRules else rulesSnapshot
         items(
-            items = orderedRules,
+            items = displayedRules,
             key = { rule -> rule.name },
             contentType = { "dictRule" }
         ) { rule ->
-            ReorderableItem(reorderState, key = rule.name) {
-                DictRuleItemRow(
-                    name = rule.name,
-                    enabled = rule.enabled,
-                    isSelected = rule.name in selectedNames,
-                    isSelectMode = isSelectMode,
-                    palette = palette,
-                    onToggleSelection = { onToggleSelection(rule) },
-                    onToggleEnabled = { enabled -> onToggleEnabled(rule, enabled) },
-                    onEdit = { onEdit(rule) },
-                    onDelete = { onDelete(rule) },
-                    dragHandle = {
+            if (reorderEnabled) {
+                ReorderableItem(reorderState, key = rule.name) {
+                    itemRow(rule) {
                         Icon(
                             painter = painterResource(R.drawable.ic_drag_handle),
                             contentDescription = stringResource(R.string.sort),
@@ -87,7 +96,9 @@ internal fun DictRuleScreen(
                                 .draggableHandle(onDragStopped = { onReorder(orderedRules) })
                         )
                     }
-                )
+                }
+            } else {
+                itemRow(rule)
             }
         }
     }
@@ -104,7 +115,7 @@ private fun DictRuleItemRow(
     onToggleEnabled: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    dragHandle: @Composable () -> Unit
+    dragHandle: (@Composable () -> Unit)? = null
 ) {
     AppManagementListRow(
         title = name,

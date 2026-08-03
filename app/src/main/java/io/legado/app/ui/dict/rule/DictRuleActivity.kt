@@ -145,6 +145,7 @@ class DictRuleActivity : VMBaseActivity<ActivityDictRuleBinding, DictRuleViewMod
                         rules = rulesState,
                         selectedNames = selectedNames.value,
                         isSelectMode = selectedNames.value.isNotEmpty(),
+                        reorderEnabled = true,
                         onReorder = viewModel::upSortNumber,
                         onToggleSelection = ::toggleSelection,
                         onToggleEnabled = ::toggleEnabled,
