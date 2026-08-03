@@ -540,7 +540,7 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
 
     // AI MCP Server token（可选）
     var aiMcpToken: String
-        get() = appCtx.getPrefString(PreferKey.aiMcpToken)
+        get() = appCtx.getPrefString(PreferKey.aiMcpToken).orEmpty()
         set(value) {
             if (value.isBlank()) appCtx.removePref(PreferKey.aiMcpToken)
             else appCtx.putPrefString(PreferKey.aiMcpToken, value.trim())

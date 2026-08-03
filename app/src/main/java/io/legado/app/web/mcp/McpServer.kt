@@ -33,7 +33,11 @@ object McpServer {
     fun serve(session: IHTTPSession): Response {
         // CORS 预检
         if (session.method == NanoHTTPD.Method.OPTIONS) {
-            return corsResponse(newFixedLengthResponse(Response.Status.OK, "text/plain", ""))
+            return corsResponse(NanoHTTPD.newChunkedResponse(
+                Response.Status.OK,
+                "text/plain",
+                ByteArrayInputStream(ByteArray(0))
+            ))
         }
         if (session.method != NanoHTTPD.Method.POST) {
             return jsonRpcError(Response.Status.METHOD_NOT_ALLOWED, -32600, "Only POST allowed on /mcp", null)
@@ -77,7 +81,7 @@ object McpServer {
 
         // 头部与 body _meta 版本一致性校验
         val metaVer = params.optJSONObject("_meta")?.optString("io.modelcontextprotocol/protocolVersion")
-        if (metaVer.isNotBlank() && metaVer != protocolVer) {
+        if (!metaVer.isNullOrBlank() && metaVer != protocolVer) {
             return jsonRpcError(Response.Status.BAD_REQUEST, -32020,
                 "HeaderMismatch: MCP-Protocol-Version ($protocolVer) != _meta ($metaVer)", id)
         }
@@ -249,17 +253,18 @@ object McpServer {
     }
 
     private fun jsonResponse(json: JSONObject): Response {
-        return corsResponse(newFixedLengthResponse(
+        val bytes = json.toString().toByteArray()
+        return corsResponse(NanoHTTPD.newChunkedResponse(
             Response.Status.OK,
             "application/json",
-            json.toString()
+            ByteArrayInputStream(bytes)
         ))
     }
 
     private fun sseResponse(json: JSONObject): Response {
         // SSE 单条消息：event: message + data + 空行结束
         val payload = "event: message\ndata: ${json.toString()}\n\n"
-        return corsResponse(newChunkedResponse(
+        return corsResponse(NanoHTTPD.newChunkedResponse(
             Response.Status.OK,
             "text/event-stream",
             ByteArrayInputStream(payload.toByteArray())
@@ -280,10 +285,11 @@ object McpServer {
                 put("message", message)
             })
         }
-        return corsResponse(newFixedLengthResponse(
+        val bytes = json.toString().toByteArray()
+        return corsResponse(NanoHTTPD.newChunkedResponse(
             httpStatus,
             "application/json",
-            json.toString()
+            ByteArrayInputStream(bytes)
         ))
     }
 
