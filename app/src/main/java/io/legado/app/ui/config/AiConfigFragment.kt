@@ -83,6 +83,8 @@ class AiConfigFragment : ComposeSettingFragment() {
         val skills = AppConfig.aiSkillList
         val enabledSkillCount = skills.count { it.enabled }
         val worldBooks = AppConfig.aiWorldBookList
+        val mcpServers = AppConfig.aiMcpServerList
+        val enabledMcpCount = mcpServers.count { it.enabled }
         return SettingPageSpec(
             titleRes = titleRes,
             sections = listOf(
@@ -632,12 +634,15 @@ class AiConfigFragment : ComposeSettingFragment() {
     private fun showSetMcpPortDialog() {
         showComposeNumberPickerDialog(
             title = getString(R.string.ai_mcp_server_out_port),
-            min = 1024,
-            max = 65535,
-            initialValue = AppConfig.aiMcpPort,
-            onPositive = { value ->
+            value = AppConfig.aiMcpPort,
+            minValue = 1024,
+            maxValue = 65535,
+            onValue = { value ->
                 AppConfig.aiMcpPort = value
-                toastOnUi(R.string.ai_mcp_server_out_port_saved)
+                if (McpServer.running) {
+                    McpServer.stop()
+                    McpServer.start(value)
+                }
                 refreshUi()
             }
         )
