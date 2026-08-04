@@ -272,10 +272,20 @@ class AiConfigFragment : ComposeSettingFragment() {
                             },
                             checked = AppConfig.aiMcpEnabled,
                             onCheckedChange = { enable ->
+                                if (enable) {
+                                    val started = McpServer.start(AppConfig.aiMcpPort)
+                                    if (!started) {
+                                        AppConfig.aiMcpEnabled = false
+                                        toastOnUi(R.string.ai_mcp_server_out_start_failed)
+                                        refreshUi()
+                                        return@SettingSwitchSpec
+                                    }
+                                } else {
+                                    McpServer.stop()
+                                }
                                 AppConfig.aiMcpEnabled = enable
-                                if (enable) McpServer.start(AppConfig.aiMcpPort)
-                                else McpServer.stop()
                                 McpServerNotification.refresh(requireContext(), enable)
+                                refreshUi()
                             }
                         ),
                         SettingActionSpec(
@@ -363,6 +373,11 @@ class AiConfigFragment : ComposeSettingFragment() {
             PreferKey.aiCurrentImageProviderId -> refreshUi()
             PreferKey.aiReadToolMode -> refreshUi()
             PreferKey.aiMcpEnabled -> {
+                if (AppConfig.aiMcpEnabled) {
+                    if (!McpServer.running) McpServer.start(AppConfig.aiMcpPort)
+                } else {
+                    McpServer.stop()
+                }
                 refreshUi()
                 McpServerNotification.refresh(requireContext(), AppConfig.aiMcpEnabled)
             }

@@ -14,7 +14,7 @@ Claude Desktop / Cursor 等支持远程 Streamable HTTP 的 MCP 客户端，可�
 | 协议版本 | `2025-06-18`（兼容 Claude Desktop / Cursor） |
 | 传输 | Streamable HTTP（每请求独立 POST；响应为 `application/json` 或 `text/event-stream` SSE） |
 | 方法 | `initialize` / `ping` / `tools/list` / `tools/call` / `prompts/list` / `prompts/get` / `resources/list` |
-| Host | 同 legado Web 服务端口（设置→Web服务），仅局域网内设备可访问 |
+| Host | 独立 NanoHTTPD 服务器（默认端口 **1123**，可在 AI 设置中修改），与 Web 服务互不影响，仅局域网内设备可访问 |
 
 ### 开启方式
 
@@ -38,26 +38,22 @@ Claude Desktop / Cursor 等支持远程 Streamable HTTP 的 MCP 客户端，可�
 > - 强烈建议设置访问令牌；
 > - 客户端鉴权信息不要提交到公开仓库。
 
-> ⚠️ 安全提醒：该端点暴露的是**完整读写能力**（可改书架、书源、读本地文件、调用 TTS 等）。请务必：
-> - 仅在受信局域网使用，勿直接暴露公网；
-> - 强烈建议设置访问令牌；
-> - 客户端鉴权信息不要提交到公开仓库。
-
 ### 连接测试
 
-仓库提供了冒烟测试脚本，可在电脑上一键验证（需手机已开启 MCP 服务与 Web 服务）：
+仓库提供了冒烟测试脚本，可在电脑上一键验证（仅需手机已开启 MCP 服务开关，无需开 Web 服务）：
 
 ```bash
 bash docs/mcp-smoke-test.sh <手机IP:端口> [Bearer Token]
-# 例：bash docs/mcp-smoke-test.sh 192.168.1.100:8080
-#     bash docs/mcp-smoke-test.sh 192.168.1.100:8080 mytoken123
+# 例：bash docs/mcp-smoke-test.sh 192.168.1.100:1123
+#     bash docs/mcp-smoke-test.sh 192.168.1.100:1123 mytoken123
+# 也兼容带 /mcp 后缀：192.168.1.100:1123/mcp
 ```
 
 ---
 
 ## 2. 客户端连接示例
 
-> 以下 `url` 均为示例；请替换为手机实际地址（手机在 Web 服务界面可看到）。
+> 以下 `url` 均为示例；请替换为手机实际地址（手机在「对外 MCP 服务」开关文案或常驻通知中可看到）。
 
 ### Claude Code
 
@@ -66,7 +62,7 @@ bash docs/mcp-smoke-test.sh <手机IP:端口> [Bearer Token]
 ```bash
 claude mcp add legado \
   --transport http \
-  "http://192.168.1.100:8080/mcp"
+  "http://192.168.1.100:1123/mcp"
 ```
 
 可附带 Bearer 令牌（若配置）：
@@ -74,7 +70,7 @@ claude mcp add legado \
 ```bash
 claude mcp add legado \
   --transport http \
-  "http://192.168.1.100:8080/mcp"
+  "http://192.168.1.100:1123/mcp" \
   --header "Authorization: Bearer <token>"
 ```
 
@@ -86,7 +82,7 @@ claude mcp add legado \
 {
   "mcpServers": {
     "legado": {
-      "url": "http://192.168.1.100:8080/mcp",
+      "url": "http://192.168.1.100:1123/mcp",
       "type": "http"
     }
   }
@@ -99,7 +95,7 @@ claude mcp add legado \
 {
   "mcpServers": {
     "legado": {
-      "url": "http://192.168.1.100:8080/mcp",
+      "url": "http://192.168.1.100:1123/mcp",
       "type": "http",
       "headers": {
         "Authorization": "Bearer <token>"
@@ -140,10 +136,12 @@ App「AI 设置 → 技能」中所有 **启用** 的 Skill，作为 MCP Prompts
 
 ## 5. 技术实现
 
-- 新端点：`app/src/main/java/io/legado/app/web/mcp/McpServer.kt`
-- 挂载：`HttpServer.serve()` 拦截 `/mcp` → `McpServer.serve(session)`
+- 独立服务器：`app/src/main/java/io/legado/app/web/mcp/McpServer.kt`（独立 NanoHTTPD 实例，开关控制启停，App 启动时按开关状态恢复）
+- 启停入口：`AiConfigFragment` 开关 → `McpServer.start(port)/stop()`；通知「关闭」→ `McpServerActionReceiver`
+- 常驻通知：`app/src/main/java/io/legado/app/web/mcp/McpServerNotification.kt`（channel `channel_ai_mcp`）
 - 工具来源：`AiToolRegistry.allNativeTools()`
 - Skill 来源：`AppConfig.aiSkillList`
 - 对外开关：`AppConfig.aiMcpEnabled`（`PreferKey.aiMcpEnabled`，默认关闭）
+- 独立端口：`AppConfig.aiMcpPort`（`PreferKey.aiMcpPort`，默认 1123，避开 Web 服务 1122）
 - 鉴权令牌：`AppConfig.aiMcpToken`（`PreferKey.aiMcpToken`）
 - 设置入口：`AiConfigFragment`「对外 MCP 服务」区块

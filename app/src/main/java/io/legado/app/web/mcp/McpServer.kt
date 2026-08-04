@@ -174,7 +174,7 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
     // ===== tools/list（cursor 分页）=====
     private fun handleToolsList(params: JSONObject, id: Any?, wantSse: Boolean): Response {
         val start = params.optString("cursor").toIntOrNull() ?: 0
-        val allTools = runBlocking { AiToolRegistry.allNativeTools() }
+        val allTools = AiToolRegistry.allNativeTools()
         val end = (start + TOOLS_PAGE_SIZE).coerceAtMost(allTools.size)
 
         val toolsJson = JSONArray()
@@ -204,7 +204,7 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
     private fun handleToolsCall(params: JSONObject, id: Any?, wantSse: Boolean): Response {
         val name = params.optString("name")
         val arguments = params.optJSONObject("arguments") ?: JSONObject()
-        val allTools = runBlocking { AiToolRegistry.allNativeTools() }
+        val allTools = AiToolRegistry.allNativeTools()
         val tool = allTools.find { it.name == name }
             ?: return jsonRpcError(Response.Status.BAD_REQUEST, -32602, "Tool not found: $name", id)
 
