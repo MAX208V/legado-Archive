@@ -4,6 +4,7 @@ import fi.iki.elonen.NanoHTTPD
 import fi.iki.elonen.NanoHTTPD.IHTTPSession
 import fi.iki.elonen.NanoHTTPD.Response
 import io.legado.app.BuildConfig
+import io.legado.app.help.ai.AiResolvedTool
 import io.legado.app.help.ai.AiToolRegistry
 import io.legado.app.help.config.AppConfig
 import io.legado.app.utils.LogUtils
@@ -91,7 +92,7 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
         try {
             session.parseBody(files)
         } catch (e: Exception) {
-            return jsonRpcError(Response.Status.BAD_REQUEST, -32700, "Parse error: ${e.message}", id)
+            return jsonRpcError(Response.Status.BAD_REQUEST, -32700, "Parse error: ${e.message}", null)
         }
         val postData = files["postData"]?.trim()
         if (postData.isNullOrBlank()) {
