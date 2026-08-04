@@ -84,11 +84,14 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
         }
 
         // 读取请求体
+        // 坑：NanoHTTPD 对无 charset 的 content-type 用 US-ASCII 解码（有损，中文变 U+FFFD 乱码）。
+        // 强制声明 UTF-8，让 parseBody 正确解码中文/emoji 参数。
+        session.headers["content-type"] = "application/json; charset=UTF-8"
         val files = HashMap<String, String>()
         try {
             session.parseBody(files)
         } catch (e: Exception) {
-            return jsonRpcError(Response.Status.BAD_REQUEST, -32700, "Parse error: ${e.message}", null)
+            return jsonRpcError(Response.Status.BAD_REQUEST, -32700, "Parse error: ${e.message}", id)
         }
         val postData = files["postData"]?.trim()
         if (postData.isNullOrBlank()) {
@@ -171,10 +174,16 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
         return rpcResponse(id, JSONObject(), wantSse)
     }
 
+    // ===== 工具来源：以「管理原生工具」启用的为准 =====
+    private fun enabledNativeTools(): List<AiResolvedTool> {
+        val enabled = AiToolRegistry.effectiveEnabledToolNames()
+        return AiToolRegistry.allNativeTools().filter { it.name in enabled }
+    }
+
     // ===== tools/list（cursor 分页）=====
     private fun handleToolsList(params: JSONObject, id: Any?, wantSse: Boolean): Response {
         val start = params.optString("cursor").toIntOrNull() ?: 0
-        val allTools = AiToolRegistry.allNativeTools()
+        val allTools = enabledNativeTools()
         val end = (start + TOOLS_PAGE_SIZE).coerceAtMost(allTools.size)
 
         val toolsJson = JSONArray()
@@ -204,7 +213,7 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
     private fun handleToolsCall(params: JSONObject, id: Any?, wantSse: Boolean): Response {
         val name = params.optString("name")
         val arguments = params.optJSONObject("arguments") ?: JSONObject()
-        val allTools = AiToolRegistry.allNativeTools()
+        val allTools = enabledNativeTools()
         val tool = allTools.find { it.name == name }
             ?: return jsonRpcError(Response.Status.BAD_REQUEST, -32602, "Tool not found: $name", id)
 

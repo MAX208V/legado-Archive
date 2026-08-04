@@ -194,7 +194,7 @@ object AiMcpClient {
         val response = okHttpClient.newCallResponse {
             url(server.endpoint)
             addHeader("Accept", "application/json, text/event-stream")
-            addHeader("Content-Type", "application/json")
+            addHeader("Content-Type", "application/json; charset=utf-8")
             server.apiKey.trim().takeIf { it.isNotBlank() }?.let {
                 addHeader("Authorization", "Bearer $it")
             }
@@ -223,7 +223,7 @@ object AiMcpClient {
             okHttpClient.newCallResponse {
                 url(server.endpoint)
                 addHeader("Accept", "application/json, text/event-stream")
-                addHeader("Content-Type", "application/json")
+                addHeader("Content-Type", "application/json; charset=utf-8")
                 addHeader(HEADER_PROTOCOL_VERSION, session.protocolVersion)
                 session.sessionId?.let { addHeader(HEADER_SESSION_ID, it) }
                 server.apiKey.trim().takeIf { it.isNotBlank() }?.let {
@@ -249,7 +249,7 @@ object AiMcpClient {
             okHttpClient.newCallResponse {
                 url(server.endpoint)
                 addHeader("Accept", "application/json, text/event-stream")
-                addHeader("Content-Type", "application/json")
+                addHeader("Content-Type", "application/json; charset=utf-8")
                 addHeader(HEADER_PROTOCOL_VERSION, session.protocolVersion)
                 session.sessionId?.let { addHeader(HEADER_SESSION_ID, it) }
                 server.apiKey.trim().takeIf { it.isNotBlank() }?.let {
@@ -266,7 +266,7 @@ object AiMcpClient {
             okHttpClient.newCallResponse {
                 url(server.endpoint)
                 addHeader("Accept", "application/json, text/event-stream")
-                addHeader("Content-Type", "application/json")
+                addHeader("Content-Type", "application/json; charset=utf-8")
                 addHeader(HEADER_PROTOCOL_VERSION, freshSession.protocolVersion)
                 freshSession.sessionId?.let { addHeader(HEADER_SESSION_ID, it) }
                 server.apiKey.trim().takeIf { it.isNotBlank() }?.let {

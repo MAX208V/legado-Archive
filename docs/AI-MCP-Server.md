@@ -113,7 +113,7 @@ claude mcp add legado \
 
 ### tools（`tools/list` + `tools/call`）
 
-legado 的全部原生 AI 工具，来自 `AiToolRegistry.allNativeTools()`，名称与 `inputSchema` 与 App 内 AI 工具一致。示例分组：
+暴露 legado 的原生 AI 工具，**以「AI 设置 → 管理原生工具」中启用的工具为准**（未启用的不会出现在 `tools/list`，也无法通过 `tools/call` 调用），名称与 `inputSchema` 与 App 内 AI 工具一致。示例分组：
 
 - 书架：`query_bookshelf`、`get_bookshelf_book_info`、`add_book`、`remove_book` 等
 - 书源：`search_book_source`、`import_book_source`、`update_book_source` 等
@@ -123,6 +123,9 @@ legado 的全部原生 AI 工具，来自 `AiToolRegistry.allNativeTools()`，�
 - 工作书：`list_world_book`、`get_world_book`、`save_world_book` 等
 - 个人文库：`list_workspace_books`、`workspace_import_book_source` 等
 - 系统：`get_app_settings`、`set_app_setting`、`generate_image`、`search_web_tavily` 等
+
+> 💡 中文/emoji 参数：传输层已强制 UTF-8 解码（NanoHTTPD 对无 charset 的请求默认 US-ASCII 会破坏中文），
+> `searchKey` 等中文字段可放心传递。
 
 ### prompts（`prompts/list` + `prompts/get`）
 
