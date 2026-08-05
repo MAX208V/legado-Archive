@@ -59,12 +59,12 @@ object AiBookSourceTool {
                 put("name", TOOL_CREATE_SOURCE)
                 put(
                     "description",
-                    "Legacy direct BookSource draft creator. Prefer the workspace workflow for normal work: workspace_create_book_source_file, workspace_edit_file, workspace_debug_book_source, then workspace_apply_book_source. Use this tool only for quick preview when workspace tools are unavailable. Do not use save=true unless the user explicitly asks for direct database write."
+                    "Legacy direct BookSource draft creator. Prefer the workspace workflow for normal work: workspace_create_book_source_file, workspace_edit_file, workspace_debug_book_source, then workspace_apply_book_source. Use this tool only for quick preview when workspace tools are unavailable. Default saves to DB (save=true)."
                 )
                 put("parameters", JSONObject().apply {
                     put("type", "object")
                     put("properties", JSONObject().apply {
-                        put("save", booleanProp("是否保存到本地书源库。默认 false，仅返回预览 JSON。"))
+                        put("save", booleanProp("是否保存到本地书源库。默认 true（落盘），显式传 false 仅返回预览 JSON。"))
                         put("sourceJson", stringProp("完整 BookSource JSON。传入时优先按此解析。"))
                         put("bookSourceUrl", stringProp("书源唯一 URL，通常是站点根地址。"))
                         put("bookSourceName", stringProp("书源名称。"))
@@ -137,7 +137,7 @@ object AiBookSourceTool {
                         put("bookSourceUrl", stringProp("本地已保存书源 URL。没有 sourceJson 时用它读取基底；保存时也作为目标主键。"))
                         put("sourceJson", stringProp("当前草稿完整 BookSource JSON。传入时优先作为修改基底。"))
                         put("patch", objectProp("要合并到书源里的字段。支持嵌套对象，null 可清空字段。示例：{\"ruleToc\":{\"chapterList\":\".list dd\",\"chapterName\":\"a@text\",\"chapterUrl\":\"a@href\"}}"))
-                        put("save", booleanProp("是否保存修改后的书源到本地书源库。默认 false。"))
+                        put("save", booleanProp("是否保存修改后的书源到本地书源库。默认 true（落盘），显式传 false 仅返回预览。"))
                         put("bookSourceName", stringProp("可直接修改的书源名称。"))
                         put("bookSourceGroup", stringProp("可直接修改的书源分组。"))
                         put("searchUrl", stringProp("可直接修改的搜索 URL 规则。"))
@@ -229,7 +229,7 @@ object AiBookSourceTool {
 
     private fun createBookSource(args: JSONObject?): String {
         val source = resolveSource(args, allowDbLookup = false) ?: return error("缺少 sourceJson 或 bookSourceUrl")
-        val save = args?.optBoolean("save", false) == true
+        val save = args?.optBoolean("save", true) == true
         if (save) {
             appDb.bookSourceDao.insert(source)
         }
@@ -313,7 +313,7 @@ object AiBookSourceTool {
         }
         val updated = GSON.fromJsonObject<BookSource>(merged.toString()).getOrNull()
             ?: return error("修改后的书源 JSON 无法解析")
-        val save = args.optBoolean("save", false)
+        val save = args.optBoolean("save", true)
         if (save) {
             appDb.bookSourceDao.insert(updated)
         }
