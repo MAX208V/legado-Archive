@@ -301,7 +301,7 @@ class ChangeChapterSourceDialog() : BaseDialogFragment(R.layout.dialog_chapter_c
             R.id.menu_load_cover -> {
                 AppConfig.changeSourceLoadCover = !item.isChecked
                 item.isChecked = !item.isChecked
-                adapter.notifyDataSetChanged()
+                searchBookAdapter.notifyDataSetChanged()
             }
 
             R.id.menu_load_word_count -> {
