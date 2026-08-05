@@ -195,10 +195,16 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
                 put("type", "object")
                 put("properties", JSONObject())
             }
+            val label = AiToolRegistry.displayNameOfTool(tool.name)
+            val group = AiToolRegistry.groupLabelOfTool(tool.name)
+            val rawDesc = func?.optString("description") ?: ""
             toolsJson.put(JSONObject().apply {
                 put("name", tool.name)
-                put("title", func?.optString("name") ?: tool.name)
-                put("description", func?.optString("description") ?: "")
+                put("title", label)
+                put("description", buildString {
+                    append("【管理原生工具】$group · $label")
+                    if (rawDesc.isNotBlank()) append("。").append(rawDesc)
+                })
                 put("inputSchema", schema)
             })
         }
