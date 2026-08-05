@@ -18,6 +18,7 @@ import io.legado.app.lib.theme.primaryTextColor
 import io.legado.app.lib.theme.secondaryTextColor
 import io.legado.app.lib.theme.uiTypeface
 import io.legado.app.ui.widget.ModernActionPopup
+import io.legado.app.ui.widget.image.CoverImageView
 import io.legado.app.utils.getCompatColor
 import io.legado.app.utils.gone
 import io.legado.app.utils.invisible
@@ -73,6 +74,14 @@ class ChangeBookSourceAdapter(
             tvCurrentChapterWordCount.setTextColor(secondaryTextColor)
             tvRespondTime.setTextColor(secondaryTextColor)
             ivChecked.drawable?.let { DrawableCompat.setTint(it, primaryTextColor) }
+            // 书源名左侧封面（菜单「加载封面」开关控制）
+            if (AppConfig.changeSourceLoadCover) {
+                ivCover.visible()
+                ivCover.setCoverStyle(CoverImageView.CoverStyle.LIST)
+                ivCover.load(item)
+            } else {
+                ivCover.gone()
+            }
             if (payloads.isEmpty()) {
                 tvOrigin.text = item.originName
                 tvAuthor.text = item.author

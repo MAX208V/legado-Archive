@@ -51,6 +51,13 @@
         android:title="@string/load_toc"
         android:checkable="true"
         app:showAsAction="never" />
+
+    <item
+        android:id="@+id/menu_load_cover"
+        android:title="@string/load_cover"
+        android:checkable="true"
+        app:showAsAction="never" />
+
     <item
         android:id="@+id/menu_group"
         android:title="@string/group">

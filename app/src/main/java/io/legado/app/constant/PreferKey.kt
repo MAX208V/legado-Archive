@@ -194,6 +194,7 @@ object PreferKey {
     const val exportPictureFile = "exportPictureFile"
     const val changeSourceCheckAuthor = "changeSourceCheckAuthor"
     const val changeSourceLoadToc = "changeSourceLoadToc"
+    const val changeSourceLoadCover = "changeSourceLoadCover"
     const val changeSourceLoadInfo = "changeSourceLoadInfo"
     const val changeSourceLoadWordCount = "changeSourceLoadWordCount"
     const val chineseConverterType = "chineseConverterType"

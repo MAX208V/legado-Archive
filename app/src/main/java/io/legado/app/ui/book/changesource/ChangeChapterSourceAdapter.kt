@@ -14,6 +14,7 @@ import io.legado.app.data.entities.SearchBook
 import io.legado.app.databinding.ItemChangeSourceBinding
 import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.widget.ModernActionPopup
+import io.legado.app.ui.widget.image.CoverImageView
 import io.legado.app.utils.getCompatColor
 import io.legado.app.utils.gone
 import io.legado.app.utils.invisible
@@ -53,6 +54,14 @@ class ChangeChapterSourceAdapter(
         payloads: MutableList<Any>
     ) {
         binding.apply {
+            // 书源名左侧封面（菜单「加载封面」开关控制）
+            if (AppConfig.changeSourceLoadCover) {
+                ivCover.visible()
+                ivCover.setCoverStyle(CoverImageView.CoverStyle.LIST)
+                ivCover.load(item)
+            } else {
+                ivCover.gone()
+            }
             if (payloads.isEmpty()) {
                 tvOrigin.text = item.originName
                 tvAuthor.text = item.author

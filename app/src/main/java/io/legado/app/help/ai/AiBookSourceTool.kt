@@ -59,7 +59,7 @@ object AiBookSourceTool {
                 put("name", TOOL_CREATE_SOURCE)
                 put(
                     "description",
-                    "Legacy direct BookSource draft creator. Prefer the workspace workflow for normal work: workspace_create_book_source_file, workspace_edit_file, workspace_debug_book_source, then workspace_apply_book_source. Use this tool only for quick preview when workspace tools are unavailable. Default saves to DB (save=true)."
+                    "创建并保存一个 Legado 书源（书源规则：搜索/详情/目录/正文/发现的 URL 与 JS 规则集合）。优先使用工作区流程：workspace_create_book_source_file、workspace_edit_file、workspace_debug_book_source、workspace_apply_book_source；本工具用于工作区不可用时的快速创建或预览。默认保存到本地书源库（save=true），显式传 save=false 仅返回预览 JSON。可直接传完整 sourceJson，或组合传 bookSourceUrl（唯一标识，通常为站点根地址）、bookSourceName、bookSourceGroup、searchUrl（如 /search?q={{key}}&page={{page}}）、exploreUrl、ruleSearch/ruleBookInfo/ruleToc/ruleContent/ruleExplore 规则对象、comment 注释。"
                 )
                 put("parameters", JSONObject().apply {
                     put("type", "object")
@@ -129,7 +129,7 @@ object AiBookSourceTool {
                 put("name", TOOL_UPDATE_SOURCE)
                 put(
                     "description",
-                    "Legacy direct BookSource updater. Prefer workspace_replace_text, workspace_replace_regex, workspace_edit_lines, or workspace_insert_text on a workspace file for normal edits because they support focused changes, previews, and automatic backups. Use this tool only when workspace tools are disabled or for emergency direct database writes explicitly requested by the user."
+                    "修改并保存一个已存在的 Legado 书源。优先使用工作区编辑工具（workspace_replace_text、workspace_replace_regex、workspace_edit_lines、workspace_insert_text）做定向修改；本工具用于工作区不可用或用户明确要求直接改库。通过 bookSourceUrl（已保存书源）或 sourceJson（草稿基底）定位书源，用 patch 合并字段（支持嵌套对象，null 清空字段），也可直接传 bookSourceName/bookSourceGroup/searchUrl/exploreUrl/bookUrlPattern/ruleSearch/ruleBookInfo/ruleToc/ruleContent/ruleExplore/comment 修改。默认保存到本地书源库（save=true），显式传 save=false 仅返回预览。示例 patch：{\"ruleToc\":{\"chapterList\":\".list dd\",\"chapterName\":\"a@text\",\"chapterUrl\":\"a@href\"}}。"
                 )
                 put("parameters", JSONObject().apply {
                     put("type", "object")
@@ -201,7 +201,7 @@ object AiBookSourceTool {
                 put("name", TOOL_DEBUG_SOURCE)
                 put(
                     "description",
-                    "Use the native Legado debug flow for a BookSource. For normal source repair, prefer workspace_debug_book_source on a workspace file; if debug fails, edit that file with workspace_replace_text, workspace_replace_regex, workspace_edit_lines, or workspace_insert_text and retry. This legacy direct debug tool accepts sourceJson for compatibility."
+                    "使用 Legado 原生调试流程测试书源，返回各调试环节（耗时、状态码、HTML 摘要、命中规则结果）。传 bookSourceUrl（本地已保存书源）或 sourceJson（临时书源完整 JSON）。key 为调试入口：普通关键词为搜索；绝对 URL 为详情页；title::url 为发现；++url 为目录；--url 为正文。默认使用规则里的 checkKeyWord 或“我的”。正常修复书源优先用工作区工具（workspace_debug_book_source 调试，失败后用 workspace_replace_text 等编辑文件重试），本工具仅为兼容旧流程的直连调试入口。"
                 )
                 put("parameters", JSONObject().apply {
                     put("type", "object")

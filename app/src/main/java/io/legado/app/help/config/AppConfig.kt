@@ -2381,6 +2381,12 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.changeSourceLoadToc, value)
         }
 
+    var changeSourceLoadCover: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.changeSourceLoadCover, true)
+        set(value) {
+            appCtx.putPrefBoolean(PreferKey.changeSourceLoadCover, value)
+        }
+
     var changeSourceLoadWordCount: Boolean
         get() = appCtx.getPrefBoolean(PreferKey.changeSourceLoadWordCount)
         set(value) {
