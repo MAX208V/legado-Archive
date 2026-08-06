@@ -3,6 +3,7 @@ package io.legado.app.ui.book.read.page
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
@@ -10,6 +11,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.LayerDrawable
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import com.airbnb.lottie.ImageAssetDelegate
 import android.widget.FrameLayout
@@ -26,6 +28,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isGone
 import androidx.core.view.isInvisible
+import androidx.core.view.children
 import io.legado.app.R
 import io.legado.app.constant.AppConst.timeFormat
 import io.legado.app.data.entities.Bookmark
@@ -1105,6 +1108,51 @@ class PageView(context: Context) : FrameLayout(context) {
         upPagOverlay()
     }
 
+    /** 获取 PAG 当前播放进度（0f-1f） */
+    fun getPagProgress(): Float {
+        return (pagOverlayView?.progress as? Number)?.toFloat() ?: 0f
+    }
+
+    /** 设置 PAG 播放进度（翻页后恢复，实现连续播放） */
+    fun setPagProgress(progress: Float) {
+        pagOverlayView?.progress = progress.toDouble()
+    }
+
+    /** PAG 是否正在播放 */
+    fun isPagPlaying(): Boolean {
+        return pagOverlayView?.isPlaying == true
+    }
+
+    /**
+     * 翻页时同步 PAG 进度（用于自动滚动翻页等场景）
+     */
+    fun syncPagProgressForPageTurn(direction: io.legado.app.ui.book.read.page.entities.PageDirection) {
+        val progress = getPagProgress()
+        pagOverlayView?.progress = progress.toDouble()
+    }
+
+    /**
+     * PAG 快照层：解决翻页截图（软件 Canvas draw()）无法捕获 GPU 渲染的 PAGView 内容的问题。
+     * - 屏幕显示（硬件加速）：onDraw 直接返回，透明，由 PAGView 正常渲染动画
+     * - 翻页截图（软件 Canvas）：补画 PAG 当前帧，层级为背景之上、文字之下
+     */
+    private inner class PagSnapshotLayer(context: Context) : View(context) {
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            // 硬件加速（屏幕绘制）时不补画，避免性能开销
+            if (canvas.isHardwareAccelerated) return
+            val pagView = pagOverlayView ?: return
+            if (pagView.visibility != VISIBLE) return
+            try {
+                val snapshot = pagView.makeSnapshot() ?: return
+                canvas.drawBitmap(snapshot, 0f, 0f, null)
+                snapshot.recycle()
+            } catch (e: Exception) {
+                e.printOnDebug()
+            }
+        }
+    }
+
     /**
      * 懒创建的 PAGView：仅当启用 PAG 时才创建，
      * 避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）
@@ -1125,6 +1173,8 @@ class PageView(context: Context) : FrameLayout(context) {
             val insertIndex = root.indexOfChild(binding.contentTextView)
                 .coerceIn(0, root.childCount)
             root.addView(pagView, insertIndex, lp)
+            // PAG 快照层紧随其后（同一层级，截图时补画 PAG 帧）
+            root.addView(PagSnapshotLayer(context), insertIndex + 1, lp)
             pagView.visibility = GONE
             pagView.setRepeatCount(-1) // 无限循环
             // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
@@ -1188,6 +1238,12 @@ class PageView(context: Context) : FrameLayout(context) {
             } catch (_: Exception) { }
         }
         pagOverlayView = null
+        // 同时移除 PAG 快照层
+        try {
+            val root = binding.vwRoot
+            val snapshotLayers = root.children.filter { it is PagSnapshotLayer }.toList()
+            snapshotLayers.forEach { root.removeView(it) }
+        } catch (_: Exception) { }
     }
 
     private companion object {

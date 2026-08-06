@@ -225,6 +225,7 @@ class ReadView(context: Context, attrs: AttributeSet) :
                 isMove = false
                 pageDelegate?.onTouch(event)
                 pageDelegate?.onDown()
+                savePagProgress() // 保存当前页 PAG 进度，翻页后恢复到新页面
                 setStartPoint(event.x, event.y, false)
                 //下拉添加书签：仅页面顶部区域、未选中文本时启用
                 downInTopRegion = !isTextSelected && event.y < height * pullDownBookmarkTopRatio
@@ -347,6 +348,35 @@ class ReadView(context: Context, attrs: AttributeSet) :
         if (invalidate) {
             invalidate()
         }
+    }
+
+    private var savedPagProgress: Float = 0f
+
+    /**
+     * 保存当前页 PAG 播放进度（翻页开始前调用，翻页后恢复到新页面）
+     */
+    fun savePagProgress() {
+        savedPagProgress = curPage.getPagProgress()
+    }
+
+    /**
+     * 恢复 PAG 播放进度到新页面（翻页结束后调用），实现连续播放
+     */
+    fun restorePagProgress() {
+        curPage.setPagProgress(savedPagProgress)
+        prevPage.setPagProgress(savedPagProgress)
+        nextPage.setPagProgress(savedPagProgress)
+        // 确保 PAG 正在播放
+        if (!curPage.isPagPlaying()) {
+            curPage.refreshPagOverlay()
+        }
+    }
+
+    /**
+     * 当前是否有 PAG 正在播放
+     */
+    fun hasPagPlaying(): Boolean {
+        return curPage.isPagPlaying() || prevPage.isPagPlaying() || nextPage.isPagPlaying()
     }
 
     /**
@@ -576,7 +606,7 @@ class ReadView(context: Context, attrs: AttributeSet) :
      * @param direction 翻页方向
      */
     fun fillPage(direction: PageDirection): Boolean {
-        return when (direction) {
+        val result = when (direction) {
             PageDirection.PREV -> {
                 pageFactory.moveToPrev(true)
             }
@@ -587,6 +617,9 @@ class ReadView(context: Context, attrs: AttributeSet) :
 
             else -> false
         }
+        // 翻页完成后恢复 PAG 进度到新页面，实现连续播放
+        if (result) restorePagProgress()
+        return result
     }
 
     /**
