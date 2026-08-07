@@ -26,7 +26,7 @@ object DatabaseMigrations {
             migration_103_104, migration_104_105, migration_105_106,
             migration_106_107, migration_107_108, migration_108_109,
             migration_109_110, migration_110_111, migration_111_112,
-            migration_112_113, migration_113_114,
+            migration_112_113, migration_113_114, migration_114_115, migration_114_115,
         )
     }
 
@@ -264,6 +264,15 @@ object DatabaseMigrations {
     private val migration_113_114 = object : Migration(113, 114) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE `dictRules` ADD COLUMN `htmlMode` INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    /**
+     * 书签划线颜色（微信读书风格），默认橄榄黄 0xFFD9C28C
+     */
+    private val migration_114_115 = object : Migration(114, 115) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `bookmarks` ADD COLUMN `color` INTEGER NOT NULL DEFAULT -2506100")
         }
     }
 

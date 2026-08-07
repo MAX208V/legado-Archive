@@ -4785,6 +4785,19 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     /**
+     * 书签预览弹层 -> 更换划线颜色
+     */
+    override fun changeBookmarkColor(bookmark: Bookmark, color: Int) {
+        bookmark.color = color
+        lifecycleScope.launch {
+            withContext(IO) {
+                appDb.bookmarkDao.insert(bookmark)
+            }
+            updateBookmarkMarks()
+        }
+    }
+
+    /**
      * 刷新当前章节的书签划线（正文高亮与点击预览使用）
      */
     private fun updateBookmarkMarks() {

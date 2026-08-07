@@ -586,6 +586,7 @@ data class TextPage(
         var offset = 0
         var underlineLeft = 0f
         var underlineRight = 0f
+        var underlineColor = 0
         var hasUnderline = false
         for (column in line.columns) {
             if (column !is TextBaseColumn) continue
@@ -594,9 +595,12 @@ data class TextPage(
             offset += column.charData.length
             for (mark in marks) {
                 if (mark.startPos < colEnd && mark.endPos > colStart) {
-                    view.drawBookmarkMarkRect(canvas, column.start, 0f, column.end, line.height)
+                    view.drawBookmarkMarkRect(
+                        canvas, column.start, 0f, column.end, line.height, mark.bookmark.color
+                    )
                     if (!hasUnderline) {
                         underlineLeft = column.start
+                        underlineColor = mark.bookmark.color
                         hasUnderline = true
                     }
                     underlineRight = column.end
@@ -606,7 +610,7 @@ data class TextPage(
         }
         if (hasUnderline) {
             val y = line.lineBase - line.lineTop + 1.dpToPx().toFloat()
-            view.drawBookmarkUnderline(canvas, underlineLeft, y, underlineRight)
+            view.drawBookmarkUnderline(canvas, underlineLeft, y, underlineRight, underlineColor)
         }
     }
 

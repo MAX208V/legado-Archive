@@ -7,6 +7,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -27,6 +28,7 @@ import io.legado.app.lib.dialogs.alert
 import io.legado.app.model.ReadBook
 import io.legado.app.model.localBook.EpubFile
 import io.legado.app.ui.association.OpenUrlConfirmActivity
+import io.legado.app.ui.book.bookmark.BookmarkColors
 import io.legado.app.ui.widget.dialog.TextDialog
 import io.legado.app.ui.book.read.page.delegate.PageDelegate
 import io.legado.app.ui.book.read.page.entities.TextLine
@@ -1092,16 +1094,31 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
     /**
      * 绘制书签划线背景（文字下方，需在文字绘制前调用）
      */
-    fun drawBookmarkMarkRect(canvas: Canvas, left: Float, top: Float, right: Float, bottom: Float) {
+    fun drawBookmarkMarkRect(
+        canvas: Canvas,
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+        color: Int
+    ) {
         if (right <= left) return
+        bookmarkMarkPaint.color = BookmarkColors.backgroundOf(color)
         canvas.drawRect(left, top, right, bottom, bookmarkMarkPaint)
     }
 
     /**
      * 绘制书签下划线
      */
-    fun drawBookmarkUnderline(canvas: Canvas, left: Float, baselineY: Float, right: Float) {
+    fun drawBookmarkUnderline(
+        canvas: Canvas,
+        left: Float,
+        baselineY: Float,
+        right: Float,
+        color: Int
+    ) {
         if (right <= left) return
+        bookmarkUnderlinePaint.color = color
         val h = 2.dpToPx().toFloat()
         canvas.drawRect(left, baselineY, right, baselineY + h, bookmarkUnderlinePaint)
     }
@@ -1187,6 +1204,33 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             setPadding(0, dp(8), 0, 0)
         }
         var popup: PopupWindow? = null
+        val circleSize = dp(24)
+        //划线颜色选择（微信读书风格）
+        val colorRow = LinearLayout(ctx).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(10), 0, 0)
+        }
+        val selectedColor = mark.bookmark.color
+        for (c in BookmarkColors.palette) {
+            val isSelected = c == selectedColor
+            val dot = View(ctx).apply {
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(c)
+                    setStroke(if (isSelected) 2.dpToPx().toInt() else 0, ctx.getCompatColor(R.color.primaryText))
+                }
+                isClickable = true
+                contentDescription = "#$c"
+                setOnClickListener {
+                    popup?.dismiss()
+                    callBack.changeBookmarkColor(mark.bookmark, c)
+                }
+            }
+            colorRow.addView(dot, LinearLayout.LayoutParams(circleSize, circleSize).apply {
+                marginEnd = dp(10)
+            })
+        }
+        card.addView(colorRow)
         fun actionButton(str: String, onClick: () -> Unit): TextView {
             return TextView(ctx).apply {
                 text = str
@@ -1336,5 +1380,6 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         fun clickImg(click: String, src: String)
         fun onBookmarkEdit(bookmark: Bookmark)
         fun deleteBookmarkPreview(bookmark: Bookmark)
+        fun changeBookmarkColor(bookmark: Bookmark, color: Int)
     }
 }

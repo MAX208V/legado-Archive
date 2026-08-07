@@ -19,7 +19,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -80,10 +88,12 @@ class BookmarkDialog() : ComposeDialogFragment() {
                         chapterName = bookmark.chapterName,
                         initialBookText = bookmark.bookText,
                         initialContent = bookmark.content,
+                        initialColor = bookmark.color,
                         showDelete = editPos >= 0,
-                        onSave = { bookText, content ->
+                        onSave = { bookText, content, color ->
                             bookmark.bookText = bookText
                             bookmark.content = content
+                            bookmark.color = color
                             lifecycleScope.launch {
                                 withContext(IO) { appDb.bookmarkDao.insert(bookmark) }
                                 dismiss()
@@ -108,8 +118,9 @@ private fun BookmarkContent(
     chapterName: String,
     initialBookText: String,
     initialContent: String,
+    initialColor: Int,
     showDelete: Boolean,
-    onSave: (String, String) -> Unit,
+    onSave: (String, String, Int) -> Unit,
     onDelete: () -> Unit,
     onCancel: () -> Unit
 ) {
@@ -117,6 +128,7 @@ private fun BookmarkContent(
     val palette = style.toMiuixPalette()
     var bookText by remember { mutableStateOf(initialBookText) }
     var content by remember { mutableStateOf(initialContent) }
+    var color by remember { mutableStateOf(initialColor) }
     AppDialogFrame(
         title = chapterName.ifBlank { stringResource(R.string.bookmark) },
         content = {
@@ -134,6 +146,29 @@ private fun BookmarkContent(
                     onValueChange = { content = it },
                     style = style
                 )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    BookmarkColors.palette.forEach { c ->
+                        val isSelected = c == color
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .background(Color(c))
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = style.primaryText.copy(
+                                        alpha = if (isSelected) 1f else 0.25f
+                                    ),
+                                    shape = CircleShape
+                                )
+                                .clickable { color = c }
+                        )
+                    }
+                }
             }
         },
         actions = {
@@ -154,7 +189,7 @@ private fun BookmarkContent(
             LegadoMiuixActionButton(
                 text = stringResource(R.string.ok),
                 palette = palette,
-                onClick = { onSave(bookText, content) },
+                onClick = { onSave(bookText, content, color) },
                 primary = true,
                 cornerRadius = style.actionRadius
             )
