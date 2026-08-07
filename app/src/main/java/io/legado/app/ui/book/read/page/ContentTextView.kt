@@ -7,7 +7,6 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.util.AttributeSet
 import android.util.TypedValue
@@ -1204,33 +1203,6 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
             setPadding(0, dp(8), 0, 0)
         }
         var popup: PopupWindow? = null
-        val circleSize = dp(24)
-        //划线颜色选择（微信读书风格）
-        val colorRow = LinearLayout(ctx).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(10), 0, 0)
-        }
-        val selectedColor = mark.bookmark.color
-        for (c in BookmarkColors.palette) {
-            val isSelected = c == selectedColor
-            val dot = View(ctx).apply {
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(c)
-                    setStroke(if (isSelected) 2.dpToPx().toInt() else 0, ctx.getCompatColor(R.color.primaryText))
-                }
-                isClickable = true
-                contentDescription = "#$c"
-                setOnClickListener {
-                    popup?.dismiss()
-                    callBack.changeBookmarkColor(mark.bookmark, c)
-                }
-            }
-            colorRow.addView(dot, LinearLayout.LayoutParams(circleSize, circleSize).apply {
-                marginEnd = dp(10)
-            })
-        }
-        card.addView(colorRow)
         fun actionButton(str: String, onClick: () -> Unit): TextView {
             return TextView(ctx).apply {
                 text = str
@@ -1380,6 +1352,5 @@ class ContentTextView(context: Context, attrs: AttributeSet?) : View(context, at
         fun clickImg(click: String, src: String)
         fun onBookmarkEdit(bookmark: Bookmark)
         fun deleteBookmarkPreview(bookmark: Bookmark)
-        fun changeBookmarkColor(bookmark: Bookmark, color: Int)
     }
 }
