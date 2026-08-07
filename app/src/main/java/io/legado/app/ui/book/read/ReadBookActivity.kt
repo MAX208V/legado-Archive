@@ -54,6 +54,7 @@ import io.legado.app.constant.Status
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.Book
 import io.legado.app.data.entities.BookChapter
+import io.legado.app.data.entities.Bookmark
 import io.legado.app.data.entities.BookParagraphRule
 import io.legado.app.data.entities.BookProgress
 import io.legado.app.data.entities.BookSource
@@ -153,6 +154,8 @@ import io.legado.app.ui.book.read.page.ContentTextView
 import io.legado.app.ui.book.read.page.ReadView
 import io.legado.app.ui.book.read.page.LottieImageBitmapCache
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
+import io.legado.app.ui.book.read.page.entities.BookmarkMark
+import io.legado.app.ui.book.read.page.entities.buildBookmarkMarks
 import io.legado.app.ui.book.read.page.entities.PageDirection
 import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
@@ -1375,7 +1378,9 @@ class ReadBookActivity : BaseReadBookActivity(),
                 if (bookmark == null) {
                     toastOnUi(R.string.create_bookmark_error)
                 } else {
-                    showDialogFragment(BookmarkDialog(bookmark))
+                    val dialog = BookmarkDialog(bookmark)
+                    dialog.onDismissCallback = { updateBookmarkMarks() }
+                    showDialogFragment(dialog)
                 }
                 return true
             }
@@ -2038,6 +2043,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
             if (relativePosition == 0) {
                 upSeekBarProgress()
+                updateBookmarkMarks()
             }
             loadStates = false
             success?.invoke()
@@ -4720,7 +4726,9 @@ class ReadBookActivity : BaseReadBookActivity(),
                 chapterName = page.title
                 bookText = page.text.trim()
             }
-            showDialogFragment(BookmarkDialog(bookmark))
+            val dialog = BookmarkDialog(bookmark)
+            dialog.onDismissCallback = { updateBookmarkMarks() }
+            showDialogFragment(dialog)
         }
     }
 
@@ -4742,9 +4750,56 @@ class ReadBookActivity : BaseReadBookActivity(),
                     appDb.bookmarkDao.insert(bookmark)
                 }
                 toastOnUi(R.string.bookmark_added)
+                updateBookmarkMarks()
             }
         } else {
             toastOnUi(R.string.create_bookmark_error)
+        }
+    }
+
+    /**
+     * 书签预览弹层 -> 编辑
+     */
+    override fun onBookmarkEdit(bookmark: Bookmark) {
+        val dialog = BookmarkDialog(bookmark, editPos = 1)
+        dialog.onDismissCallback = { updateBookmarkMarks() }
+        showDialogFragment(dialog)
+    }
+
+    /**
+     * 书签预览弹层 -> 删除
+     */
+    override fun deleteBookmarkPreview(bookmark: Bookmark) {
+        alert(titleResource = R.string.delete, messageResource = R.string.bookmark_delete_confirm) {
+            okButton {
+                lifecycleScope.launch {
+                    withContext(IO) {
+                        appDb.bookmarkDao.delete(bookmark)
+                    }
+                    updateBookmarkMarks()
+                    toastOnUi(R.string.delete_success)
+                }
+            }
+            cancelButton()
+        }
+    }
+
+    /**
+     * 刷新当前章节的书签划线（正文高亮与点击预览使用）
+     */
+    private fun updateBookmarkMarks() {
+        val book = ReadBook.book ?: return
+        val chapter = ReadBook.curTextChapter ?: return
+        val chapterIndex = chapter.position
+        if (chapterIndex != ReadBook.durChapterIndex) return
+        lifecycleScope.launch {
+            val marks = withContext(IO) {
+                val bookmarks = appDb.bookmarkDao
+                    .getByBook(book.name, book.author)
+                    .filter { it.chapterIndex == chapterIndex }
+                buildBookmarkMarks(chapter, bookmarks)
+            }
+            binding.readView.curPage.setBookmarkMarks(chapterIndex, marks)
         }
     }
 

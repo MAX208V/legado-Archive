@@ -570,8 +570,43 @@ data class TextPage(
         for (i in lines.indices) {
             val line = lines[i]
             canvas.withTranslation(0f, line.lineTop) {
+                drawBookmarkHighlight(view, canvas, line)
                 line.draw(view, this)
             }
+        }
+    }
+
+    /**
+     * 绘制书签划线（微信读书风格：浅色背景 + 下划线）
+     */
+    private fun drawBookmarkHighlight(view: ContentTextView, canvas: Canvas, line: TextLine) {
+        val marks = view.getBookmarkMarks(chapterIndex)
+        if (marks.isEmpty()) return
+        val lineStartPos = line.chapterPosition
+        var offset = 0
+        var underlineLeft = 0f
+        var underlineRight = 0f
+        var hasUnderline = false
+        for (column in line.columns) {
+            if (column !is TextBaseColumn) continue
+            val colStart = lineStartPos + offset
+            val colEnd = colStart + column.charData.length
+            offset += column.charData.length
+            for (mark in marks) {
+                if (mark.startPos < colEnd && mark.endPos > colStart) {
+                    view.drawBookmarkMarkRect(canvas, column.start, 0f, column.end, line.height)
+                    if (!hasUnderline) {
+                        underlineLeft = column.start
+                        hasUnderline = true
+                    }
+                    underlineRight = column.end
+                    break
+                }
+            }
+        }
+        if (hasUnderline) {
+            val y = line.lineBase - line.lineTop + 1.dpToPx().toFloat()
+            view.drawBookmarkUnderline(canvas, underlineLeft, y, underlineRight)
         }
     }
 

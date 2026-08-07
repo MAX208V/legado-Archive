@@ -39,6 +39,10 @@
 
     <color name="highlight">#d3321b</color>
 
+    <!-- 书签划线（微信读书风格） -->
+    <color name="bookmark_highlight_bg">#59D9C28C</color>
+    <color name="bookmark_highlight_underline">#C9A959</color>
+
     <color name="btn_bg_press">#1A0A84FF</color>
     <color name="btn_bg_press_2">#14000000</color>
     <color name="btn_bg_press_tp">#632C2C2C</color>

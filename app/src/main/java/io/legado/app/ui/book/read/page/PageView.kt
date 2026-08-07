@@ -46,6 +46,7 @@ import io.legado.app.ui.book.read.page.entities.TextLine
 import io.legado.app.ui.book.read.page.entities.TextPage
 import io.legado.app.ui.book.read.page.entities.TextPos
 import io.legado.app.ui.book.read.page.entities.ReadSelectionPosition
+import io.legado.app.ui.book.read.page.entities.BookmarkMark
 import io.legado.app.ui.book.read.page.provider.ChapterProvider
 import io.legado.app.ui.widget.BatteryView
 import io.legado.app.utils.activity
@@ -506,6 +507,10 @@ class PageView(context: Context) : FrameLayout(context) {
 
     fun setAutoPager(autoPager: AutoPager?) {
         binding.contentTextView.setAutoPager(autoPager)
+    }
+
+    fun setBookmarkMarks(chapterIndex: Int, marks: List<BookmarkMark>) {
+        binding.contentTextView.setBookmarkMarks(chapterIndex, marks)
     }
 
     fun submitRenderTask() {

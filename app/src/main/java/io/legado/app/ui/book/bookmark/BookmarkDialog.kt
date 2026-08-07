@@ -1,5 +1,6 @@
 package io.legado.app.ui.book.bookmark
 
+import android.content.DialogInterface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -49,6 +50,14 @@ class BookmarkDialog() : ComposeDialogFragment() {
         }
     }
 
+    /** 对话框关闭（保存/删除/取消）后触发，用于刷新阅读界面书签划线 */
+    var onDismissCallback: (() -> Unit)? = null
+
+    override fun onDismiss(dialog: DialogInterface) {
+        super.onDismiss(dialog)
+        onDismissCallback?.invoke()
+        onDismissCallback = null
+    }
     override val dialogSize: AppDialogSize = AppDialogSize.Form
 
     override fun onCreateView(
