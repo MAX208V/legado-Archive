@@ -110,7 +110,8 @@ class App : Application() {
             // 恢复 AI MCP 服务器（上次开关开启状态，独立端口，不依赖 Web 服务）
             // 由前台服务 McpServerService 承接：START_STICKY 自愈 + 后台保活
             if (AppConfig.aiMcpEnabled) {
-                runCatching { McpServerService.startForeground(this) }
+                // 注意：此处位于 Coroutine.async 块内，this 是 CoroutineScope，需用 appCtx
+                runCatching { McpServerService.startForeground(appCtx) }
                     .onFailure { LogUtils.d("App") { "McpServerService start failed: $it" } }
             }
             LiveEventBus.config()
