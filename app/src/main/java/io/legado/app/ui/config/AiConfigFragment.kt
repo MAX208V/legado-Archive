@@ -31,6 +31,7 @@ import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
 import io.legado.app.web.mcp.McpServer
 import io.legado.app.web.mcp.McpServerNotification
+import io.legado.app.web.mcp.McpServerService
 import kotlinx.coroutines.Dispatchers.IO
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -275,6 +276,7 @@ class AiConfigFragment : ComposeSettingFragment() {
                             checked = AppConfig.aiMcpEnabled,
                             onCheckedChange = { enable ->
                                 if (enable) {
+                                    // 同步预检：端口被占用/异常时立即回滚开关
                                     val started = McpServer.start(AppConfig.aiMcpPort)
                                     if (!started) {
                                         AppConfig.aiMcpEnabled = false
@@ -282,8 +284,11 @@ class AiConfigFragment : ComposeSettingFragment() {
                                         refreshUi()
                                         return@SettingSwitchSpec
                                     }
+                                    // 交由前台服务承接保活（START_STICKY + 后台存活）
+                                    McpServerService.startForeground(requireContext())
                                 } else {
                                     McpServer.stop()
+                                    McpServerService.stop(requireContext())
                                 }
                                 AppConfig.aiMcpEnabled = enable
                                 McpServerNotification.refresh(requireContext(), enable)
@@ -376,9 +381,18 @@ class AiConfigFragment : ComposeSettingFragment() {
             PreferKey.aiReadToolMode -> refreshUi()
             PreferKey.aiMcpEnabled -> {
                 if (AppConfig.aiMcpEnabled) {
-                    if (!McpServer.running) McpServer.start(AppConfig.aiMcpPort)
+                    if (!McpServer.running) {
+                        if (McpServer.start(AppConfig.aiMcpPort)) {
+                            McpServerService.startForeground(requireContext())
+                        } else {
+                            AppConfig.aiMcpEnabled = false
+                        }
+                    } else {
+                        McpServerService.startForeground(requireContext())
+                    }
                 } else {
                     McpServer.stop()
+                    McpServerService.stop(requireContext())
                 }
                 refreshUi()
                 McpServerNotification.refresh(requireContext(), AppConfig.aiMcpEnabled)
@@ -386,7 +400,13 @@ class AiConfigFragment : ComposeSettingFragment() {
             PreferKey.aiMcpPort -> {
                 if (AppConfig.aiMcpEnabled) {
                     McpServer.stop()
-                    McpServer.start(AppConfig.aiMcpPort)
+                    McpServerService.stop(requireContext())
+                    if (McpServer.start(AppConfig.aiMcpPort)) {
+                        McpServerService.startForeground(requireContext())
+                    } else {
+                        AppConfig.aiMcpEnabled = false
+                        McpServerNotification.refresh(requireContext(), false)
+                    }
                 }
                 refreshUi()
             }
@@ -639,9 +659,15 @@ class AiConfigFragment : ComposeSettingFragment() {
             maxValue = 65535,
             onValue = { value ->
                 AppConfig.aiMcpPort = value
-                if (McpServer.running) {
+                if (AppConfig.aiMcpEnabled) {
                     McpServer.stop()
-                    McpServer.start(value)
+                    McpServerService.stop(requireContext())
+                    if (McpServer.start(value)) {
+                        McpServerService.startForeground(requireContext())
+                    } else {
+                        AppConfig.aiMcpEnabled = false
+                        McpServerNotification.refresh(requireContext(), false)
+                    }
                 }
                 refreshUi()
             }

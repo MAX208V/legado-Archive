@@ -140,11 +140,41 @@ App「AI 设置 → 技能」中所有 **启用** 的 Skill，作为 MCP Prompts
 ## 5. 技术实现
 
 - 独立服务器：`app/src/main/java/io/legado/app/web/mcp/McpServer.kt`（独立 NanoHTTPD 实例，开关控制启停，App 启动时按开关状态恢复）
-- 启停入口：`AiConfigFragment` 开关 → `McpServer.start(port)/stop()`；通知「关闭」→ `McpServerActionReceiver`
-- 常驻通知：`app/src/main/java/io/legado/app/web/mcp/McpServerNotification.kt`（channel `channel_ai_mcp`）
+- 前台服务保活：`app/src/main/java/io/legado/app/web/mcp/McpServerService.kt`（`specialUse` 前台服务，`START_STICKY` 自愈；熄屏/后台不被杀，进程被回收后自动恢复。与 RelayService 同类型，无 dataSync 的 6 小时时限）
+- 启停入口：`AiConfigFragment` 开关 → `McpServerService.startForeground()/stop()`；通知「关闭」→ `McpServerActionReceiver` → `McpServerService.stop()`
+- 常驻通知：`app/src/main/java/io/legado/app/web/mcp/McpServerNotification.kt`（channel `channel_ai_mcp`，由前台服务持有展示）
 - 工具来源：`AiToolRegistry.allNativeTools()`
 - Skill 来源：`AppConfig.aiSkillList`
 - 对外开关：`AppConfig.aiMcpEnabled`（`PreferKey.aiMcpEnabled`，默认关闭）
 - 独立端口：`AppConfig.aiMcpPort`（`PreferKey.aiMcpPort`，默认 1123，避开 Web 服务 1122）
 - 鉴权令牌：`AppConfig.aiMcpToken`（`PreferKey.aiMcpToken`）
 - 设置入口：`AiConfigFragment`「对外 MCP 服务」区块
+
+---
+
+## 6. 常见问题：连接经常断开
+
+MCP 服务是「长耗时工具 + 多请求复用连接」的场景，断开大多来自以下三处，按概率排序：
+
+### 6.1 长耗时工具阻塞连接（客户端读超时）——最常见
+
+`tools/call`（如 `debug_book_source` 整本抓取）在服务端**同步执行**，耗时可能几十秒到几分钟；期间同一 TCP 连接上排队的其他请求（客户端心跳 `ping`、下一个工具调用）都会等待。MCP 客户端（Claude Desktop / Cursor / Claude Code）普遍设有 30~60 秒的读超时与心跳间隔，超时即主动断开——表现为「调用大工具后连接断了，下次要重连/重新初始化」。
+
+- **服务端已做的缓解**：socket 空闲读超时 5 分钟，自动清理「客户端已断开」的僵尸连接，避免线程被无限占用导致越断越堵；`tools/call` 在日志中记录每个工具的耗时，便于定位慢工具。
+- **客户端侧建议**：
+  - 调大 HTTP 读超时（如 300s+）再连；Claude Code 可用 `--timeout` / 环境变量，Cursor 可调高网络请求超时；
+  - 避免在长任务进行中对同一会话发起新的同步调用；
+  - 重连本身是 Streamable HTTP 的正常行为（无状态，每次请求都是完整 POST），客户端会自动重新 `initialize`，无需人工干预。
+
+### 6.2 手机后台/熄屏导致网络被掐
+
+- 本版本已将 MCP 服务升级为 **`specialUse` 前台服务**：熄屏/后台运行不会被 Doze 或厂商省电随意杀，进程被系统回收后 `START_STICKY` 自动重启。
+- 仍建议：在系统「电池优化」中把「阅读」设为**不优化**（设置页开启开关时会请求一次）；长任务调试时保持屏幕常亮或插电。
+- 若切换了 WiFi/热点（IP 变化），请以通知里显示的新地址为准。
+
+### 6.3 端口被占用 / 启动失败
+
+- 服务启动失败会 toast 提示并自动回滚开关；可换一个端口（默认 1123，避开 Web 服务 1122）。
+- 确认手机和客户端在同一局域网（无 AP 隔离），且防火墙未拦截。
+
+> 📌 排查时可在 App「日志」中检索 `McpServer` / `McpServerService` 标签，查看服务启停与每个工具耗时。

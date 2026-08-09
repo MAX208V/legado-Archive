@@ -30,6 +30,16 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
         const val PROTOCOL_VERSION = "2025-06-18"
         private const val TOOLS_PAGE_SIZE = 50
         private const val TAG = "McpServer"
+
+        /**
+         * keep-alive 连接的空闲读超时（毫秒）。
+         * 注：nanohttpd `start(timeout)` 中 timeout>0 才会对 accept 到的 socket 设置
+         * SO_TIMEOUT（timeout=0 表示永不超时）。设 0 会让客户端已断开/半开的僵尸连接
+         * 永久占住处理线程（越断越堵）；设合理值可自动清理僵尸连接释放线程。
+         * 长耗时工具执行期间服务端没有 socket 读操作，SO_TIMEOUT 不会中断任务本身。
+         */
+        private const val SOCKET_READ_TIMEOUT_MS = 5 * 60 * 1000L
+
         private var instance: McpServer? = null
 
         val running: Boolean get() = instance?.isAlive == true
@@ -40,9 +50,11 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
             stop()
             return try {
                 val server = McpServer(port)
-                server.start(0) // 无 socket 读超时，容忍长耗时工具
+                // 非 0 读超时：自动清理客户端已断开/空闲过久的 keep-alive 僵尸连接，
+                // 避免处理线程被半死连接无限占用（见 SOCKET_READ_TIMEOUT_MS 注释）。
+                server.start(SOCKET_READ_TIMEOUT_MS.toInt())
                 instance = server
-                LogUtils.d(TAG) { "MCP server started on port $port" }
+                LogUtils.d(TAG) { "MCP server started on port $port (read timeout ${SOCKET_READ_TIMEOUT_MS}ms)" }
                 true
             } catch (e: IOException) {
                 LogUtils.d(TAG) { "MCP server start failed: $e\n${e.stackTraceStr}" }
@@ -225,8 +237,12 @@ class McpServer private constructor(port: Int) : NanoHTTPD(port) {
             ?: return jsonRpcError(Response.Status.BAD_REQUEST, -32602, "Tool not found: $name", id)
 
         val text = try {
-            runBlocking { tool.execute(arguments) }
+            val startedAt = System.currentTimeMillis()
+            val result = runBlocking { tool.execute(arguments) }
+            LogUtils.d(TAG) { "tools/call '$name' ok, took ${System.currentTimeMillis() - startedAt}ms" }
+            result
         } catch (e: Exception) {
+            LogUtils.d(TAG) { "tools/call '$name' error: ${e.message ?: e.javaClass.simpleName}" }
             JSONObject().apply {
                 put("ok", false)
                 put("error", e.message ?: e.javaClass.simpleName)

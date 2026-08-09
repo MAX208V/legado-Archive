@@ -652,6 +652,14 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-enabled encrypted reverse tunnel for personal remote Web access" />
         </service>
+        <service
+            android:name=".web.mcp.McpServerService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-enabled MCP server exposing local AI tools over LAN" />
+        </service>
         <receiver
             android:name=".service.relay.RelayBootReceiver"
             android:enabled="true"

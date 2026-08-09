@@ -1,6 +1,7 @@
 package io.legado.app.web.mcp
 
 import android.Manifest
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -19,26 +20,17 @@ import io.legado.app.utils.NetworkUtils
 
 /**
  * AI MCP 服务常驻通知：开关开启时提醒对外暴露及其访问地址，便于一键跳转/关闭。
+ *
+ * 通知由前台服务 McpServerService 持有并展示（startForeground），
+ * 本对象提供通知构建与「非服务场景」下的刷新/移除能力。
  */
 object McpServerNotification {
 
     const val ACTION_STOP = "io.legado.app.action.MCP_SERVER_STOP"
-    private const val NOTIFICATION_ID = 0x4D4350 // "MCP"
+    const val NOTIFICATION_ID = 0x4D4350 // "MCP"
 
-    /** 根据开关状态刷新常驻通知 */
-    fun refresh(context: Context, enabled: Boolean) {
-        if (!enabled) {
-            NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
-            return
-        }
-        // Android 13+ 通知权限检查
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-
+    /** 构建前台服务通知（显示访问地址 + 关闭按钮） */
+    fun buildServiceNotification(context: Context): Notification {
         val ip = NetworkUtils.getLocalIPAddress().firstOrNull()?.hostAddress
             ?: context.getString(R.string.ai_mcp_server_ip_placeholder)
         val url = "http://$ip:${AppConfig.aiMcpPort}/mcp"
@@ -56,7 +48,7 @@ object McpServerNotification {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(context, AppConst.channelIdAiMcp)
+        return NotificationCompat.Builder(context, AppConst.channelIdAiMcp)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(context.getString(R.string.ai_mcp_server_noti_title))
             .setContentText(url)
@@ -66,6 +58,21 @@ object McpServerNotification {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .addAction(0, context.getString(R.string.ai_mcp_server_noti_stop), stopPi)
             .build()
-        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+    }
+
+    /** 根据开关状态刷新/移除常驻通知（普通通知场景；前台服务场景通知由服务持有） */
+    fun refresh(context: Context, enabled: Boolean) {
+        if (!enabled) {
+            NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+            return
+        }
+        // Android 13+ 通知权限检查
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, buildServiceNotification(context))
     }
 }

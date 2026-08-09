@@ -42,7 +42,7 @@ import io.legado.app.help.LifecycleHelp
 import io.legado.app.help.RuleBigDataHelp
 import io.legado.app.help.book.BookHelp
 import io.legado.app.help.config.AppConfig
-import io.legado.app.web.mcp.McpServer
+import io.legado.app.web.mcp.McpServerService
 import io.legado.app.help.config.AppearanceKitManager
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ThemeConfig.applyDayNight
@@ -108,8 +108,10 @@ class App : Application() {
             Cronet.preDownload()
             createNotificationChannels()
             // 恢复 AI MCP 服务器（上次开关开启状态，独立端口，不依赖 Web 服务）
+            // 由前台服务 McpServerService 承接：START_STICKY 自愈 + 后台保活
             if (AppConfig.aiMcpEnabled) {
-                McpServer.start(AppConfig.aiMcpPort)
+                runCatching { McpServerService.startForeground(this) }
+                    .onFailure { LogUtils.d("App") { "McpServerService start failed: $it" } }
             }
             LiveEventBus.config()
                 .lifecycleObserverAlwaysActive(true)
