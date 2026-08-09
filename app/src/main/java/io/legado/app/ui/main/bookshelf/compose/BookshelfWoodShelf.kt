@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,8 +29,8 @@ import io.legado.app.R
 /**
  * 木制书架（模仿静读天下 Moon+ Reader 的木质书架）
  *
- * 结构：每一层 = 一排书封面"立"在一条木质层板上，
- * 层板下面是书架间的木质过渡带；整页背景为深色木墙。
+ * 结构：每一层 = 一排书封面"立"在一条木质层板上（书名底部紧贴层板），
+ * 层板下方留一点缝隙再进入下一排书（封面顶部留缝）；整页背景为深色木墙。
  * 木色 0..4 对应 a(浅橡木)/b(胡桃木)/c(白蜡木)/d(深咖木)/e(黑檀木)。
  */
 @Composable
@@ -104,6 +105,7 @@ private fun WoodShelfRow(
                 BookshelfGridItem(
                     item = item,
                     modifier = Modifier.width(cellWidth),
+                    compactBottomSpace = true,
                     fragment = fragment,
                     lifecycle = lifecycle,
                     onClick = onClick,
@@ -111,26 +113,17 @@ private fun WoodShelfRow(
                 )
             }
         }
-        // 书架层板：书脚下的一条木板
+        // 书架层板：紧贴书名底部的一条薄木板（静读天下为薄板 + 下缘阴影）
         androidx.compose.foundation.Image(
             painter = painterResource(woodShelfBoardRes(woodStyle)),
             contentDescription = null,
-            contentScale = ContentScale.FillWidth,
+            contentScale = ContentScale.FillBounds,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp)
-                .padding(top = 2.dp)
+                .height(14.dp)
         )
-        // 书架间过渡带
-        androidx.compose.foundation.Image(
-            painter = painterResource(woodGapRes(woodStyle)),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(26.dp)
-                .padding(top = 2.dp)
-        )
+        // 封面顶部留一点缝隙（板条下缘与下一排书封面之间的空隙）
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
@@ -141,15 +134,6 @@ internal fun woodShelfBoardRes(style: Int): Int = when (style.floorMod(5)) {
     2 -> R.drawable.wood_shelf_c
     3 -> R.drawable.wood_shelf_d
     else -> R.drawable.wood_shelf_e
-}
-
-/** 书架间过渡资源：a/b/c/d/e 木色 */
-internal fun woodGapRes(style: Int): Int = when (style.floorMod(5)) {
-    0 -> R.drawable.wood_gap_a
-    1 -> R.drawable.wood_gap_b
-    2 -> R.drawable.wood_gap_c
-    3 -> R.drawable.wood_gap_d
-    else -> R.drawable.wood_gap_e
 }
 
 /** 木制书架整页背景（深色木墙色调，随木色变化） */

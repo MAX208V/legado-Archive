@@ -293,6 +293,7 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
                     showBookname = showBookname,
                     listItemStyle = listItemStyle,
                     listIntroLines = listIntroLines,
+                    woodShelfEnabled = AppConfig.woodShelfEnabled,
                     woodShelfStyle = AppConfig.woodShelfStyle,
                     margin = AppConfig.bookshelfMargin
                 ),
@@ -329,7 +330,7 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
         var refreshBookshelf = false
         var structureChanged = false
         val groupStyle = values.groupStyle.coerceIn(0, 1)
-        val layout = values.layout.coerceIn(0, 7)
+        val layout = values.layout.coerceIn(0, 6)
         val sort = values.sort.coerceIn(0, 5)
         val showBookname = values.showBookname.coerceIn(0, 2)
         val listItemStyle = values.listItemStyle.coerceIn(0, 2)
@@ -385,6 +386,10 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
             } else {
                 activityViewModel.booksListRecycledViewPool.clear()
             }
+            structureChanged = true
+        }
+        if (AppConfig.woodShelfEnabled != values.woodShelfEnabled) {
+            AppConfig.woodShelfEnabled = values.woodShelfEnabled
             structureChanged = true
         }
         if (AppConfig.woodShelfStyle != values.woodShelfStyle) {

@@ -88,12 +88,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 
-/** 书架布局值：木制书架 */
-private const val BOOKSHELF_LAYOUT_WOOD = 7
-
-/**
- * 书架界面
- */
+/** 书架布局值 */
 class BooksFragment() : BaseFragment(R.layout.fragment_books) {
     constructor(position: Int, group: BookGroup) : this() {
         val bundle = Bundle()
@@ -126,8 +121,8 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books) {
     private var topOverlaySpace by mutableStateOf(0)
     private var topOverlayEnabled by mutableStateOf(false)
     private val useComposeList get() = bookshelfLayout < 2
-    private val useComposeGrid get() = bookshelfLayout >= 2 && bookshelfLayout != BOOKSHELF_LAYOUT_WOOD
-    private val useComposeWoodShelf get() = bookshelfLayout == BOOKSHELF_LAYOUT_WOOD
+    private val useComposeGrid get() = bookshelfLayout >= 2
+    private val useComposeWoodShelf get() = AppConfig.woodShelfEnabled
     private val useComposeBookshelf get() = useComposeList || useComposeGrid || useComposeWoodShelf
     private var composeItems by mutableStateOf<List<BookshelfItemUi>>(emptyList())
     private var shelfDisplays: List<BookShelfDisplay> = emptyList()

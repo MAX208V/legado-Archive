@@ -132,6 +132,7 @@ fun updateBookshelfItemUpdating(
 fun BookshelfGridItem(
     item: BookshelfItemUi,
     modifier: Modifier = Modifier,
+    compactBottomSpace: Boolean = false,
     fragment: Fragment? = null,
     lifecycle: Lifecycle? = null,
     onClick: (BookshelfItemUi) -> Unit,
@@ -154,7 +155,12 @@ fun BookshelfGridItem(
                 onClick = { onClick(item) },
                 onLongClick = { onLongClick(item) }
             )
-            .padding(4.dp),
+            .padding(
+                start = 4.dp,
+                top = 4.dp,
+                end = 4.dp,
+                bottom = if (compactBottomSpace) 0.dp else 4.dp
+            ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(

@@ -84,9 +84,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 
-/** 书架布局值：木制书架 */
-private const val BOOKSHELF_LAYOUT_WOOD = 7
-
 /**
  * 书架界面
  */
@@ -109,10 +106,11 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
     private var enableRefresh = true
     override var onlyUpdateRead = false
     private var bookshelfMargin by mutableIntStateOf(AppConfig.bookshelfMargin)
+    private var woodShelfEnabled by mutableStateOf(AppConfig.woodShelfEnabled)
     private var woodShelfStyle by mutableIntStateOf(AppConfig.woodShelfStyle)
     private var itemCount = 0
     private var totalRows = 0
-    private val useWoodShelf get() = bookshelfLayout == BOOKSHELF_LAYOUT_WOOD
+    private val useWoodShelf get() = woodShelfEnabled
     private val useComposeGrid get() = bookshelfLayout >= 2
     private val useComposeList get() = bookshelfLayout < 2
     private val useComposeBookshelf get() = true
@@ -684,6 +682,7 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         }
         observeEvent<String>(EventBus.BOOKSHELF_REFRESH) {
             bookshelfMargin = AppConfig.bookshelfMargin
+            woodShelfEnabled = AppConfig.woodShelfEnabled
             woodShelfStyle = AppConfig.woodShelfStyle
             composeListItemStyle = AppConfig.bookshelfListItemStyle
             composeListIntroLines = AppConfig.bookshelfListIntroLines
@@ -698,8 +697,9 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         if (!isAdded) return
         val targetGroupId = groupId
         dismissBookshelfTransientUi()
-        bookshelfLayout = AppConfig.bookshelfLayout.coerceIn(0, BOOKSHELF_LAYOUT_WOOD)
+        bookshelfLayout = AppConfig.bookshelfLayout.coerceIn(0, 6)
         bookshelfMargin = AppConfig.bookshelfMargin
+        woodShelfEnabled = AppConfig.woodShelfEnabled
         woodShelfStyle = AppConfig.woodShelfStyle
         composeListItemStyle = AppConfig.bookshelfListItemStyle
         composeListIntroLines = AppConfig.bookshelfListIntroLines

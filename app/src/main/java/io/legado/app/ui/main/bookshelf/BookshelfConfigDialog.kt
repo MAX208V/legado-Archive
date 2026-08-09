@@ -87,6 +87,7 @@ data class BookshelfConfigValues(
     val showBookname: Int,
     val listItemStyle: Int,
     val listIntroLines: Int,
+    val woodShelfEnabled: Boolean,
     val woodShelfStyle: Int,
     val margin: Int
 )
@@ -116,6 +117,8 @@ private data class BookshelfConfigTexts(
     val bookNameLabel: String,
     val listItemStyleLabel: String,
     val listIntroLinesLabel: String,
+    val woodShelfLabel: String,
+    val woodShelfShortLabel: String,
     val woodStyleLabel: String,
     val marginTitle: String,
     val marginLabel: String,
@@ -171,6 +174,7 @@ class BookshelfConfigDialog : ComposeDialogFragment() {
         showBookname = 0,
         listItemStyle = 0,
         listIntroLines = 2,
+        woodShelfEnabled = false,
         woodShelfStyle = 0,
         margin = 12
     )
@@ -246,8 +250,7 @@ class BookshelfConfigDialog : ComposeDialogFragment() {
                 getString(R.string.layout_grid3),
                 getString(R.string.layout_grid4),
                 getString(R.string.layout_grid5),
-                getString(R.string.layout_grid6),
-                getString(R.string.layout_wood_shelf)
+                getString(R.string.layout_grid6)
             ).mapIndexed { index, label -> BookshelfConfigOption(label, index) },
             sorts = listOf(
                 getString(R.string.bookshelf_px_0),
@@ -293,6 +296,8 @@ class BookshelfConfigDialog : ComposeDialogFragment() {
             bookNameLabel = getString(R.string.book_name),
             listItemStyleLabel = getString(R.string.bookshelf_list_style),
             listIntroLinesLabel = getString(R.string.bookshelf_list_intro_lines),
+            woodShelfLabel = getString(R.string.bookshelf_wood_shelf),
+            woodShelfShortLabel = getString(R.string.bookshelf_wood_shelf_short),
             woodStyleLabel = getString(R.string.bookshelf_wood_style),
             marginTitle = getString(R.string.margin),
             marginLabel = getString(R.string.margin),
@@ -353,7 +358,7 @@ private fun BookshelfConfigContent(
                 onSelected = { onValuesChange(values.copy(sort = it)) }
             )
         )
-        if (values.layout == 7) {
+        if (values.woodShelfEnabled) {
             add(
                 BookshelfSelectItem(
                     key = "woodStyle",
@@ -396,6 +401,13 @@ private fun BookshelfConfigContent(
         }
     }
     val switchItems = listOf(
+        BookshelfSwitchItem(
+            key = "woodShelf",
+            label = stringResource(R.string.bookshelf_wood_shelf),
+            summaryLabel = stringResource(R.string.bookshelf_wood_shelf_short),
+            checked = values.woodShelfEnabled,
+            onCheckedChange = { onValuesChange(values.copy(woodShelfEnabled = it)) }
+        ),
         BookshelfSwitchItem(
             key = "unread",
             label = stringResource(R.string.show_unread),

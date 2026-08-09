@@ -144,6 +144,7 @@ object PreferKey {
     const val showRss = "showRss"
     const val bookshelfLayout = "bookshelfLayout"
     const val woodShelfStyle = "woodShelfStyle"
+    const val woodShelfEnabled = "woodShelfEnabled"
     const val bookshelfSort = "bookshelfSort"
     const val bookExportFileName = "bookExportFileName"
     const val bookImportFileName = "bookImportFileName"

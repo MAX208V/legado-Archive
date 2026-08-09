@@ -338,6 +338,13 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.woodShelfStyle, value)
         }
 
+    //木制书架独立开关（不随视图行列变化）
+    var woodShelfEnabled: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.woodShelfEnabled, false)
+        set(value) {
+            appCtx.putPrefBoolean(PreferKey.woodShelfEnabled, value)
+        }
+
     var saveTabPosition: Int
         get() = appCtx.getPrefInt(PreferKey.saveTabPosition, 0)
         set(value) {
