@@ -331,6 +331,13 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.bookshelfLayout, value)
         }
 
+    //木质书架木色 0..4 (a/b/c/d/e)
+    var woodShelfStyle: Int
+        get() = appCtx.getPrefInt(PreferKey.woodShelfStyle, 0)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.woodShelfStyle, value)
+        }
+
     var saveTabPosition: Int
         get() = appCtx.getPrefInt(PreferKey.saveTabPosition, 0)
         set(value) {

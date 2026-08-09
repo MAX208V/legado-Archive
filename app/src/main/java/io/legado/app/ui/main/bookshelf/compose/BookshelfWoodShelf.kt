@@ -1,0 +1,164 @@
+package io.legado.app.ui.main.bookshelf.compose
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
+import io.legado.app.R
+
+/**
+ * 木制书架（模仿静读天下 Moon+ Reader 的木质书架）
+ *
+ * 结构：每一层 = 一排书封面"立"在一条木质层板上，
+ * 层板下面是书架间的木质过渡带；整页背景为深色木墙。
+ * 木色 0..4 对应 a(浅橡木)/b(胡桃木)/c(白蜡木)/d(深咖木)/e(黑檀木)。
+ */
+@Composable
+fun BookshelfWoodShelfContent(
+    items: List<BookshelfItemUi>,
+    woodStyle: Int,
+    listState: LazyListState,
+    modifier: Modifier = Modifier.fillMaxSize(),
+    contentTopPadding: Dp = 0.dp,
+    contentBottomPadding: Dp = 0.dp,
+    fragment: Fragment? = null,
+    lifecycle: Lifecycle? = null,
+    onClick: (BookshelfItemUi) -> Unit,
+    onLongClick: (BookshelfItemUi) -> Unit
+) {
+    BoxWithConstraints(modifier = modifier) {
+        val edgePadding = 6.dp
+        val minCellWidth = 74.dp
+        // BookshelfGridItem 自带 4dp padding，行内视觉间距约为 8dp
+        val cellGap = 8.dp
+        val columns = (((maxWidth - edgePadding * 2 + cellGap) / (minCellWidth + cellGap))
+            .toInt())
+            .coerceAtLeast(1)
+        val cellWidth = (maxWidth - edgePadding * 2 - cellGap * (columns - 1)) / columns
+        val rows = items.chunked(columns)
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(woodBackgroundColor(woodStyle)),
+            contentPadding = PaddingValues(
+                start = edgePadding,
+                top = contentTopPadding,
+                end = edgePadding,
+                bottom = contentBottomPadding
+            )
+        ) {
+            itemsIndexed(
+                items = rows,
+                key = { index, row -> row.firstOrNull()?.key ?: "wood-row-$index" }
+            ) { _, rowItems ->
+                WoodShelfRow(
+                    items = rowItems,
+                    cellWidth = cellWidth,
+                    woodStyle = woodStyle,
+                    fragment = fragment,
+                    lifecycle = lifecycle,
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WoodShelfRow(
+    items: List<BookshelfItemUi>,
+    cellWidth: Dp,
+    woodStyle: Int,
+    fragment: Fragment?,
+    lifecycle: Lifecycle?,
+    onClick: (BookshelfItemUi) -> Unit,
+    onLongClick: (BookshelfItemUi) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            items.forEach { item ->
+                BookshelfGridItem(
+                    item = item,
+                    modifier = Modifier.width(cellWidth),
+                    fragment = fragment,
+                    lifecycle = lifecycle,
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                )
+            }
+        }
+        // 书架层板：书脚下的一条木板
+        androidx.compose.foundation.Image(
+            painter = painterResource(woodShelfBoardRes(woodStyle)),
+            contentDescription = null,
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp)
+                .padding(top = 2.dp)
+        )
+        // 书架间过渡带
+        androidx.compose.foundation.Image(
+            painter = painterResource(woodGapRes(woodStyle)),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(26.dp)
+                .padding(top = 2.dp)
+        )
+    }
+}
+
+/** 书架层板资源：a/b/c/d/e 木色 */
+internal fun woodShelfBoardRes(style: Int): Int = when (style.floorMod(5)) {
+    0 -> R.drawable.wood_shelf_a
+    1 -> R.drawable.wood_shelf_b
+    2 -> R.drawable.wood_shelf_c
+    3 -> R.drawable.wood_shelf_d
+    else -> R.drawable.wood_shelf_e
+}
+
+/** 书架间过渡资源：a/b/c/d/e 木色 */
+internal fun woodGapRes(style: Int): Int = when (style.floorMod(5)) {
+    0 -> R.drawable.wood_gap_a
+    1 -> R.drawable.wood_gap_b
+    2 -> R.drawable.wood_gap_c
+    3 -> R.drawable.wood_gap_d
+    else -> R.drawable.wood_gap_e
+}
+
+/** 木制书架整页背景（深色木墙色调，随木色变化） */
+internal fun woodBackgroundColor(style: Int): Color = when (style.floorMod(5)) {
+    0 -> Color(0xFF55402B)
+    1 -> Color(0xFF473422)
+    2 -> Color(0xFF7C7970)
+    3 -> Color(0xFF232427)
+    else -> Color(0xFF180F0C)
+}
+
+private fun Int.floorMod(other: Int): Int = ((this % other) + other) % other

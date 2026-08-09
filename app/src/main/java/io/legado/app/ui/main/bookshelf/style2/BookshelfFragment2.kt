@@ -56,6 +56,7 @@ import io.legado.app.ui.main.bookshelf.compose.BookshelfGridItem
 import io.legado.app.ui.main.bookshelf.compose.BookshelfItemUi
 import io.legado.app.ui.main.bookshelf.compose.BookshelfListItem
 import io.legado.app.ui.main.bookshelf.compose.BookshelfSnapshotStore
+import io.legado.app.ui.main.bookshelf.compose.BookshelfWoodShelfContent
 import io.legado.app.ui.main.bookshelf.compose.buildBookshelfItems
 import io.legado.app.ui.main.bookshelf.compose.rememberBookshelfListRenderConfig
 import io.legado.app.ui.main.bookshelf.compose.updateBookshelfItemUpdating
@@ -83,6 +84,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.max
 
+/** 书架布局值：木制书架 */
+private const val BOOKSHELF_LAYOUT_WOOD = 7
+
 /**
  * 书架界面
  */
@@ -105,8 +109,10 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
     private var enableRefresh = true
     override var onlyUpdateRead = false
     private var bookshelfMargin by mutableIntStateOf(AppConfig.bookshelfMargin)
+    private var woodShelfStyle by mutableIntStateOf(AppConfig.woodShelfStyle)
     private var itemCount = 0
     private var totalRows = 0
+    private val useWoodShelf get() = bookshelfLayout == BOOKSHELF_LAYOUT_WOOD
     private val useComposeGrid get() = bookshelfLayout >= 2
     private val useComposeList get() = bookshelfLayout < 2
     private val useComposeBookshelf get() = true
@@ -159,10 +165,10 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
             ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed
         )
         binding.composeBookshelf.setContent {
-            if (useComposeGrid) {
-                BookshelfGridContent()
-            } else {
-                BookshelfListContent()
+            when {
+                useWoodShelf -> BookshelfWoodContent()
+                useComposeGrid -> BookshelfGridContent()
+                else -> BookshelfListContent()
             }
         }
     }
@@ -337,6 +343,78 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
                     )
                 }
             }
+            ComposeLazyListFastScroller(
+                state = listState,
+                enabled = AppConfig.showBookshelfFastScroller,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            )
+        }
+    }
+
+    @Composable
+    private fun BookshelfWoodContent() {
+        val listState = rememberLazyListState()
+        val currentGroupId = composeGroupId
+        val pendingScrollRestoreGroupId = composePendingScrollRestoreGroupId
+        val canScrollBackward by remember {
+            derivedStateOf {
+                listState.firstVisibleItemIndex > 0 ||
+                        listState.firstVisibleItemScrollOffset > 0
+            }
+        }
+        val marginDp = with(LocalDensity.current) { bookshelfMargin.toDp() }
+        val bottomBarPadding = with(LocalDensity.current) {
+            resources.getDimensionPixelSize(R.dimen.main_content_bottom_bar_padding).toDp()
+        }
+        DisposableEffect(currentGroupId) {
+            onDispose {
+                composeScrollPositions[currentGroupId] = ComposeScrollPosition(
+                    index = listState.firstVisibleItemIndex,
+                    offset = listState.firstVisibleItemScrollOffset
+                )
+            }
+        }
+        LaunchedEffect(canScrollBackward) {
+            composeCanScrollBackward = canScrollBackward
+        }
+        LaunchedEffect(currentGroupId, pendingScrollRestoreGroupId, composeDataVersion) {
+            if (pendingScrollRestoreGroupId == currentGroupId && composeDataVersion > 0) {
+                val scrollPosition = composeScrollPositions[currentGroupId]
+                if (scrollPosition != null && composeItems.isNotEmpty()) {
+                    val targetIndex = scrollPosition.index.coerceAtMost(composeItems.lastIndex)
+                    val targetOffset = if (targetIndex == scrollPosition.index) {
+                        scrollPosition.offset
+                    } else {
+                        0
+                    }
+                    listState.scrollToItem(targetIndex, targetOffset)
+                } else {
+                    listState.scrollToItem(0)
+                }
+                composePendingScrollRestoreGroupId = null
+            }
+        }
+        LaunchedEffect(composeScrollToTopTick) {
+            if (composeScrollToTopTick > 0) {
+                if (AppConfig.isEInkMode) {
+                    listState.scrollToItem(0)
+                } else {
+                    listState.animateScrollToItem(0)
+                }
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            BookshelfWoodShelfContent(
+                items = composeItems,
+                woodStyle = woodShelfStyle,
+                listState = listState,
+                contentTopPadding = marginDp + 24.dp,
+                contentBottomPadding = marginDp + bottomBarPadding + 12.dp,
+                fragment = this@BookshelfFragment2,
+                lifecycle = viewLifecycleOwner.lifecycle,
+                onClick = ::onComposeItemClick,
+                onLongClick = ::onComposeItemLongClick
+            )
             ComposeLazyListFastScroller(
                 state = listState,
                 enabled = AppConfig.showBookshelfFastScroller,
@@ -606,6 +684,7 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         }
         observeEvent<String>(EventBus.BOOKSHELF_REFRESH) {
             bookshelfMargin = AppConfig.bookshelfMargin
+            woodShelfStyle = AppConfig.woodShelfStyle
             composeListItemStyle = AppConfig.bookshelfListItemStyle
             composeListIntroLines = AppConfig.bookshelfListIntroLines
             updateComposeItems()
@@ -619,8 +698,9 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         if (!isAdded) return
         val targetGroupId = groupId
         dismissBookshelfTransientUi()
-        bookshelfLayout = AppConfig.bookshelfLayout.coerceIn(0, 6)
+        bookshelfLayout = AppConfig.bookshelfLayout.coerceIn(0, BOOKSHELF_LAYOUT_WOOD)
         bookshelfMargin = AppConfig.bookshelfMargin
+        woodShelfStyle = AppConfig.woodShelfStyle
         composeListItemStyle = AppConfig.bookshelfListItemStyle
         composeListIntroLines = AppConfig.bookshelfListIntroLines
         composeScrollPositions.clear()
