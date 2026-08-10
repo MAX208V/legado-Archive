@@ -83,8 +83,8 @@ import java.util.logging.Level
 
 class App : Application() {
 
-    private const val MAX_THEME_RETRY = 3
-    private const val THEME_RETRY_INTERVAL_MS = 500L
+    private val MAX_THEME_RETRY = 3
+    private val THEME_RETRY_INTERVAL_MS = 500L
     private lateinit var oldConfig: Configuration
     private val themeConfigurationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var themeConfigurationJob: Job? = null
