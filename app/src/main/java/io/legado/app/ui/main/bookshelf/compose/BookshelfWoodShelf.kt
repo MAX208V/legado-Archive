@@ -2,6 +2,7 @@ package io.legado.app.ui.main.bookshelf.compose
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,11 +57,22 @@ fun BookshelfWoodShelfContent(
             .coerceAtLeast(1)
         val cellWidth = (maxWidth - edgePadding * 2 - cellGap * (columns - 1)) / columns
         val rows = items.chunked(columns)
-        LazyColumn(
-            state = listState,
+        // 背景：整页铺亮色木板图（细腻木纹），再叠加对应木色的深色木调遮罩，
+        // 形成静读天下式的深色木墙（板条保持亮色、书名浅色可读）
+        androidx.compose.foundation.Image(
+            painter = painterResource(woodGapRes(woodStyle)),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(woodBackgroundColor(woodStyle)),
+                .background(woodBackgroundColor(woodStyle).copy(alpha = 0.55f))
+        )
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
                 start = edgePadding,
                 top = contentTopPadding,
@@ -138,7 +150,19 @@ internal fun woodShelfBoardRes(style: Int): Int = when (style.floorMod(5)) {
     else -> R.drawable.wood_shelf_e
 }
 
-/** 木制书架整页背景（深色木墙色调，随木色变化） */
+/** 背景木墙资源（细腻木纹的亮木板，铺满整页）：a/b/c/d/e 木色 */
+internal fun woodGapRes(style: Int): Int = when (style.floorMod(5)) {
+    0 -> R.drawable.wood_gap_a
+    1 -> R.drawable.wood_gap_b
+    2 -> R.drawable.wood_gap_c
+    3 -> R.drawable.wood_gap_d
+    else -> R.drawable.wood_gap_e
+}
+
+/** 木制书架背景下的书名颜色（深色木墙上固定浅色，避免亮色主题字色不可见） */
+private val WoodTitleColor = Color(0xFFF6EFE2)
+
+/** 木制书架整页背景色调（深色木墙遮罩色，随木色变化） */
 internal fun woodBackgroundColor(style: Int): Color = when (style.floorMod(5)) {
     0 -> Color(0xFF55402B)
     1 -> Color(0xFF473422)
@@ -146,8 +170,5 @@ internal fun woodBackgroundColor(style: Int): Color = when (style.floorMod(5)) {
     3 -> Color(0xFF232427)
     else -> Color(0xFF180F0C)
 }
-
-/** 木制书架书名固定浅色（深色木墙背景上保证可读，不随主题字色变化） */
-private val WoodTitleColor = Color(0xFFF1E7DB)
 
 private fun Int.floorMod(other: Int): Int = ((this % other) + other) % other
