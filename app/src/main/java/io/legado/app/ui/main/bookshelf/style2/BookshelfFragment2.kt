@@ -53,6 +53,7 @@ import io.legado.app.ui.main.bookshelf.BaseBookshelfFragment
 import io.legado.app.ui.main.bookshelf.compose.BookshelfBookItemUi
 import io.legado.app.ui.main.bookshelf.compose.BookshelfFolderItemUi
 import io.legado.app.ui.main.bookshelf.compose.BookshelfGridItem
+import io.legado.app.ui.main.bookshelf.compose.BookshelfWoodShelfContent
 import io.legado.app.ui.main.bookshelf.compose.BookshelfItemUi
 import io.legado.app.ui.main.bookshelf.compose.BookshelfListItem
 import io.legado.app.ui.main.bookshelf.compose.BookshelfSnapshotStore
@@ -105,8 +106,11 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
     private var enableRefresh = true
     override var onlyUpdateRead = false
     private var bookshelfMargin by mutableIntStateOf(AppConfig.bookshelfMargin)
+    private var woodShelfEnabled by mutableStateOf(AppConfig.woodShelfEnabled)
+    private var woodShelfStyle by mutableIntStateOf(AppConfig.woodShelfStyle)
     private var itemCount = 0
     private var totalRows = 0
+    private val useWoodShelf get() = woodShelfEnabled
     private val useComposeGrid get() = bookshelfLayout >= 2
     private val useComposeList get() = bookshelfLayout < 2
     private val useComposeBookshelf get() = true
@@ -160,9 +164,68 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         )
         binding.composeBookshelf.setContent {
             when {
+                useWoodShelf -> BookshelfWoodContent()
                 useComposeGrid -> BookshelfGridContent()
                 else -> BookshelfListContent()
             }
+        }
+    }
+
+    @Composable
+    private fun BookshelfWoodContent() {
+        val listState = rememberLazyListState()
+        val currentGroupId = composeGroupId
+        val pendingScrollRestoreGroupId = composePendingScrollRestoreGroupId
+        val canScrollBackward by remember {
+            derivedStateOf {
+                listState.firstVisibleItemIndex > 0 ||
+                        listState.firstVisibleItemScrollOffset > 0
+            }
+        }
+        val marginDp = with(LocalDensity.current) { bookshelfMargin.toDp() }
+        val bottomBarPadding = with(LocalDensity.current) {
+            resources.getDimensionPixelSize(R.dimen.main_content_bottom_bar_padding).toDp()
+        }
+        LaunchedEffect(canScrollBackward) {
+            composeCanScrollBackward = canScrollBackward
+        }
+        LaunchedEffect(composePendingScrollRestoreGroupId, composeGroupId) {
+            if (currentGroupId != composeGroupId) return@LaunchedEffect
+            val pending = pendingScrollRestoreGroupId
+            if (pending != null && pending != composeGroupId) {
+                composePendingScrollRestoreGroupId = null
+                restoreComposeScrollPosition(pending)
+            } else if (pending == null || pending == composeGroupId) {
+                restoreComposeScrollPosition(composeGroupId)
+            }
+        }
+        LaunchedEffect(composeImmediateScrollToTopTick) {
+            if (composeImmediateScrollToTopTick > 0) {
+                listState.scrollToItem(0)
+            }
+        }
+        LaunchedEffect(composeScrollToTopTick) {
+            if (composeScrollToTopTick > 0) {
+                listState.animateScrollToItem(0)
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            BookshelfWoodShelfContent(
+                items = composeItems,
+                woodStyle = woodShelfStyle,
+                listState = listState,
+                contentTopPadding = marginDp + 24.dp,
+                contentBottomPadding = marginDp + bottomBarPadding + 12.dp,
+                fragment = this@BookshelfFragment2,
+                lifecycle = viewLifecycleOwner.lifecycle,
+                onClick = ::onComposeItemClick,
+                onLongClick = ::onComposeItemLongClick
+            )
+            ComposeLazyListFastScroller(
+                state = listState,
+                enabled = AppConfig.showBookshelfFastScroller,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            )
         }
     }
 
@@ -606,6 +669,8 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         }
         observeEvent<String>(EventBus.BOOKSHELF_REFRESH) {
             bookshelfMargin = AppConfig.bookshelfMargin
+            woodShelfEnabled = AppConfig.woodShelfEnabled
+            woodShelfStyle = AppConfig.woodShelfStyle
             composeListItemStyle = AppConfig.bookshelfListItemStyle
             composeListIntroLines = AppConfig.bookshelfListIntroLines
             updateComposeItems()
@@ -621,6 +686,8 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         dismissBookshelfTransientUi()
         bookshelfLayout = AppConfig.bookshelfLayout.coerceIn(0, 6)
         bookshelfMargin = AppConfig.bookshelfMargin
+        woodShelfEnabled = AppConfig.woodShelfEnabled
+        woodShelfStyle = AppConfig.woodShelfStyle
         composeListItemStyle = AppConfig.bookshelfListItemStyle
         composeListIntroLines = AppConfig.bookshelfListIntroLines
         composeScrollPositions.clear()

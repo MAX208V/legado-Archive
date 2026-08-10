@@ -2244,6 +2244,14 @@ bookUrl：%7$s
     <string name="bookshelf_list_intro_lines_1">1 行</string>
     <string name="bookshelf_list_intro_lines_2">2 行</string>
     <string name="bookshelf_list_intro_lines_3">3 行</string>
+    <string name="bookshelf_wood_shelf">拟木书架</string>
+    <string name="bookshelf_wood_shelf_short">木架</string>
+    <string name="bookshelf_wood_style">木色</string>
+    <string name="wood_style_teak">柚木</string>
+    <string name="wood_style_walnut">胡桃</string>
+    <string name="wood_style_oak">橡木</string>
+    <string name="wood_style_redwood">红杉</string>
+    <string name="wood_style_ebony">黑檀</string>
     <string name="main_layout_preset">界面导航样式</string>
     <string name="main_layout_preset_summary">快速切换系统自带顶栏与底栏组合</string>
     <string name="main_layout_preset_default">悬浮</string>

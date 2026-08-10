@@ -2401,6 +2401,14 @@ Selected text or question:
     <string name="bookshelf_list_intro_lines_1">1 line</string>
     <string name="bookshelf_list_intro_lines_2">2 lines</string>
     <string name="bookshelf_list_intro_lines_3">3 lines</string>
+    <string name="bookshelf_wood_shelf">Wooden Bookshelf</string>
+    <string name="bookshelf_wood_shelf_short">Wood</string>
+    <string name="bookshelf_wood_style">Wood Tone</string>
+    <string name="wood_style_teak">Teak</string>
+    <string name="wood_style_walnut">Walnut</string>
+    <string name="wood_style_oak">Oak</string>
+    <string name="wood_style_redwood">Redwood</string>
+    <string name="wood_style_ebony">Ebony</string>
     <string name="main_layout_preset">Navigation style</string>
     <string name="main_layout_preset_summary">Switch to built-in top and bottom navigation presets</string>
     <string name="main_layout_preset_default">Floating</string>

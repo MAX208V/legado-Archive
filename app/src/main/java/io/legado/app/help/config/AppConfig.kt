@@ -331,6 +331,18 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.bookshelfLayout, value)
         }
 
+    var woodShelfStyle: Int
+        get() = appCtx.getPrefInt(PreferKey.woodShelfStyle, 0)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.woodShelfStyle, value)
+        }
+
+    var woodShelfEnabled: Boolean
+        get() = appCtx.getPrefBoolean(PreferKey.woodShelfEnabled, false)
+        set(value) {
+            appCtx.putPrefBoolean(PreferKey.woodShelfEnabled, value)
+        }
+
     var saveTabPosition: Int
         get() = appCtx.getPrefInt(PreferKey.saveTabPosition, 0)
         set(value) {

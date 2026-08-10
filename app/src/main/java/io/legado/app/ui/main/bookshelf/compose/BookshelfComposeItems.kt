@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -140,6 +141,8 @@ fun BookshelfGridItem(
     modifier: Modifier = Modifier,
     compactBottomSpace: Boolean = false,
     titleColorOverride: Color? = null,
+    woodContactShadow: Boolean = false,
+    woodSpineGlow: Boolean = false,
     fragment: Fragment? = null,
     lifecycle: Lifecycle? = null,
     onClick: (BookshelfItemUi) -> Unit,
@@ -183,6 +186,38 @@ fun BookshelfGridItem(
                 fragment = fragment,
                 lifecycle = lifecycle
             )
+            // 拟木书架：书底接触阴影（紧贴层板处加深）
+            if (woodContactShadow) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.34f),
+                                    Color.Black.copy(alpha = 0.12f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+            }
+            // 拟木书架：书脊高光（左侧白色渐变反光）
+            if (woodSpineGlow) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(2.dp)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(Color.White.copy(alpha = 0.40f), Color.Transparent)
+                            )
+                        )
+                )
+            }
             if (item is BookshelfBookItemUi) {
                 BookshelfStatusBadge(item)
             }

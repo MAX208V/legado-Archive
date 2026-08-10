@@ -151,6 +151,8 @@ object PreferKey {
     const val processText = "process_text"
     const val cleanCache = "cleanCache"
     const val cacheManage = "cacheManage"
+    const val woodShelfStyle = "woodShelfStyle"
+    const val woodShelfEnabled = "woodShelfEnabled"
     const val saveTabPosition = "saveTabPosition"
     const val fontFolder = "fontFolder"
     const val backupPath = "backupUri"

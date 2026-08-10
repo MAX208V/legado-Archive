@@ -293,6 +293,8 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
                     showBookname = showBookname,
                     listItemStyle = listItemStyle,
                     listIntroLines = listIntroLines,
+                    woodShelfEnabled = AppConfig.woodShelfEnabled,
+                    woodShelfStyle = AppConfig.woodShelfStyle,
                     margin = AppConfig.bookshelfMargin
                 ),
                 onPreviewMarginChange = ::previewBookshelfMargin,
@@ -385,6 +387,14 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
                 activityViewModel.booksListRecycledViewPool.clear()
             }
             structureChanged = true
+        }
+        if (AppConfig.woodShelfEnabled != values.woodShelfEnabled) {
+            AppConfig.woodShelfEnabled = values.woodShelfEnabled
+            structureChanged = true
+        }
+        if (AppConfig.woodShelfStyle != values.woodShelfStyle) {
+            AppConfig.woodShelfStyle = values.woodShelfStyle
+            refreshBookshelf = true
         }
         if (notifyMain) {
             postEvent(EventBus.NOTIFY_MAIN, false)

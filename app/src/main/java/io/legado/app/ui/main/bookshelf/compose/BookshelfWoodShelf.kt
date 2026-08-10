@@ -1,0 +1,390 @@
+package io.legado.app.ui.main.bookshelf.compose
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.fragment.app.Fragment
+
+/**
+ * 拟物木制书架（Compose Canvas 纯代码绘制，无位图依赖）。
+ *
+ * 视觉构成：
+ *  1. 固定木墙背景：竖向板条 + 木纹细线 + 板缝 + 噪点 + 顶部横梁 + 两侧支撑柱 + 底部底座
+ *  2. 书架层（随内容滚动）：书本行（真实封面，高矮错落、底边对齐）+ 下层板（板面 + 前缘高光/倒角 + 底部暗边）
+ *  3. 每层顶部上层板环境光遮蔽（AO），书底接触阴影
+ */
+@Composable
+fun BookshelfWoodShelfContent(
+    items: List<BookshelfItemUi>,
+    woodStyle: Int,
+    listState: LazyListState,
+    modifier: Modifier = Modifier,
+    contentTopPadding: Dp,
+    contentBottomPadding: Dp,
+    fragment: Fragment?,
+    lifecycle: Lifecycle?,
+    onClick: (BookshelfItemUi) -> Unit,
+    onLongClick: (BookshelfItemUi) -> Unit
+) {
+    val theme = remember(woodStyle) { WoodShelfTheme.of(woodStyle) }
+    val chunks = remember(items) { items.chunked(3) }
+    Box(modifier = modifier.fillMaxSize()) {
+        // 固定木墙（不随内容滚动）
+        WoodWallBackground(theme = theme, modifier = Modifier.fillMaxSize())
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = contentTopPadding,
+                bottom = contentBottomPadding
+            )
+        ) {
+            itemsIndexed(chunks) { index, chunk ->
+                WoodShelfLayer(
+                    books = chunk,
+                    layerIndex = index,
+                    theme = theme,
+                    fragment = fragment,
+                    lifecycle = lifecycle,
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                )
+            }
+        }
+    }
+}
+
+/** 一排书 + 下层板 */
+@Composable
+private fun WoodShelfLayer(
+    books: List<BookshelfItemUi>,
+    layerIndex: Int,
+    theme: WoodShelfTheme,
+    fragment: Fragment?,
+    lifecycle: Lifecycle?,
+    onClick: (BookshelfItemUi) -> Unit,
+    onLongClick: (BookshelfItemUi) -> Unit
+) {
+    Column {
+        // 上层板的投影（AO），压暗本层书顶，增强层叠感
+        if (layerIndex > 0) {
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(AO_HEIGHT)
+            ) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color.Black.copy(alpha = 0.32f), Color.Transparent)
+                    )
+                )
+            }
+        }
+        // 书本行：书宽按权重变化（高矮错落），底边对齐层板
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max)
+                .padding(horizontal = SHELF_EDGE_PADDING)
+                .padding(bottom = BOOK_BOARD_GAP),
+            horizontalArrangement = Arrangement.spacedBy(BOOK_GAP),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            books.forEachIndexed { index, book ->
+                BookshelfGridItem(
+                    item = book,
+                    modifier = Modifier.weight(BOOK_WEIGHTS[index % BOOK_WEIGHTS.size]),
+                    compactBottomSpace = true,
+                    woodContactShadow = true,
+                    woodSpineGlow = true,
+                    fragment = fragment,
+                    lifecycle = lifecycle,
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                )
+            }
+        }
+        // 层板（随层滚动）
+        WoodShelfBoard(theme = theme, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** 层板：板面 + 前缘（高光/倒角/暗边） */
+@Composable
+private fun WoodShelfBoard(theme: WoodShelfTheme, modifier: Modifier = Modifier) {
+    val density = LocalDensity.current
+    val boardHeightPx = with(density) { BOARD_HEIGHT.toPx() }
+    val facePx = with(density) { FACE_HEIGHT.toPx() }
+    Canvas(modifier = modifier.height(BOARD_HEIGHT)) {
+        val edgeLight = theme.plankEdgeLight
+        val edge = theme.plankEdge
+        val edgeDark = theme.wallDark
+        // 板面（书站立区可见部分）
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.Black.copy(alpha = 0.18f),
+                    theme.plankTop,
+                    theme.plankTop
+                )
+            ),
+            size = Size(size.width, facePx)
+        )
+        // 前缘：上亮下暗的垂直渐变
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    edgeLight.copy(alpha = 0.85f),
+                    edge,
+                    edgeDark
+                )
+            ),
+            topLeft = Offset(0f, facePx),
+            size = Size(size.width, boardHeightPx - facePx)
+        )
+        // 前缘顶部高光条
+        drawRect(
+            color = edgeLight.copy(alpha = 0.7f),
+            topLeft = Offset(0f, facePx),
+            size = Size(size.width, EDGE_LIGHT_HEIGHT_PX)
+        )
+        // 前缘底部暗边
+        drawRect(
+            color = Color.Black.copy(alpha = 0.35f),
+            topLeft = Offset(0f, boardHeightPx - EDGE_DARK_HEIGHT),
+            size = Size(size.width, EDGE_DARK_HEIGHT)
+        )
+        // 前缘两端收口暗角（模拟倒角光照衰减）
+        drawRect(
+            brush = Brush.horizontalGradient(
+                colors = listOf(
+                    Color.Black.copy(alpha = 0.18f),
+                    Color.Transparent,
+                    Color.Black.copy(alpha = 0.18f)
+                )
+            ),
+            topLeft = Offset(0f, facePx),
+            size = Size(size.width, boardHeightPx - facePx)
+        )
+    }
+}
+
+/** 固定木墙背景：板条 + 木纹 + 板缝 + 支撑柱 + 横梁 + 底座 + 噪点 */
+@Composable
+private fun WoodWallBackground(theme: WoodShelfTheme, modifier: Modifier = Modifier) {
+    // 固定随机种子，避免滚动时木纹/噪点闪烁
+    val grains = remember(theme) { WoodGrain.generate(theme, 42) }
+    val density = LocalDensity.current
+    val columnPx = with(density) { COLUMN_WIDTH.toPx() }
+    val beamPx = with(density) { BEAM_HEIGHT.toPx() }
+    val basePx = with(density) { BASE_HEIGHT.toPx() }
+    val boardPx = with(density) { BOARD_WIDTH.toPx() }
+    Canvas(modifier = modifier) {
+        // 1. 木墙底色：上稍亮 → 下稍暗
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    theme.wallLight.copy(alpha = 0.92f),
+                    theme.wallBase,
+                    theme.wallDark.copy(alpha = 1.05f)
+                )
+            )
+        )
+        // 2. 板条木纹（固定随机）
+        grains.forEach { g ->
+            drawRect(
+                color = g.color,
+                topLeft = Offset(g.x, 0f),
+                size = Size(g.width, size.height)
+            )
+        }
+        // 3. 板缝（竖线）+ 缝右侧高光
+        var x = 0f
+        while (x < size.width) {
+            drawRect(
+                color = theme.wallDark.copy(alpha = 0.9f),
+                topLeft = Offset(x, 0f),
+                size = Size(SEAM_PX, size.height)
+            )
+            drawRect(
+                color = theme.wallLight.copy(alpha = 0.25f),
+                topLeft = Offset(x + SEAM_PX, 0f),
+                size = Size(SEAM_HL_PX, size.height)
+            )
+            x += boardPx
+        }
+        // 4. 顶部横梁下投影
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.Black.copy(alpha = 0.35f),
+                    Color.Black.copy(alpha = 0.18f),
+                    Color.Transparent
+                )
+            ),
+            topLeft = Offset(0f, beamPx),
+            size = Size(size.width, BEAM_SHADOW_HEIGHT)
+        )
+        // 5. 左右支撑柱
+        drawColumn(this, theme, columnPx, size.height)
+        drawColumn(this, theme, columnPx, size.height, fromRight = true)
+        // 6. 顶部横梁
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    theme.beamHighlight.copy(alpha = 0.7f),
+                    theme.beam,
+                    theme.wallDark
+                )
+            ),
+            size = Size(size.width, beamPx)
+        )
+        drawRect(
+            color = theme.beamHighlight.copy(alpha = 0.6f),
+            topLeft = Offset(0f, beamPx - BEAM_HL),
+            size = Size(size.width, BEAM_HL)
+        )
+        // 7. 底部底座
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    theme.beamHighlight.copy(alpha = 0.5f),
+                    theme.beam,
+                    theme.wallDark.copy(alpha = 1.3f)
+                )
+            ),
+            topLeft = Offset(0f, size.height - basePx),
+            size = Size(size.width, basePx)
+        )
+        drawRect(
+            color = theme.beamHighlight.copy(alpha = 0.5f),
+            topLeft = Offset(0f, size.height - basePx),
+            size = Size(size.width, BASE_HL)
+        )
+        // 8. 微噪点
+        drawNoise(seed = grains)
+    }
+}
+
+private fun DrawScope.drawColumn(
+    theme: WoodShelfTheme,
+    width: Float,
+    height: Float,
+    fromRight: Boolean = false
+) {
+    val h = height
+    drawRect(
+        brush = Brush.horizontalGradient(
+            colors = listOf(
+                theme.wallDark.copy(alpha = 0.8f),
+                theme.column,
+                theme.column,
+                theme.wallDark.copy(alpha = 0.8f)
+            )
+        ),
+        topLeft = Offset(if (fromRight) size.width - width else 0f, 0f),
+        size = Size(width, h)
+    )
+    // 内侧高光（书架内沿受光）
+    drawRect(
+        color = theme.columnHighlight.copy(alpha = 0.55f),
+        topLeft = Offset(if (fromRight) size.width - width else 0f, 0f),
+        size = Size(COLUMN_INNER_HL, h)
+    )
+}
+
+private fun DrawScope.drawNoise(seed: List<WoodGrain>) {
+    val step = NOISE_STEP
+    var y = 0f
+    var i = 0
+    while (y < size.height) {
+        var x = 0f
+        while (x < size.width) {
+            val g = seed[(i + x.toInt() * 7) % seed.size]
+            drawRect(
+                color = g.color.copy(alpha = g.color.alpha * 0.35f),
+                topLeft = Offset(x, y),
+                size = Size(1f, 1f)
+            )
+            i++
+            x += step
+        }
+        y += step
+    }
+}
+
+/** 木纹颗粒（固定生成一次，滚动不闪烁） */
+private data class WoodGrain(val x: Float, val width: Float, val color: Color) {
+    companion object {
+        fun generate(theme: WoodShelfTheme, seed: Int): List<WoodGrain> {
+            val list = ArrayList<WoodGrain>(160)
+            var s = seed
+            fun next(): Float {
+                s = (s * 1103515245L + 12345).toInt()
+                return ((s ushr 16) and 0x7FFF) / 32767f
+            }
+            repeat(140) {
+                val dark = next() < 0.5f
+                list.add(
+                    WoodGrain(
+                        x = next() * 2200f,
+                        width = 1f + next() * 2f,
+                        color = if (dark) {
+                            theme.wallDark.copy(alpha = 0.05f + next() * 0.10f)
+                        } else {
+                            theme.wallLight.copy(alpha = 0.04f + next() * 0.08f)
+                        }
+                    )
+                )
+            }
+            return list
+        }
+    }
+}
+
+// ---------- 尺寸常量 ----------
+private val SHELF_EDGE_PADDING = 12.dp
+private val BOOK_GAP = 14.dp
+private val BOOK_BOARD_GAP = 8.dp
+private val BOARD_HEIGHT = 30.dp
+private val FACE_HEIGHT = 12.dp       // 板面区高度
+private val AO_HEIGHT = 12.dp
+private val COLUMN_WIDTH = 26.dp      // 支撑柱宽
+private val BEAM_HEIGHT = 18.dp       // 横梁高
+private val BASE_HEIGHT = 26.dp       // 底座高
+private val BOARD_WIDTH = 64.dp       // 木墙板条宽
+private val SEAM_PX = 2f
+private val SEAM_HL_PX = 2f
+private val EDGE_LIGHT_HEIGHT_PX = 2f
+private val EDGE_DARK_HEIGHT = 3f
+private val BEAM_HL = 2f
+private val BEAM_SHADOW_HEIGHT = 48f
+private val COLUMN_INNER_HL = 3f
+private val BASE_HL = 2f
+private val NOISE_STEP = 22f
+// 每层书宽权重：中间稍矮、右侧略高 → 高矮错落（底边对齐）
+private val BOOK_WEIGHTS = floatArrayOf(1f, 0.9f, 1.06f)
