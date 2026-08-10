@@ -133,6 +133,7 @@ fun BookshelfGridItem(
     item: BookshelfItemUi,
     modifier: Modifier = Modifier,
     compactBottomSpace: Boolean = false,
+    titleColorOverride: Color? = null,
     fragment: Fragment? = null,
     lifecycle: Lifecycle? = null,
     onClick: (BookshelfItemUi) -> Unit,
@@ -200,7 +201,7 @@ fun BookshelfGridItem(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 6.dp),
-                color = titleColor,
+                color = titleColorOverride ?: titleColor,
                 fontSize = 12.sp,
                 fontFamily = titleFontFamily,
                 fontWeight = FontWeight.Medium,

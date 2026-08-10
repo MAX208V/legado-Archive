@@ -106,6 +106,8 @@ private fun WoodShelfRow(
                     item = item,
                     modifier = Modifier.width(cellWidth),
                     compactBottomSpace = true,
+                    // 深色木墙背景下书名固定用浅色（亮色主题时系统字色是深色会看不清）
+                    titleColorOverride = WoodTitleColor,
                     fragment = fragment,
                     lifecycle = lifecycle,
                     onClick = onClick,
@@ -113,17 +115,17 @@ private fun WoodShelfRow(
                 )
             }
         }
-        // 书架层板：紧贴书名底部的一条薄木板（静读天下为薄板 + 下缘阴影）
+        // 书架层板：紧贴书名底部的一条木板（静读天下为薄板 + 下缘阴影）
         androidx.compose.foundation.Image(
             painter = painterResource(woodShelfBoardRes(woodStyle)),
             contentDescription = null,
             contentScale = ContentScale.FillBounds,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(14.dp)
+                .height(20.dp)
         )
         // 封面顶部留一点缝隙（板条下缘与下一排书封面之间的空隙）
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
     }
 }
 
@@ -144,5 +146,8 @@ internal fun woodBackgroundColor(style: Int): Color = when (style.floorMod(5)) {
     3 -> Color(0xFF232427)
     else -> Color(0xFF180F0C)
 }
+
+/** 木制书架书名固定浅色（深色木墙背景上保证可读，不随主题字色变化） */
+private val WoodTitleColor = Color(0xFFF1E7DB)
 
 private fun Int.floorMod(other: Int): Int = ((this % other) + other) % other
