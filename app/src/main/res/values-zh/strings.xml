@@ -65,15 +65,6 @@
     <string name="layout_grid4">网格四列</string>
     <string name="layout_grid5">网格五列</string>
     <string name="layout_grid6">网格六列</string>
-    <string name="layout_wood_shelf">木质书架</string>
-    <string name="bookshelf_wood_shelf">木制书架</string>
-    <string name="bookshelf_wood_shelf_short">木架</string>
-    <string name="bookshelf_wood_style">木色</string>
-    <string name="wood_style_light_oak">浅橡木</string>
-    <string name="wood_style_walnut">胡桃木</string>
-    <string name="wood_style_ash">白蜡木</string>
-    <string name="wood_style_espresso">深咖木</string>
-    <string name="wood_style_ebony">黑檀木</string>
     <string name="bookshelf_layout">书架布局</string>
     <string name="view">视图</string>
     <string name="book_library">书城</string>

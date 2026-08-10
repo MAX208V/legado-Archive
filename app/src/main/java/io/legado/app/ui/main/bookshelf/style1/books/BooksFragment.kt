@@ -60,7 +60,6 @@ import io.legado.app.ui.main.bookshelf.compose.BookshelfGridItem
 import io.legado.app.ui.main.bookshelf.compose.BookshelfItemUi
 import io.legado.app.ui.main.bookshelf.compose.BookshelfListItem
 import io.legado.app.ui.main.bookshelf.compose.BookshelfSnapshotStore
-import io.legado.app.ui.main.bookshelf.compose.BookshelfWoodShelfContent
 import io.legado.app.ui.main.bookshelf.compose.buildBookshelfItems
 import io.legado.app.ui.main.bookshelf.compose.rememberBookshelfListRenderConfig
 import io.legado.app.ui.main.bookshelf.compose.updateBookshelfItemUpdating
@@ -122,8 +121,7 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books) {
     private var topOverlayEnabled by mutableStateOf(false)
     private val useComposeList get() = bookshelfLayout < 2
     private val useComposeGrid get() = bookshelfLayout >= 2
-    private val useComposeWoodShelf get() = AppConfig.woodShelfEnabled
-    private val useComposeBookshelf get() = useComposeList || useComposeGrid || useComposeWoodShelf
+    private val useComposeBookshelf get() = useComposeList || useComposeGrid
     private var composeItems by mutableStateOf<List<BookshelfItemUi>>(emptyList())
     private var shelfDisplays: List<BookShelfDisplay> = emptyList()
     private var composeCanScrollBackward by mutableStateOf(false)
@@ -268,7 +266,6 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books) {
         )
         binding.composeBookshelf.setContent {
             when {
-                useComposeWoodShelf -> BookshelfWoodContent()
                 useComposeGrid -> BookshelfGridContent()
                 else -> BookshelfListContent()
             }
@@ -443,78 +440,6 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books) {
                     )
                 }
             }
-            ComposeLazyListFastScroller(
-                state = listState,
-                enabled = AppConfig.showBookshelfFastScroller,
-                modifier = Modifier.align(Alignment.CenterEnd)
-            )
-        }
-    }
-
-    @Composable
-    private fun BookshelfWoodContent() {
-        val listState = rememberLazyListState()
-        val canScrollBackward by remember {
-            derivedStateOf {
-                listState.firstVisibleItemIndex > 0 ||
-                        listState.firstVisibleItemScrollOffset > 0
-            }
-        }
-        val marginDp = with(LocalDensity.current) { bookshelfMargin.toDp() }
-        val topExtraDp = with(LocalDensity.current) {
-            val topExtra = if (topOverlayEnabled) {
-                topOverlaySpace + resources.getDimensionPixelSize(R.dimen.bookshelf_top_overlay_gap)
-            } else {
-                resources.getDimensionPixelSize(R.dimen.bookshelf_content_margin_top)
-            }
-            topExtra.toDp()
-        }
-        val lazyModifier = if (topOverlayEnabled) {
-            Modifier
-                .fillMaxSize()
-                .padding(top = topExtraDp)
-                .clipToBounds()
-        } else {
-            Modifier.fillMaxSize()
-        }
-        val contentTopPadding = if (topOverlayEnabled) {
-            marginDp
-        } else {
-            topExtraDp + marginDp
-        }
-        val bottomBarPadding = with(LocalDensity.current) {
-            resources.getDimensionPixelSize(R.dimen.main_content_bottom_bar_padding).toDp()
-        }
-        LaunchedEffect(canScrollBackward) {
-            composeCanScrollBackward = canScrollBackward
-        }
-        LaunchedEffect(composeImmediateScrollToTopTick) {
-            if (composeImmediateScrollToTopTick > 0) {
-                listState.scrollToItem(0)
-            }
-        }
-        LaunchedEffect(composeScrollToTopTick) {
-            if (composeScrollToTopTick > 0) {
-                if (AppConfig.isEInkMode) {
-                    listState.scrollToItem(0)
-                } else {
-                    listState.animateScrollToItem(0)
-                }
-            }
-        }
-        Box(modifier = Modifier.fillMaxSize()) {
-            BookshelfWoodShelfContent(
-                items = composeItems,
-                woodStyle = AppConfig.woodShelfStyle,
-                listState = listState,
-                modifier = lazyModifier,
-                contentTopPadding = contentTopPadding,
-                contentBottomPadding = marginDp + bottomBarPadding + 12.dp,
-                fragment = this@BooksFragment,
-                lifecycle = viewLifecycleOwner.lifecycle,
-                onClick = ::onComposeItemClick,
-                onLongClick = ::onComposeItemLongClick
-            )
             ComposeLazyListFastScroller(
                 state = listState,
                 enabled = AppConfig.showBookshelfFastScroller,

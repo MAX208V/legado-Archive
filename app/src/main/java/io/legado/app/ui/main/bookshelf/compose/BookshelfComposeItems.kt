@@ -140,9 +140,6 @@ fun BookshelfGridItem(
     modifier: Modifier = Modifier,
     compactBottomSpace: Boolean = false,
     titleColorOverride: Color? = null,
-    coverAspectRatio: Float? = null,
-    bottomShadow: Boolean = false,
-    spineHighlight: Boolean = false,
     fragment: Fragment? = null,
     lifecycle: Lifecycle? = null,
     onClick: (BookshelfItemUi) -> Unit,
@@ -176,50 +173,16 @@ fun BookshelfGridItem(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(
-                    if (coverAspectRatio != null) {
-                        Modifier.aspectRatio(coverAspectRatio)
-                    } else {
-                        Modifier
-                    }
-                )
-                .then(
-                    if (bottomShadow) {
-                        Modifier.shadow(
-                            elevation = 2.dp,
-                            shape = RoundedCornerShape(4.dp),
-                            ambientColor = Color.Black.copy(alpha = 0.45f),
-                            spotColor = Color.Black.copy(alpha = 0.45f)
-                        )
-                    } else {
-                        Modifier
-                    }
-                )
                 .clip(RoundedCornerShape(4.dp)),
             contentAlignment = Alignment.TopEnd
         ) {
             BookshelfCover(
                 item = item,
-                // 木架模式：封面严格 2:3，fillBounds 使封面图 Crop 填满 2:3 外框
-                modifier = if (coverAspectRatio != null) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
-                fillBounds = coverAspectRatio != null,
+                modifier = Modifier.fillMaxWidth(),
+                fillBounds = false,
                 fragment = fragment,
                 lifecycle = lifecycle
             )
-            // 书脊高光：封面左侧 3-5px 白色渐变，模拟书脊反光
-            if (spineHighlight) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .width(2.dp)
-                        .fillMaxHeight()
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(Color.White.copy(alpha = 0.5f), Color.Transparent)
-                            )
-                        )
-                )
-            }
             if (item is BookshelfBookItemUi) {
                 BookshelfStatusBadge(item)
             }

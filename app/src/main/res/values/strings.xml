@@ -66,15 +66,6 @@
     <string name="layout_grid4">Grid-4</string>
     <string name="layout_grid5">Grid-5</string>
     <string name="layout_grid6">Grid-6</string>
-    <string name="layout_wood_shelf">Wood Shelf</string>
-    <string name="bookshelf_wood_shelf">Wooden Shelf</string>
-    <string name="bookshelf_wood_shelf_short">Wood</string>
-    <string name="bookshelf_wood_style">Wood</string>
-    <string name="wood_style_light_oak">Light Oak</string>
-    <string name="wood_style_walnut">Walnut</string>
-    <string name="wood_style_ash">Ash</string>
-    <string name="wood_style_espresso">Espresso</string>
-    <string name="wood_style_ebony">Ebony</string>
     <string name="bookshelf_layout">Layout</string>
     <string name="view">View</string>
     <string name="book_library">Library</string>

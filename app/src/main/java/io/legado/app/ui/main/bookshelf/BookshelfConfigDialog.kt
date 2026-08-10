@@ -87,8 +87,6 @@ data class BookshelfConfigValues(
     val showBookname: Int,
     val listItemStyle: Int,
     val listIntroLines: Int,
-    val woodShelfEnabled: Boolean,
-    val woodShelfStyle: Int,
     val margin: Int
 )
 
@@ -103,8 +101,7 @@ private data class BookshelfConfigOptions(
     val sorts: List<BookshelfConfigOption>,
     val bookNameModes: List<BookshelfConfigOption>,
     val listItemStyles: List<BookshelfConfigOption>,
-    val listIntroLines: List<BookshelfConfigOption>,
-    val woodStyles: List<BookshelfConfigOption>
+    val listIntroLines: List<BookshelfConfigOption>
 )
 
 private data class BookshelfConfigTexts(
@@ -117,9 +114,6 @@ private data class BookshelfConfigTexts(
     val bookNameLabel: String,
     val listItemStyleLabel: String,
     val listIntroLinesLabel: String,
-    val woodShelfLabel: String,
-    val woodShelfShortLabel: String,
-    val woodStyleLabel: String,
     val marginTitle: String,
     val marginLabel: String,
     val cancelLabel: String,
@@ -174,8 +168,6 @@ class BookshelfConfigDialog : ComposeDialogFragment() {
         showBookname = 0,
         listItemStyle = 0,
         listIntroLines = 2,
-        woodShelfEnabled = false,
-        woodShelfStyle = 0,
         margin = 12
     )
     private var onApply: ((BookshelfConfigValues) -> Unit)? = null
@@ -275,13 +267,6 @@ class BookshelfConfigDialog : ComposeDialogFragment() {
                 BookshelfConfigOption(getString(R.string.bookshelf_list_intro_lines_2), 2),
                 BookshelfConfigOption(getString(R.string.bookshelf_list_intro_lines_3), 3)
             ),
-            woodStyles = listOf(
-                BookshelfConfigOption(getString(R.string.wood_style_light_oak), 0),
-                BookshelfConfigOption(getString(R.string.wood_style_walnut), 1),
-                BookshelfConfigOption(getString(R.string.wood_style_ash), 2),
-                BookshelfConfigOption(getString(R.string.wood_style_espresso), 3),
-                BookshelfConfigOption(getString(R.string.wood_style_ebony), 4)
-            )
         )
     }
 
@@ -296,9 +281,6 @@ class BookshelfConfigDialog : ComposeDialogFragment() {
             bookNameLabel = getString(R.string.book_name),
             listItemStyleLabel = getString(R.string.bookshelf_list_style),
             listIntroLinesLabel = getString(R.string.bookshelf_list_intro_lines),
-            woodShelfLabel = getString(R.string.bookshelf_wood_shelf),
-            woodShelfShortLabel = getString(R.string.bookshelf_wood_shelf_short),
-            woodStyleLabel = getString(R.string.bookshelf_wood_style),
             marginTitle = getString(R.string.margin),
             marginLabel = getString(R.string.margin),
             cancelLabel = getString(android.R.string.cancel),
@@ -358,17 +340,6 @@ private fun BookshelfConfigContent(
                 onSelected = { onValuesChange(values.copy(sort = it)) }
             )
         )
-        if (values.woodShelfEnabled) {
-            add(
-                BookshelfSelectItem(
-                    key = "woodStyle",
-                    label = texts.woodStyleLabel,
-                    options = options.woodStyles,
-                    selectedValue = values.woodShelfStyle,
-                    onSelected = { onValuesChange(values.copy(woodShelfStyle = it)) }
-                )
-            )
-        }
         if (values.layout >= 2) {
             add(
                 BookshelfSelectItem(
@@ -401,13 +372,6 @@ private fun BookshelfConfigContent(
         }
     }
     val switchItems = listOf(
-        BookshelfSwitchItem(
-            key = "woodShelf",
-            label = stringResource(R.string.bookshelf_wood_shelf),
-            summaryLabel = stringResource(R.string.bookshelf_wood_shelf_short),
-            checked = values.woodShelfEnabled,
-            onCheckedChange = { onValuesChange(values.copy(woodShelfEnabled = it)) }
-        ),
         BookshelfSwitchItem(
             key = "unread",
             label = stringResource(R.string.show_unread),

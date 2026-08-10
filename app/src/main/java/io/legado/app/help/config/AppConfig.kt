@@ -331,20 +331,6 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.bookshelfLayout, value)
         }
 
-    //木质书架木色 0..4 (a/b/c/d/e)
-    var woodShelfStyle: Int
-        get() = appCtx.getPrefInt(PreferKey.woodShelfStyle, 0)
-        set(value) {
-            appCtx.putPrefInt(PreferKey.woodShelfStyle, value)
-        }
-
-    //木制书架独立开关（不随视图行列变化）
-    var woodShelfEnabled: Boolean
-        get() = appCtx.getPrefBoolean(PreferKey.woodShelfEnabled, false)
-        set(value) {
-            appCtx.putPrefBoolean(PreferKey.woodShelfEnabled, value)
-        }
-
     var saveTabPosition: Int
         get() = appCtx.getPrefInt(PreferKey.saveTabPosition, 0)
         set(value) {
