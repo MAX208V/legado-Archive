@@ -111,6 +111,12 @@ abstract class BaseActivity<VB : ViewBinding>(
                     upBackgroundImage()
                 }
             }
+        // 全局主题重建事件：系统/手动日夜切换后统一刷新（默认 recreate 重建界面，
+        // 阅读页等需要保持状态的页面可覆写 onThemeRecreateEvent 自行处理）
+        LiveEventBus.get(EventBus.RECREATE, String::class.java)
+            .observe(this) {
+                onThemeRecreateEvent()
+            }
         if (!AppConfig.isEInkMode) {
             binding.root.applyUiBodyTypefaceDeep(uiTypeface())
         }
@@ -128,10 +134,20 @@ abstract class BaseActivity<VB : ViewBinding>(
         onActivityCreated(savedInstanceState)
     }
 
+    open fun onThemeRecreateEvent() {
+        recreate()
+    }
+
     override fun onResume() {
         super.onResume()
         applyPreferredRefreshRate()
         refreshThemeBackgroundIfChanged()
+        // 兜底：若夜间模式已变化（例如后台期间系统自动切换日夜，
+        // LiveEventBus 对 INACTIVE 观察者不派发事件导致未重建），此处补一次重建
+        if (lastNightMode != AppConfig.isNightTheme) {
+            lastNightMode = AppConfig.isNightTheme
+            onThemeRecreateEvent()
+        }
     }
 
     private fun refreshThemeBackgroundIfChanged() {

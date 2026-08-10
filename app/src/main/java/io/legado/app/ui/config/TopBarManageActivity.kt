@@ -123,10 +123,8 @@ class TopBarManageActivity : BaseActivity<ActivityThemeManageBinding>(),
         invalidateOptionsMenu()
     }
 
-    override fun observeLiveBus() {
-        observeEvent<String>(EventBus.RECREATE) {
-            loadPackages()
-        }
+    override fun onThemeRecreateEvent() {
+        loadPackages()
     }
 
     private fun initComposeContent() {

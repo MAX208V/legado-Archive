@@ -65,6 +65,7 @@ import io.legado.app.utils.isDebuggable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -82,6 +83,8 @@ import java.util.logging.Level
 
 class App : Application() {
 
+    private const val MAX_THEME_RETRY = 3
+    private const val THEME_RETRY_INTERVAL_MS = 500L
     private lateinit var oldConfig: Configuration
     private val themeConfigurationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var themeConfigurationJob: Job? = null
@@ -185,14 +188,7 @@ class App : Application() {
                         themeConfigurationMutex.unlock()
                     }
                     withContext(Dispatchers.Main.immediate) {
-                        val currentNight = resources.configuration.uiMode and
-                            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-                        if (generation == themeConfigurationGeneration.get() &&
-                            currentNight == expectedNight &&
-                            AppConfig.themeMode == "0"
-                        ) {
-                            applyDayNight(this@App, expectedNight)
-                        }
+                        tryApplyDayNight(expectedNight, generation)
                     }
                 } catch (_: CancellationException) {
                     // A newer system theme request superseded this one.
@@ -202,6 +198,32 @@ class App : Application() {
             }
         }
         oldConfig = Configuration(newConfig)
+    }
+
+    /**
+     * 应用日夜主题（跟随系统）。
+     * currentNight 读 resources.configuration，可能滞后于系统推送的 newConfig：
+     * 一旦不一致就延迟重试（最多 3 次），避免一次切换静默失败（表现为界面停在旧主题、需杀进程重进才恢复）。
+     */
+    private fun tryApplyDayNight(expectedNight: Boolean, generation: Long, attempt: Int = 0) {
+        if (generation != themeConfigurationGeneration.get() || AppConfig.themeMode != "0") return
+        val currentNight = resources.configuration.uiMode and
+            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+        if (currentNight == expectedNight) {
+            applyDayNight(this, expectedNight)
+        } else if (attempt < MAX_THEME_RETRY) {
+            themeConfigurationJob = themeConfigurationScope.launch {
+                delay(THEME_RETRY_INTERVAL_MS)
+                withContext(Dispatchers.Main.immediate) {
+                    tryApplyDayNight(expectedNight, generation, attempt + 1)
+                }
+            }
+        } else {
+            AppLog.put(
+                "apply system theme skipped: config not aligned after retries\n" +
+                    "expectedNight=$expectedNight currentNight=$currentNight"
+            )
+        }
     }
 
     /**

@@ -2288,6 +2288,11 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
     /**
      * 如果重启太快fragment不会重建,这里更新一下书架的排序
      */
+    override fun onThemeRecreateEvent() {
+        refreshMainThemeBackground(force = true, scheduleWarmup = false)
+        recreate()
+    }
+
     override fun recreate() {
         (fragmentMap[getFragmentId(bookshelfPosition())] as? BaseBookshelfFragment)?.run {
             upSort()
@@ -2301,10 +2306,6 @@ class MainActivity : VMBaseActivity<ActivityMainBinding, MainViewModel>(),
                 onUpBooksBadgeView = binding.bottomNavigationView.addBadgeView(bookshelfPosition())
             }
             onUpBooksBadgeView!!.setBadgeCount(it)
-        }
-        observeEvent<String>(EventBus.RECREATE) {
-            refreshMainThemeBackground(force = true, scheduleWarmup = false)
-            recreate()
         }
         observeEvent<Boolean>(EventBus.NAVIGATION_BAR_CHANGED) {
             if (it == AppConfig.isNightTheme) {

@@ -5105,6 +5105,10 @@ class ReadBookActivity : BaseReadBookActivity(),
         return true
     }
 
+    override fun onThemeRecreateEvent() {
+        // 阅读页保持自身视觉刷新逻辑（onConfigurationChanged），不整体 recreate 以免打断阅读
+    }
+
     override fun observeLiveBus() = binding.run {
         observeEvent<String>(EventBus.TIME_CHANGED) { readView.upTime() }
         observeEvent<Int>(EventBus.BATTERY_CHANGED) { readView.upBattery(it) }

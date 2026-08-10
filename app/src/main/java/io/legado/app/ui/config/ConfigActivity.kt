@@ -169,9 +169,6 @@ class ConfigActivity : VMBaseActivity<ViewBinding, ConfigViewModel>() {
 
     override fun observeLiveBus() {
         super.observeLiveBus()
-        observeEvent<String>(EventBus.RECREATE) {
-            recreate()
-        }
     }
 
 }
