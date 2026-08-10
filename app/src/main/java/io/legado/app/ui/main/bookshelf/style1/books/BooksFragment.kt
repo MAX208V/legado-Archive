@@ -57,6 +57,7 @@ import io.legado.app.ui.book.info.BookInfoNavigator
 import io.legado.app.ui.main.MainViewModel
 import io.legado.app.ui.main.bookshelf.compose.BookshelfBookItemUi
 import io.legado.app.ui.main.bookshelf.compose.BookshelfGridItem
+import io.legado.app.ui.main.bookshelf.compose.BookshelfWoodShelfContent
 import io.legado.app.ui.main.bookshelf.compose.BookshelfItemUi
 import io.legado.app.ui.main.bookshelf.compose.BookshelfListItem
 import io.legado.app.ui.main.bookshelf.compose.BookshelfSnapshotStore

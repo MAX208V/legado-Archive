@@ -189,19 +189,28 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         LaunchedEffect(canScrollBackward) {
             composeCanScrollBackward = canScrollBackward
         }
-        LaunchedEffect(composePendingScrollRestoreGroupId, composeGroupId) {
-            if (currentGroupId != composeGroupId) return@LaunchedEffect
-            val pending = pendingScrollRestoreGroupId
-            if (pending != null && pending != composeGroupId) {
-                composePendingScrollRestoreGroupId = null
-                restoreComposeScrollPosition(pending)
-            } else if (pending == null || pending == composeGroupId) {
-                restoreComposeScrollPosition(composeGroupId)
+        DisposableEffect(currentGroupId) {
+            onDispose {
+                composeScrollPositions[currentGroupId] = ComposeScrollPosition(
+                    index = listState.firstVisibleItemIndex,
+                    offset = listState.firstVisibleItemScrollOffset
+                )
             }
         }
-        LaunchedEffect(composeImmediateScrollToTopTick) {
-            if (composeImmediateScrollToTopTick > 0) {
-                listState.scrollToItem(0)
+        LaunchedEffect(currentGroupId, pendingScrollRestoreGroupId, composeDataVersion) {
+            if (pendingScrollRestoreGroupId == currentGroupId && composeDataVersion > 0) {
+                val scrollPosition = composeScrollPositions[currentGroupId]
+                if (scrollPosition != null && composeItems.isNotEmpty()) {
+                    val targetIndex = scrollPosition.index.coerceAtMost(composeItems.lastIndex)
+                    val targetOffset = if (targetIndex == scrollPosition.index) {
+                        scrollPosition.offset
+                    } else {
+                        0
+                    }
+                    listState.scrollToItem(targetIndex, targetOffset)
+                } else {
+                    listState.scrollToItem(0)
+                }
             }
         }
         LaunchedEffect(composeScrollToTopTick) {
