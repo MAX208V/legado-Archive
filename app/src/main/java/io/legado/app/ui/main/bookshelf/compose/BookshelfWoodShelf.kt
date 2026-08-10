@@ -250,8 +250,8 @@ private fun WoodWallBackground(theme: WoodShelfTheme, modifier: Modifier = Modif
             size = Size(size.width, BEAM_SHADOW_HEIGHT)
         )
         // 5. 左右支撑柱
-        drawColumn(this, theme, columnPx, size.height)
-        drawColumn(this, theme, columnPx, size.height, fromRight = true)
+        drawColumn(theme, columnPx, size.height)
+        drawColumn(theme, columnPx, size.height, fromRight = true)
         // 6. 顶部横梁
         drawRect(
             brush = Brush.verticalGradient(
