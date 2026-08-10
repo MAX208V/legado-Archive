@@ -1,8 +1,6 @@
 package io.legado.app.ui.main.bookshelf.compose
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -11,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -57,18 +56,13 @@ fun BookshelfWoodShelfContent(
             .coerceAtLeast(1)
         val cellWidth = (maxWidth - edgePadding * 2 - cellGap * (columns - 1)) / columns
         val rows = items.chunked(columns)
-        // 背景：整页铺亮色木板图（细腻木纹），再叠加对应木色的深色木调遮罩，
-        // 形成静读天下式的深色木墙（板条保持亮色、书名浅色可读）
+        // 背景：整页铺亮色木板图（wood_gap，细腻木纹），书（封面+书名延伸）立在板上，
+        // 板条贯通、行间空隙均露出木纹墙
         androidx.compose.foundation.Image(
             painter = painterResource(woodGapRes(woodStyle)),
             contentDescription = null,
             contentScale = ContentScale.FillBounds,
             modifier = Modifier.fillMaxSize()
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(woodBackgroundColor(woodStyle).copy(alpha = 0.55f))
         )
         LazyColumn(
             state = listState,
@@ -109,8 +103,12 @@ private fun WoodShelfRow(
     onLongClick: (BookshelfItemUi) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
+        // 书 = 封面 + 书名（书名是封面的延伸）；底部留 boardOverlap 空白，
+        // 由板条上移覆盖，形成"书底伸入板条"的效果（书名完整可见）
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = BoardOverlap),
             horizontalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             items.forEach { item ->
@@ -118,8 +116,6 @@ private fun WoodShelfRow(
                     item = item,
                     modifier = Modifier.width(cellWidth),
                     compactBottomSpace = true,
-                    // 深色木墙背景下书名固定用浅色（亮色主题时系统字色是深色会看不清）
-                    titleColorOverride = WoodTitleColor,
                     fragment = fragment,
                     lifecycle = lifecycle,
                     onClick = onClick,
@@ -127,17 +123,18 @@ private fun WoodShelfRow(
                 )
             }
         }
-        // 书架层板：紧贴书名底部的一条木板（静读天下为薄板 + 下缘阴影）
+        // 书架层板：完整横向贯通，上移覆盖书底 boardOverlap，下沿露出 boardReveal
         androidx.compose.foundation.Image(
             painter = painterResource(woodShelfBoardRes(woodStyle)),
             contentDescription = null,
             contentScale = ContentScale.FillBounds,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(20.dp)
+                .height(BoardHeight)
+                .offset(y = (-BoardOverlap))
         )
-        // 封面顶部留一点缝隙（板条下缘与下一排书封面之间的空隙）
-        Spacer(modifier = Modifier.height(12.dp))
+        // 行间缝隙：wood_gap 木纹背景露出（封面顶部留一点缝隙）
+        Spacer(modifier = Modifier.height(BoardGap))
     }
 }
 
@@ -159,9 +156,6 @@ internal fun woodGapRes(style: Int): Int = when (style.floorMod(5)) {
     else -> R.drawable.wood_gap_e
 }
 
-/** 木制书架背景下的书名颜色（深色木墙上固定浅色，避免亮色主题字色不可见） */
-private val WoodTitleColor = Color(0xFFF6EFE2)
-
 /** 木制书架整页背景色调（深色木墙遮罩色，随木色变化） */
 internal fun woodBackgroundColor(style: Int): Color = when (style.floorMod(5)) {
     0 -> Color(0xFF55402B)
@@ -170,5 +164,17 @@ internal fun woodBackgroundColor(style: Int): Color = when (style.floorMod(5)) {
     3 -> Color(0xFF232427)
     else -> Color(0xFF180F0C)
 }
+
+/** 层板高度 */
+private val BoardHeight = 20.dp
+
+/** 层板下沿露出高度（用户：封面底部在层板底部 12px 之上 ≈ 4dp @3x） */
+private val BoardReveal = 4.dp
+
+/** 书底伸入层板的覆盖量 */
+private val BoardOverlap = BoardHeight - BoardReveal
+
+/** 行间缝隙（wood_gap 木纹背景露出） */
+private val BoardGap = 8.dp
 
 private fun Int.floorMod(other: Int): Int = ((this % other) + other) % other
