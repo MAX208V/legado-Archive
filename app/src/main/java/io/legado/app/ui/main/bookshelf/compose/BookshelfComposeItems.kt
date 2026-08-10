@@ -5,7 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -18,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -134,6 +140,9 @@ fun BookshelfGridItem(
     modifier: Modifier = Modifier,
     compactBottomSpace: Boolean = false,
     titleColorOverride: Color? = null,
+    coverAspectRatio: Float? = null,
+    bottomShadow: Boolean = false,
+    spineHighlight: Boolean = false,
     fragment: Fragment? = null,
     lifecycle: Lifecycle? = null,
     onClick: (BookshelfItemUi) -> Unit,
@@ -167,15 +176,50 @@ fun BookshelfGridItem(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(
+                    if (coverAspectRatio != null) {
+                        Modifier.aspectRatio(coverAspectRatio)
+                    } else {
+                        Modifier
+                    }
+                )
+                .then(
+                    if (bottomShadow) {
+                        Modifier.shadow(
+                            elevation = 2.dp,
+                            shape = RoundedCornerShape(4.dp),
+                            ambientColor = Color.Black.copy(alpha = 0.45f),
+                            spotColor = Color.Black.copy(alpha = 0.45f)
+                        )
+                    } else {
+                        Modifier
+                    }
+                )
                 .clip(RoundedCornerShape(4.dp)),
             contentAlignment = Alignment.TopEnd
         ) {
             BookshelfCover(
                 item = item,
-                modifier = Modifier.fillMaxWidth(),
+                // 木架模式：封面严格 2:3，fillBounds 使封面图 Crop 填满 2:3 外框
+                modifier = if (coverAspectRatio != null) Modifier.fillMaxSize() else Modifier.fillMaxWidth(),
+                fillBounds = coverAspectRatio != null,
                 fragment = fragment,
                 lifecycle = lifecycle
             )
+            // 书脊高光：封面左侧 3-5px 白色渐变，模拟书脊反光
+            if (spineHighlight) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(2.dp)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(Color.White.copy(alpha = 0.5f), Color.Transparent)
+                            )
+                        )
+                )
+            }
             if (item is BookshelfBookItemUi) {
                 BookshelfStatusBadge(item)
             }
@@ -219,13 +263,15 @@ private fun BookshelfCover(
     item: BookshelfItemUi,
     modifier: Modifier,
     fragment: Fragment?,
-    lifecycle: Lifecycle?
+    lifecycle: Lifecycle?,
+    fillBounds: Boolean = false
 ) {
     BookshelfComposeCover(
         item = item,
         modifier = modifier,
         fragment = fragment,
-        lifecycle = lifecycle
+        lifecycle = lifecycle,
+        fillBounds = fillBounds
     )
 }
 
