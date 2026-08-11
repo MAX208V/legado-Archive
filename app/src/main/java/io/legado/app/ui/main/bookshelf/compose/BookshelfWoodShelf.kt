@@ -192,15 +192,12 @@ private fun WoodShelfBoard(theme: WoodShelfTheme, modifier: Modifier = Modifier)
     }
 }
 
-/** 固定木墙背景：板条 + 木纹 + 板缝 + 支撑柱 + 横梁 + 底座 + 噪点 */
+/** 固定木墙背景：板条 + 木纹 + 板缝 + 噪点（无装饰边框，纯木墙） */
 @Composable
 private fun WoodWallBackground(theme: WoodShelfTheme, modifier: Modifier = Modifier) {
     // 固定随机种子，避免滚动时木纹/噪点闪烁
     val grains = remember(theme) { WoodGrain.generate(theme, 42) }
     val density = LocalDensity.current
-    val columnPx = with(density) { COLUMN_WIDTH.toPx() }
-    val beamPx = with(density) { BEAM_HEIGHT.toPx() }
-    val basePx = with(density) { BASE_HEIGHT.toPx() }
     val boardPx = with(density) { BOARD_WIDTH.toPx() }
     Canvas(modifier = modifier) {
         // 1. 木墙底色：上稍亮 → 下稍暗
@@ -236,84 +233,9 @@ private fun WoodWallBackground(theme: WoodShelfTheme, modifier: Modifier = Modif
             )
             x += boardPx
         }
-        // 4. 顶部横梁下投影
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.Black.copy(alpha = 0.35f),
-                    Color.Black.copy(alpha = 0.18f),
-                    Color.Transparent
-                )
-            ),
-            topLeft = Offset(0f, beamPx),
-            size = Size(size.width, BEAM_SHADOW_HEIGHT)
-        )
-        // 5. 左右支撑柱
-        drawColumn(theme, columnPx, size.height)
-        drawColumn(theme, columnPx, size.height, fromRight = true)
-        // 6. 顶部横梁
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    theme.beamHighlight.copy(alpha = 0.7f),
-                    theme.beam,
-                    theme.wallDark
-                )
-            ),
-            size = Size(size.width, beamPx)
-        )
-        drawRect(
-            color = theme.beamHighlight.copy(alpha = 0.6f),
-            topLeft = Offset(0f, beamPx - BEAM_HL),
-            size = Size(size.width, BEAM_HL)
-        )
-        // 7. 底部底座
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    theme.beamHighlight.copy(alpha = 0.5f),
-                    theme.beam,
-                    theme.wallDark.copy(alpha = 1.3f)
-                )
-            ),
-            topLeft = Offset(0f, size.height - basePx),
-            size = Size(size.width, basePx)
-        )
-        drawRect(
-            color = theme.beamHighlight.copy(alpha = 0.5f),
-            topLeft = Offset(0f, size.height - basePx),
-            size = Size(size.width, BASE_HL)
-        )
-        // 8. 微噪点
+        // 4. 微噪点
         drawNoise(seed = grains)
     }
-}
-
-private fun DrawScope.drawColumn(
-    theme: WoodShelfTheme,
-    width: Float,
-    height: Float,
-    fromRight: Boolean = false
-) {
-    val h = height
-    drawRect(
-        brush = Brush.horizontalGradient(
-            colors = listOf(
-                theme.wallDark.copy(alpha = 0.8f),
-                theme.column,
-                theme.column,
-                theme.wallDark.copy(alpha = 0.8f)
-            )
-        ),
-        topLeft = Offset(if (fromRight) size.width - width else 0f, 0f),
-        size = Size(width, h)
-    )
-    // 内侧高光（书架内沿受光）
-    drawRect(
-        color = theme.columnHighlight.copy(alpha = 0.55f),
-        topLeft = Offset(if (fromRight) size.width - width else 0f, 0f),
-        size = Size(COLUMN_INNER_HL, h)
-    )
 }
 
 private fun DrawScope.drawNoise(seed: List<WoodGrain>) {
@@ -372,18 +294,11 @@ private val BOOK_BOARD_GAP = 8.dp
 private val BOARD_HEIGHT = 30.dp
 private val FACE_HEIGHT = 12.dp       // 板面区高度
 private val AO_HEIGHT = 12.dp
-private val COLUMN_WIDTH = 26.dp      // 支撑柱宽
-private val BEAM_HEIGHT = 18.dp       // 横梁高
-private val BASE_HEIGHT = 26.dp       // 底座高
 private val BOARD_WIDTH = 64.dp       // 木墙板条宽
 private val SEAM_PX = 2f
 private val SEAM_HL_PX = 2f
 private val EDGE_LIGHT_HEIGHT_PX = 2f
 private val EDGE_DARK_HEIGHT = 3f
-private val BEAM_HL = 2f
-private val BEAM_SHADOW_HEIGHT = 48f
-private val COLUMN_INNER_HL = 3f
-private val BASE_HL = 2f
 private val NOISE_STEP = 22f
 // 封面采用无外阴影风格（去掉卡片"格子"感，书直接立板）
 private val FLAT_COVER_STYLE =
