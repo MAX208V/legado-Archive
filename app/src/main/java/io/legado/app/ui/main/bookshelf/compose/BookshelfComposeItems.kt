@@ -144,6 +144,7 @@ fun BookshelfGridItem(
     titleColorOverride: Color? = null,
     woodContactShadow: Boolean = false,
     woodSpineGlow: Boolean = false,
+    woodCoverShade: Boolean = false,
     coverStyle: CoverImageView.CoverStyle = CoverImageView.CoverStyle.GRID,
     fragment: Fragment? = null,
     lifecycle: Lifecycle? = null,
@@ -189,6 +190,40 @@ fun BookshelfGridItem(
                 fragment = fragment,
                 lifecycle = lifecycle
             )
+            // 拟木书架：仿真阴影——右缘内侧暗部（书页/书脊厚度感）
+            if (woodCoverShade) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.30f),
+                                    Color.Black.copy(alpha = 0.10f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                // 仿真阴影——底缘内侧暗部（书底厚度）
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.24f),
+                                    Color.Black.copy(alpha = 0.08f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+            }
             // 拟木书架：书底接触阴影（极淡，紧贴隔条处的微弱压暗）
             if (woodContactShadow) {
                 Box(

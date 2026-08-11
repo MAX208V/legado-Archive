@@ -98,7 +98,7 @@ private fun WoodShelfLayer(
             ) {
                 drawRect(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color.Black.copy(alpha = 0.32f), Color.Transparent)
+                        colors = listOf(Color.Black.copy(alpha = 0.38f), Color.Black.copy(alpha = 0.06f), Color.Transparent)
                     )
                 )
             }
@@ -119,6 +119,7 @@ private fun WoodShelfLayer(
                     compactBottomSpace = true,
                     woodContactShadow = true,
                     woodSpineGlow = true,
+                    woodCoverShade = true,
                     coverStyle = FLAT_COVER_STYLE,
                     fragment = fragment,
                     lifecycle = lifecycle,
@@ -137,16 +138,8 @@ private fun WoodShelfLayer(
 private fun WoodShelfBoard(theme: WoodShelfTheme, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
     val boardHeightPx = with(density) { BOARD_HEIGHT.toPx() }
-    val facePx = with(density) { FACE_HEIGHT.toPx() }
     Canvas(modifier = modifier.height(BOARD_HEIGHT)) {
-        // 板面：极薄的浅色过渡带（书底微亮）
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(theme.plankTop, theme.plankTop.copy(alpha = 0.8f))
-            ),
-            size = Size(size.width, facePx)
-        )
-        // 隔条主体：深棕木色（上缘略亮 → 深棕主体），横贯全宽
+        // 隔条主体：深棕木色（上缘略亮 → 深棕主体），横贯全宽，书底直接紧贴
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(
@@ -155,13 +148,11 @@ private fun WoodShelfBoard(theme: WoodShelfTheme, modifier: Modifier = Modifier)
                     theme.wallDark
                 )
             ),
-            topLeft = Offset(0f, facePx),
-            size = Size(size.width, boardHeightPx - facePx)
+            size = Size(size.width, boardHeightPx)
         )
         // 顶部 2px 高光（极其轻微）
         drawRect(
             color = theme.plankEdgeLight.copy(alpha = 0.30f),
-            topLeft = Offset(0f, facePx),
             size = Size(size.width, EDGE_LIGHT_HEIGHT_PX)
         )
         // 底部暗边
@@ -216,6 +207,17 @@ private fun WoodWallBackground(theme: WoodShelfTheme, modifier: Modifier = Modif
         }
         // 4. 微噪点
         drawNoise(seed = grains)
+        // 5. 顶部暗带：书架顶板内侧投影（参考图纵深感）
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.Black.copy(alpha = 0.30f),
+                    Color.Black.copy(alpha = 0.10f),
+                    Color.Transparent
+                )
+            ),
+            size = Size(size.width, TOP_SHADE_PX)
+        )
     }
 }
 
@@ -271,16 +273,16 @@ private data class WoodGrain(val x: Float, val width: Float, val color: Color) {
 // ---------- 尺寸常量 ----------
 private val SHELF_EDGE_PADDING = 10.dp
 private val BOOK_GAP = 10.dp
-private val BOOK_BOARD_GAP = 2.dp     // 书底紧贴隔条
+private val BOOK_BOARD_GAP = 0.dp     // 书底直接紧贴隔条
 private val BOARD_HEIGHT = 12.dp     // 隔条高（深棕窄条）
-private val FACE_HEIGHT = 2.dp       // 板面区高度（微亮过渡）
-private val AO_HEIGHT = 12.dp
+private val AO_HEIGHT = 16.dp
 private val BOARD_WIDTH = 64.dp       // 木墙板条宽
 private val SEAM_PX = 2f
 private val SEAM_HL_PX = 2f
 private val EDGE_LIGHT_HEIGHT_PX = 2f
 private val EDGE_DARK_HEIGHT = 3f
 private val NOISE_STEP = 22f
+private val TOP_SHADE_PX = 88f    // 顶部暗带高度（书架顶板内侧影）
 // 封面采用无外阴影风格（去掉卡片"格子"感，书直接立板）
 private val FLAT_COVER_STYLE =
     io.legado.app.ui.widget.image.CoverImageView.CoverStyle.FLAT
