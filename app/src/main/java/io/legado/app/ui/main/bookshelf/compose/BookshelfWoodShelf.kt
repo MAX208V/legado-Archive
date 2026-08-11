@@ -177,18 +177,6 @@ private fun WoodShelfBoard(theme: WoodShelfTheme, modifier: Modifier = Modifier)
             topLeft = Offset(0f, boardHeightPx - EDGE_DARK_HEIGHT),
             size = Size(size.width, EDGE_DARK_HEIGHT)
         )
-        // 前缘两端收口暗角（模拟倒角光照衰减）
-        drawRect(
-            brush = Brush.horizontalGradient(
-                colors = listOf(
-                    Color.Black.copy(alpha = 0.18f),
-                    Color.Transparent,
-                    Color.Black.copy(alpha = 0.18f)
-                )
-            ),
-            topLeft = Offset(0f, facePx),
-            size = Size(size.width, boardHeightPx - facePx)
-        )
     }
 }
 
