@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -104,23 +103,23 @@ private fun WoodShelfLayer(
                 )
             }
         }
-        // 书本行：书宽按权重变化（高矮错落），底边对齐层板
+        // 书本行：等宽直立（参考 iBooks 书架：书直接立在板面，无格无框）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Max)
                 .padding(horizontal = SHELF_EDGE_PADDING)
                 .padding(bottom = BOOK_BOARD_GAP),
             horizontalArrangement = Arrangement.spacedBy(BOOK_GAP),
             verticalAlignment = Alignment.Bottom
         ) {
-            books.forEachIndexed { index, book ->
+            books.forEach { book ->
                 BookshelfGridItem(
                     item = book,
-                    modifier = Modifier.weight(BOOK_WEIGHTS[index % BOOK_WEIGHTS.size]),
+                    modifier = Modifier.weight(1f),
                     compactBottomSpace = true,
                     woodContactShadow = true,
                     woodSpineGlow = true,
+                    coverStyle = FLAT_COVER_STYLE,
                     fragment = fragment,
                     lifecycle = lifecycle,
                     onClick = onClick,
@@ -367,8 +366,8 @@ private data class WoodGrain(val x: Float, val width: Float, val color: Color) {
 }
 
 // ---------- 尺寸常量 ----------
-private val SHELF_EDGE_PADDING = 12.dp
-private val BOOK_GAP = 14.dp
+private val SHELF_EDGE_PADDING = 10.dp
+private val BOOK_GAP = 10.dp
 private val BOOK_BOARD_GAP = 8.dp
 private val BOARD_HEIGHT = 30.dp
 private val FACE_HEIGHT = 12.dp       // 板面区高度
@@ -386,5 +385,6 @@ private val BEAM_SHADOW_HEIGHT = 48f
 private val COLUMN_INNER_HL = 3f
 private val BASE_HL = 2f
 private val NOISE_STEP = 22f
-// 每层书宽权重：中间稍矮、右侧略高 → 高矮错落（底边对齐）
-private val BOOK_WEIGHTS = floatArrayOf(1f, 0.9f, 1.06f)
+// 封面采用无外阴影风格（去掉卡片"格子"感，书直接立板）
+private val FLAT_COVER_STYLE =
+    io.legado.app.ui.widget.image.CoverImageView.CoverStyle.FLAT

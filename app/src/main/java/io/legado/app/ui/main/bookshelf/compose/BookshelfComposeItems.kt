@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
+import io.legado.app.ui.widget.image.CoverImageView
 import io.legado.app.data.dao.BookShelfDisplay
 import io.legado.app.data.entities.BookGroup
 import io.legado.app.help.book.BookTagHelper
@@ -143,6 +144,7 @@ fun BookshelfGridItem(
     titleColorOverride: Color? = null,
     woodContactShadow: Boolean = false,
     woodSpineGlow: Boolean = false,
+    coverStyle: CoverImageView.CoverStyle = CoverImageView.CoverStyle.GRID,
     fragment: Fragment? = null,
     lifecycle: Lifecycle? = null,
     onClick: (BookshelfItemUi) -> Unit,
@@ -183,6 +185,7 @@ fun BookshelfGridItem(
                 item = item,
                 modifier = Modifier.fillMaxWidth(),
                 fillBounds = false,
+                style = coverStyle,
                 fragment = fragment,
                 lifecycle = lifecycle
             )
