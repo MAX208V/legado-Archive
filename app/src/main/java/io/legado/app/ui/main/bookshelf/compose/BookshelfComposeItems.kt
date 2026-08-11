@@ -265,14 +265,16 @@ private fun BookshelfCover(
     modifier: Modifier,
     fragment: Fragment?,
     lifecycle: Lifecycle?,
-    fillBounds: Boolean = false
+    fillBounds: Boolean = false,
+    style: CoverImageView.CoverStyle = CoverImageView.CoverStyle.GRID
 ) {
     BookshelfComposeCover(
         item = item,
         modifier = modifier,
         fragment = fragment,
         lifecycle = lifecycle,
-        fillBounds = fillBounds
+        fillBounds = fillBounds,
+        style = style
     )
 }
 
