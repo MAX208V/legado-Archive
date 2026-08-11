@@ -189,18 +189,17 @@ fun BookshelfGridItem(
                 fragment = fragment,
                 lifecycle = lifecycle
             )
-            // 拟木书架：书底接触阴影（紧贴层板处加深）
+            // 拟木书架：书底接触阴影（极淡，紧贴隔条处的微弱压暗）
             if (woodContactShadow) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(6.dp)
+                        .height(3.dp)
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    Color.Black.copy(alpha = 0.34f),
-                                    Color.Black.copy(alpha = 0.12f),
+                                    Color.Black.copy(alpha = 0.18f),
                                     Color.Transparent
                                 )
                             )

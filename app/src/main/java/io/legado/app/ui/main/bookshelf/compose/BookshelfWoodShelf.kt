@@ -132,48 +132,41 @@ private fun WoodShelfLayer(
     }
 }
 
-/** 层板：板面 + 前缘（高光/倒角/暗边） */
+/** 隔条：书底紧贴的深棕窄横条（参考 iBooks 书架参考图样式） */
 @Composable
 private fun WoodShelfBoard(theme: WoodShelfTheme, modifier: Modifier = Modifier) {
     val density = LocalDensity.current
     val boardHeightPx = with(density) { BOARD_HEIGHT.toPx() }
     val facePx = with(density) { FACE_HEIGHT.toPx() }
     Canvas(modifier = modifier.height(BOARD_HEIGHT)) {
-        val edgeLight = theme.plankEdgeLight
-        val edge = theme.plankEdge
-        val edgeDark = theme.wallDark
-        // 板面（书站立区可见部分）
+        // 板面：极薄的浅色过渡带（书底微亮）
         drawRect(
             brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.Black.copy(alpha = 0.18f),
-                    theme.plankTop,
-                    theme.plankTop
-                )
+                colors = listOf(theme.plankTop, theme.plankTop.copy(alpha = 0.8f))
             ),
             size = Size(size.width, facePx)
         )
-        // 前缘：上亮下暗的垂直渐变
+        // 隔条主体：深棕木色（上缘略亮 → 深棕主体），横贯全宽
         drawRect(
             brush = Brush.verticalGradient(
                 colors = listOf(
-                    edgeLight.copy(alpha = 0.85f),
-                    edge,
-                    edgeDark
+                    theme.plankEdge.copy(alpha = 0.35f),
+                    theme.wallDark,
+                    theme.wallDark
                 )
             ),
             topLeft = Offset(0f, facePx),
             size = Size(size.width, boardHeightPx - facePx)
         )
-        // 前缘顶部高光条
+        // 顶部 2px 高光（极其轻微）
         drawRect(
-            color = edgeLight.copy(alpha = 0.7f),
+            color = theme.plankEdgeLight.copy(alpha = 0.30f),
             topLeft = Offset(0f, facePx),
             size = Size(size.width, EDGE_LIGHT_HEIGHT_PX)
         )
-        // 前缘底部暗边
+        // 底部暗边
         drawRect(
-            color = Color.Black.copy(alpha = 0.35f),
+            color = Color.Black.copy(alpha = 0.30f),
             topLeft = Offset(0f, boardHeightPx - EDGE_DARK_HEIGHT),
             size = Size(size.width, EDGE_DARK_HEIGHT)
         )
@@ -278,9 +271,9 @@ private data class WoodGrain(val x: Float, val width: Float, val color: Color) {
 // ---------- 尺寸常量 ----------
 private val SHELF_EDGE_PADDING = 10.dp
 private val BOOK_GAP = 10.dp
-private val BOOK_BOARD_GAP = 8.dp
-private val BOARD_HEIGHT = 30.dp
-private val FACE_HEIGHT = 12.dp       // 板面区高度
+private val BOOK_BOARD_GAP = 2.dp     // 书底紧贴隔条
+private val BOARD_HEIGHT = 12.dp     // 隔条高（深棕窄条）
+private val FACE_HEIGHT = 2.dp       // 板面区高度（微亮过渡）
 private val AO_HEIGHT = 12.dp
 private val BOARD_WIDTH = 64.dp       // 木墙板条宽
 private val SEAM_PX = 2f
