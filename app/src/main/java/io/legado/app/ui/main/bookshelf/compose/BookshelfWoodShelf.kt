@@ -207,17 +207,6 @@ private fun WoodWallBackground(theme: WoodShelfTheme, modifier: Modifier = Modif
         }
         // 4. 微噪点
         drawNoise(seed = grains)
-        // 5. 顶部暗带：书架顶板内侧投影（参考图纵深感）
-        drawRect(
-            brush = Brush.verticalGradient(
-                colors = listOf(
-                    Color.Black.copy(alpha = 0.30f),
-                    Color.Black.copy(alpha = 0.10f),
-                    Color.Transparent
-                )
-            ),
-            size = Size(size.width, TOP_SHADE_PX)
-        )
     }
 }
 
@@ -282,7 +271,6 @@ private val SEAM_HL_PX = 2f
 private val EDGE_LIGHT_HEIGHT_PX = 2f
 private val EDGE_DARK_HEIGHT = 3f
 private val NOISE_STEP = 22f
-private val TOP_SHADE_PX = 88f    // 顶部暗带高度（书架顶板内侧影）
 // 封面采用无外阴影风格（去掉卡片"格子"感，书直接立板）
 private val FLAT_COVER_STYLE =
     io.legado.app.ui.widget.image.CoverImageView.CoverStyle.FLAT
