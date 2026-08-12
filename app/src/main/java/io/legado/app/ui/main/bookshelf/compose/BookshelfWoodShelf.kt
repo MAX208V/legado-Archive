@@ -104,9 +104,18 @@ private fun WoodShelfLayer(
             }
         }
         // 书本行：等宽直立（参考 iBooks 书架：书直接立在板面，无格无框）
+        // 行背景 = 书后架舱暗部（上亮下暗：贴近隔条处舱底更暗，纵深）
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.10f)
+                        )
+                    )
+                )
                 .padding(horizontal = SHELF_EDGE_PADDING)
                 .padding(bottom = BOOK_BOARD_GAP),
             horizontalArrangement = Arrangement.spacedBy(BOOK_GAP),
@@ -161,6 +170,17 @@ private fun WoodShelfBoard(theme: WoodShelfTheme, modifier: Modifier = Modifier)
             topLeft = Offset(0f, boardHeightPx - EDGE_DARK_HEIGHT),
             size = Size(size.width, EDGE_DARK_HEIGHT)
         )
+        // 隔条表面细木纹线（平涂破除，2 条 1px）
+        drawRect(
+            color = Color.Black.copy(alpha = 0.10f),
+            topLeft = Offset(0f, boardHeightPx * 0.42f),
+            size = Size(size.width, 1f)
+        )
+        drawRect(
+            color = Color.Black.copy(alpha = 0.07f),
+            topLeft = Offset(0f, boardHeightPx * 0.68f),
+            size = Size(size.width, 1f)
+        )
     }
 }
 
@@ -207,6 +227,42 @@ private fun WoodWallBackground(theme: WoodShelfTheme, modifier: Modifier = Modif
         }
         // 4. 微噪点
         drawNoise(seed = grains)
+        // 5. 横向年轮木纹（细短线，固定 seed）
+        drawGrainLines(seed = grains)
+        // 6. 环境光：上方受光微亮 → 下方微暗（极淡，破除纯平木墙）
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.05f),
+                    Color.Transparent,
+                    Color.Black.copy(alpha = 0.06f)
+                )
+            )
+        )
+    }
+}
+
+/** 横向年轮木纹：短细线（固定 seed，滚动不闪烁） */
+private fun DrawScope.drawGrainLines(seed: List<WoodGrain>) {
+    var s = 947
+    fun next(): Float {
+        s = (s * 1103515245L + 12345).toInt()
+        return ((s ushr 16) and 0x7FFF) / 32767f
+    }
+    repeat(34) {
+        val y = next() * size.height
+        val x = next() * size.width
+        val len = 40f + next() * 140f
+        val color = if (next() < 0.5f) {
+            Color.Black.copy(alpha = 0.05f + next() * 0.05f)
+        } else {
+            Color.White.copy(alpha = 0.03f + next() * 0.03f)
+        }
+        drawRect(
+            color = color,
+            topLeft = Offset(x, y),
+            size = Size(len, 1f)
+        )
     }
 }
 
