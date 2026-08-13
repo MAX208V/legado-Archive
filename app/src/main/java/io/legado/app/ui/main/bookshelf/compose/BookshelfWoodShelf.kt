@@ -328,6 +328,6 @@ private val SEAM_HL_PX = 2f
 private val EDGE_LIGHT_HEIGHT_PX = 2f
 private val EDGE_DARK_HEIGHT = 3f
 private val NOISE_STEP = 22f
-// 封面采用无外阴影风格（去掉卡片"格子"感，书直接立板）
+// 封面采用方形无外阴影风格（去掉卡片"格子"感与圆角，书直接立板）
 private val FLAT_COVER_STYLE =
-    io.legado.app.ui.widget.image.CoverImageView.CoverStyle.FLAT
+    io.legado.app.ui.widget.image.CoverImageView.CoverStyle.SQUARE

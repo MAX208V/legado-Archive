@@ -75,6 +75,7 @@ class CoverImageView @JvmOverloads constructor(
         val strokeAlpha: Float
     ) {
         FLAT(8f, 0f, 0f, 0f),
+        SQUARE(0f, 0f, 0f, 0f),
         COMPACT(7f, 1f, 0f, 0f),
         LIST(8f, 1.5f, 0f, 0f),
         GRID(8f, 2f, 0f, 0f),

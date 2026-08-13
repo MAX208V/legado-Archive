@@ -208,19 +208,31 @@ fun BookshelfGridItem(
                             )
                         )
                 )
-                // 右缘书脊暗部（书脊厚度）
+                // 右缘书脊暗部（书脊厚度，明显拟物）
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .width(6.dp)
+                        .width(8.dp)
                         .fillMaxHeight()
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color.Black.copy(alpha = 0.42f),
-                                    Color.Black.copy(alpha = 0.12f),
+                                    Color.Black.copy(alpha = 0.55f),
+                                    Color.Black.copy(alpha = 0.20f),
                                     Color.Transparent
                                 )
+                            )
+                        )
+                )
+                // 最右缘书页边（1.5dp 深色，书页厚度）
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .width(1.5.dp)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(Color.Black.copy(alpha = 0.40f), Color.Transparent)
                             )
                         )
                 )
@@ -228,12 +240,12 @@ fun BookshelfGridItem(
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .offset(x = (-6).dp)
-                        .width(1.5.dp)
+                        .offset(x = (-8).dp)
+                        .width(2.5.dp)
                         .fillMaxHeight()
                         .background(
                             Brush.horizontalGradient(
-                                colors = listOf(Color.White.copy(alpha = 0.16f), Color.Transparent)
+                                colors = listOf(Color.White.copy(alpha = 0.30f), Color.Transparent)
                             )
                         )
                 )
@@ -299,15 +311,6 @@ fun BookshelfGridItem(
                                 )
                             )
                         )
-                )
-                // 纵深投影——书右下角被抬起，投影落在墙/隔条上（书浮于书架前）
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(x = 3.dp, y = 3.dp)
-                        .size(9.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color.Black.copy(alpha = 0.30f))
                 )
             }
             // 拟木书架：书底接触阴影（极淡，紧贴隔条处的微弱压暗）
