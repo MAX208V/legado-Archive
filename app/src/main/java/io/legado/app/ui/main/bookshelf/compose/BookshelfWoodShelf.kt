@@ -112,8 +112,8 @@ private fun WoodShelfLayer(
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.10f)
+                            Color.Black.copy(alpha = 0.08f),
+                            Color.Black.copy(alpha = 0.22f)
                         )
                     )
                 )

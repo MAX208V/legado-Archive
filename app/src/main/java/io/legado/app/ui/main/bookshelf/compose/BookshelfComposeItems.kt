@@ -237,6 +237,21 @@ fun BookshelfGridItem(
                             )
                         )
                 )
+                // 顶缘书顶暗部（补全四边立体厚度）
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.24f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
                 // 底缘书底暗部
                 Box(
                     modifier = Modifier
@@ -248,6 +263,38 @@ fun BookshelfGridItem(
                                 colors = listOf(
                                     Color.Black.copy(alpha = 0.36f),
                                     Color.Black.copy(alpha = 0.08f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                // 中央曲面高光（皮面圆柱反光，破除平贴）
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth(0.40f)
+                        .fillMaxHeight(0.96f)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    Color.White.copy(alpha = 0.10f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                // 右侧整条投影——书影投向右后方的墙/相邻书脊（纵深关键）
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 4.dp, y = 2.dp)
+                        .width(5.dp)
+                        .fillMaxHeight(0.90f)
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.26f),
                                     Color.Transparent
                                 )
                             )
@@ -269,11 +316,11 @@ fun BookshelfGridItem(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(3.dp)
+                        .height(4.dp)
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(
-                                    Color.Black.copy(alpha = 0.18f),
+                                    Color.Black.copy(alpha = 0.28f),
                                     Color.Transparent
                                 )
                             )
