@@ -190,123 +190,35 @@ fun BookshelfGridItem(
                 fragment = fragment,
                 lifecycle = lifecycle
             )
-            // 拟木书架：封面材质与仿真阴影（破除平贴感）
+            // 拟木书架：封面模拟阴影（封面干净，立体感全靠投影）
             if (woodCoverShade) {
-                // 对角环境光：左上受光微亮 → 右下微暗（封面曲面感）
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.08f),
-                                    Color.Transparent,
-                                    Color.Black.copy(alpha = 0.06f)
-                                ),
-                                start = Offset.Zero,
-                                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                            )
-                        )
-                )
-                // 右缘书脊暗部（书脊厚度，明显拟物）
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .width(8.dp)
-                        .fillMaxHeight()
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.55f),
-                                    Color.Black.copy(alpha = 0.20f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-                // 最右缘书页边（1.5dp 深色，书页厚度）
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .width(1.5.dp)
-                        .fillMaxHeight()
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(Color.Black.copy(alpha = 0.40f), Color.Transparent)
-                            )
-                        )
-                )
-                // 书脊反射高光线（右缘暗带左侧细亮线，模拟书脊曲面反光）
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .offset(x = (-8).dp)
-                        .width(2.5.dp)
-                        .fillMaxHeight()
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(Color.White.copy(alpha = 0.30f), Color.Transparent)
-                            )
-                        )
-                )
-                // 顶缘书顶暗部（补全四边立体厚度）
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.24f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-                // 底缘书底暗部
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Black.copy(alpha = 0.36f),
-                                    Color.Black.copy(alpha = 0.08f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-                // 中央曲面高光（皮面圆柱反光，破除平贴）
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .fillMaxWidth(0.40f)
-                        .fillMaxHeight(0.96f)
-                        .background(
-                            Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color.White.copy(alpha = 0.10f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                )
-                // 右侧整条投影——书影投向右后方的墙/相邻书脊（纵深关键）
+                // 右侧投影——书影投向右后方的墙/相邻书脊（柔和渐变）
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .offset(x = 4.dp, y = 2.dp)
-                        .width(5.dp)
-                        .fillMaxHeight(0.90f)
+                        .offset(x = 6.dp, y = 3.dp)
+                        .width(7.dp)
+                        .fillMaxHeight(0.88f)
                         .background(
                             Brush.horizontalGradient(
                                 colors = listOf(
-                                    Color.Black.copy(alpha = 0.26f),
+                                    Color.Black.copy(alpha = 0.32f),
+                                    Color.Black.copy(alpha = 0.10f),
+                                    Color.Transparent
+                                )
+                            )
+                        )
+                )
+                // 右下角柔和投影（渐变暗角，非方块点）
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 2.dp, y = 2.dp)
+                        .size(10.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Black.copy(alpha = 0.22f),
                                     Color.Transparent
                                 )
                             )
