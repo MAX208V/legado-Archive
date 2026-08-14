@@ -34,9 +34,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.CheckBox
+import androidx.appcompat.widget.SwitchCompat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -46,6 +48,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -384,10 +387,20 @@ fun AppManagementListRow(
             }
             trailingBeforeSwitch?.invoke(this)
             if (switchChecked != null && onSwitchChange != null) {
-                LegadoMiuixSwitch(
-                    checked = switchChecked,
-                    onCheckedChange = onSwitchChange,
-                    palette = palette.miuix
+                val latestChecked by rememberUpdatedState(switchChecked)
+                val latestOnSwitchChange by rememberUpdatedState(onSwitchChange)
+                // 系统原生 SwitchCompat（完全跟随系统主题渲染）
+                AndroidView(
+                    factory = { ctx ->
+                        SwitchCompat(ctx).apply {
+                            setOnCheckedChangeListener { _, isChecked ->
+                                latestOnSwitchChange(isChecked)
+                            }
+                        }
+                    },
+                    update = { view ->
+                        if (view.isChecked != latestChecked) view.isChecked = latestChecked
+                    }
                 )
             }
             onEdit?.let {
@@ -485,7 +498,6 @@ private fun AppManagementSelectionSlot(
         if (visible || progress > 0.01f) {
             AppManagementCheckbox(
                 selected = selected,
-                palette = palette,
                 onToggleSelection = onToggleSelection.takeIf { visible },
                 modifier = Modifier.graphicsLayer {
                     alpha = if (animated) progress else 1f
@@ -499,47 +511,26 @@ private fun AppManagementSelectionSlot(
 @Composable
 private fun AppManagementCheckbox(
     selected: Boolean,
-    palette: AppManagementPalette,
     onToggleSelection: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    val checkedProgress by animateFloatAsState(
-        targetValue = if (selected) 1f else 0f,
-        animationSpec = tween(durationMillis = 120),
-        label = "managementCheckboxChecked"
-    )
-    Box(
-        modifier = modifier
-            .size(24.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(palette.settings.accent.copy(alpha = checkedProgress))
-            .border(
-                width = 1.2.dp,
-                color = if (selected) {
-                    palette.settings.accent
-                } else {
-                    palette.settings.secondaryText.copy(alpha = 0.46f)
-                },
-                shape = RoundedCornerShape(8.dp)
-            )
-            .clickable(
-                enabled = onToggleSelection != null,
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            ) { onToggleSelection?.invoke() },
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_check),
-            contentDescription = null,
-            tint = palette.settings.onAccent,
-            modifier = Modifier
-                .size(16.dp)
-                .graphicsLayer {
-                    alpha = checkedProgress
+    // 系统原生 CheckBox（完全跟随系统主题渲染）
+    val latestSelected by rememberUpdatedState(selected)
+    val latestOnToggleSelection by rememberUpdatedState(onToggleSelection)
+    AndroidView(
+        factory = { ctx ->
+            CheckBox(ctx).apply {
+                setOnCheckedChangeListener { _, _ ->
+                    latestOnToggleSelection?.invoke()
                 }
-        )
-    }
+            }
+        },
+        update = { view ->
+            view.isEnabled = latestOnToggleSelection != null
+            if (view.isChecked != latestSelected) view.isChecked = latestSelected
+        },
+        modifier = modifier
+    )
 }
 
 @Composable

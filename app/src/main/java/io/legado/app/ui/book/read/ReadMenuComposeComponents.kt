@@ -24,6 +24,8 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.SeekBar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -541,23 +543,34 @@ fun ReadMenuBrightnessRow(
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        // 亮度滑块
+        // 亮度滑块（系统原生 SeekBar，完全跟随系统主题渲染）
         var localBrightness by remember { mutableIntStateOf(brightness) }
         LaunchedEffect(brightness) { localBrightness = brightness }
-        AppThemedStepperSlider(
-            value = localBrightness,
-            range = 0..255,
-            onValueChange = {
-                localBrightness = it
-                onBrightnessChange(it)
+        AndroidView(
+            factory = { ctx ->
+                SeekBar(ctx).apply {
+                    max = 255
+                    setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                            if (fromUser) {
+                                localBrightness = progress
+                                onBrightnessChange(progress)
+                            }
+                        }
+
+                        override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
+                        override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                            onBrightnessStop(localBrightness)
+                        }
+                    })
+                }
             },
-            onValueChangeFinished = { onBrightnessStop(localBrightness) },
-            palette = style.toMiuixPalette(),
-            enabled = !isAuto,
-            modifier = Modifier.weight(1f),
-            trackHeight = 28.dp,
-            thumbSize = 22.dp,
-            endpointWidth = 24.dp
+            update = { view ->
+                view.isEnabled = !isAuto
+                if (view.progress != localBrightness) view.progress = localBrightness
+            },
+            modifier = Modifier.weight(1f)
         )
 
         // 右侧占位（和进度条的下一章图标等宽）

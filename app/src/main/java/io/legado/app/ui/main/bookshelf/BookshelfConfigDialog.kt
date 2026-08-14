@@ -38,12 +38,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -62,10 +62,9 @@ import io.legado.app.ui.widget.compose.ComposeDialogFragment
 import io.legado.app.ui.widget.compose.AppDialogSize
 import io.legado.app.ui.widget.compose.LegadoMiuixActionButton
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.SeekBar
+import androidx.appcompat.widget.SwitchCompat
 import io.legado.app.ui.widget.compose.rememberAppDialogStyle
 import io.legado.app.ui.widget.compose.toMiuixPalette
 import kotlinx.coroutines.delay
@@ -1032,7 +1031,7 @@ private fun BookshelfDisplaySwitchRow(
         )
         BookshelfMiniSwitch(
             checked = item.checked,
-            style = style
+            onToggle = { item.onCheckedChange(it) }
         )
     }
 }
@@ -1040,19 +1039,22 @@ private fun BookshelfDisplaySwitchRow(
 @Composable
 private fun BookshelfMiniSwitch(
     checked: Boolean,
-    style: AppDialogStyle
+    onToggle: (Boolean) -> Unit
 ) {
-    // 原生 Material3 Switch（点击由整行处理，这里仅展示状态）
-    Switch(
-        checked = checked,
-        onCheckedChange = null,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = Color.White,
-            checkedTrackColor = style.accent,
-            uncheckedThumbColor = Color.White,
-            uncheckedTrackColor = style.fieldSurface,
-            uncheckedBorderColor = style.stroke
-        )
+    // 系统原生 SwitchCompat：完全跟随系统主题渲染（最接近系统设置页）
+    val latestChecked by rememberUpdatedState(checked)
+    val latestOnToggle by rememberUpdatedState(onToggle)
+    AndroidView(
+        factory = { ctx ->
+            SwitchCompat(ctx).apply {
+                setOnCheckedChangeListener { _, isChecked ->
+                    if (isChecked != latestChecked) latestOnToggle(isChecked)
+                }
+            }
+        },
+        update = { view ->
+            if (view.isChecked != latestChecked) view.isChecked = latestChecked
+        }
     )
 }
 
@@ -1104,18 +1106,30 @@ private fun BookshelfSliderRow(
                     )
                 }
             }
-            Slider(
-                value = value.toFloat(),
-                onValueChange = {
-                    onValueChange(it.roundToInt().coerceIn(range.first, range.last))
+            val latestValue by rememberUpdatedState(value)
+            val latestOnValueChange by rememberUpdatedState(onValueChange)
+            AndroidView(
+                factory = { ctx ->
+                    SeekBar(ctx).apply {
+                        max = range.last - range.first
+                        setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                                if (fromUser) {
+                                    latestOnValueChange(range.first + progress)
+                                }
+                            }
+
+                            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
+                            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                        })
+                    }
                 },
-                valueRange = range.first.toFloat()..range.last.toFloat(),
-                steps = (range.last - range.first - 1).coerceAtLeast(0),
-                colors = SliderDefaults.colors(
-                    thumbColor = style.accent,
-                    activeTrackColor = style.accent,
-                    inactiveTrackColor = style.surface.copy(alpha = 0.4f)
-                )
+                update = { view ->
+                    val target = latestValue - range.first
+                    if (view.progress != target) view.progress = target
+                },
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
