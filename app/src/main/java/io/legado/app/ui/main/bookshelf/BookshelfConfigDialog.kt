@@ -65,7 +65,8 @@ import io.legado.app.ui.widget.compose.ComposeDialogFragment
 import io.legado.app.ui.widget.compose.AppDialogSize
 import io.legado.app.ui.widget.compose.LegadoMiuixActionButton
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
-import io.legado.app.ui.widget.compose.LegadoMiuixSlider
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import io.legado.app.ui.widget.compose.rememberAppDialogStyle
 import io.legado.app.ui.widget.compose.toMiuixPalette
 import kotlinx.coroutines.delay
@@ -1080,7 +1081,6 @@ private fun BookshelfSliderRow(
     style: AppDialogStyle,
     onValueChange: (Int) -> Unit
 ) {
-    val palette = style.toMiuixPalette()
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(style.actionRadius),
@@ -1121,15 +1121,18 @@ private fun BookshelfSliderRow(
                     )
                 }
             }
-            LegadoMiuixSlider(
+            Slider(
                 value = value.toFloat(),
                 onValueChange = {
                     onValueChange(it.roundToInt().coerceIn(range.first, range.last))
                 },
-                palette = palette,
-                modifier = Modifier.height(28.dp),
                 valueRange = range.first.toFloat()..range.last.toFloat(),
-                steps = (range.last - range.first - 1).coerceAtLeast(0)
+                steps = (range.last - range.first - 1).coerceAtLeast(0),
+                colors = SliderDefaults.colors(
+                    thumbColor = style.accent,
+                    activeTrackColor = style.accent,
+                    inactiveTrackColor = style.surface.copy(alpha = 0.4f)
+                )
             )
         }
     }
