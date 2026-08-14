@@ -34,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -546,6 +547,8 @@ fun ReadMenuBrightnessRow(
         // 亮度滑块（系统原生 SeekBar，完全跟随系统主题渲染）
         var localBrightness by remember { mutableIntStateOf(brightness) }
         LaunchedEffect(brightness) { localBrightness = brightness }
+        val latestOnBrightnessChange by rememberUpdatedState(onBrightnessChange)
+        val latestOnBrightnessStop by rememberUpdatedState(onBrightnessStop)
         AndroidView(
             factory = { ctx ->
                 SeekBar(ctx).apply {
@@ -554,14 +557,14 @@ fun ReadMenuBrightnessRow(
                         override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                             if (fromUser) {
                                 localBrightness = progress
-                                onBrightnessChange(progress)
+                                latestOnBrightnessChange(progress)
                             }
                         }
 
                         override fun onStartTrackingTouch(seekBar: SeekBar?) {}
 
                         override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                            onBrightnessStop(localBrightness)
+                            latestOnBrightnessStop(localBrightness)
                         }
                     })
                 }
