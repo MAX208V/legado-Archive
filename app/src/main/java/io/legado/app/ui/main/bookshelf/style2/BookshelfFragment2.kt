@@ -107,7 +107,7 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
     override var onlyUpdateRead = false
     private var bookshelfMargin by mutableIntStateOf(AppConfig.bookshelfMargin)
     private var woodShelfEnabled by mutableStateOf(AppConfig.woodShelfEnabled)
-    private var woodShelfStyle by mutableIntStateOf(AppConfig.woodShelfStyle)
+    private var woodShelfStyle by mutableIntStateOf(AppConfig.woodShelfStyleEffective)
     private var itemCount = 0
     private var totalRows = 0
     private val useWoodShelf get() = woodShelfEnabled

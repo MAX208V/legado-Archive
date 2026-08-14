@@ -152,6 +152,7 @@ object PreferKey {
     const val cleanCache = "cleanCache"
     const val cacheManage = "cacheManage"
     const val woodShelfStyle = "woodShelfStyle"
+    const val woodShelfStyleNight = "woodShelfStyleNight"
     const val woodShelfEnabled = "woodShelfEnabled"
     const val saveTabPosition = "saveTabPosition"
     const val fontFolder = "fontFolder"

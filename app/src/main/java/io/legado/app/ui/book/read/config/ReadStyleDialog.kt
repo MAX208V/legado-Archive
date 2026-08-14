@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.SeekBar
 import androidx.compose.ui.viewinterop.AndroidView
 import io.legado.app.ui.widget.compose.releaseComposeImage
 import com.github.liuyueyi.quick.transfer.constants.TransType
@@ -215,6 +217,8 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
         onValueChange: (Int) -> Unit,
         onValueChangeFinished: () -> Unit
     ) {
+        val latestOnValueChange by rememberUpdatedState(onValueChange)
+        val latestOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -247,16 +251,29 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
                         fontWeight = FontWeight.SemiBold
                     )
                 }
-                LegadoMiuixSlider(
-                    value = value.toFloat(),
-                    onValueChange = {
-                        onValueChange(
-                            it.roundToInt().coerceIn(ReaderFontWeight.MIN, ReaderFontWeight.MAX)
-                        )
+                AndroidView(
+                    factory = { ctx ->
+                        SeekBar(ctx).apply {
+                            max = ReaderFontWeight.MAX - ReaderFontWeight.MIN
+                            progress = value.coerceIn(ReaderFontWeight.MIN, ReaderFontWeight.MAX) - ReaderFontWeight.MIN
+                            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                                    if (fromUser) latestOnValueChange(progress + ReaderFontWeight.MIN)
+                                }
+
+                                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
+                                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                                    latestOnValueChangeFinished()
+                                }
+                            })
+                        }
                     },
-                    onValueChangeFinished = onValueChangeFinished,
-                    palette = style.toMiuixPalette(),
-                    valueRange = ReaderFontWeight.MIN.toFloat()..ReaderFontWeight.MAX.toFloat()
+                    update = { view ->
+                        view.max = ReaderFontWeight.MAX - ReaderFontWeight.MIN
+                        val target = value.coerceIn(ReaderFontWeight.MIN, ReaderFontWeight.MAX) - ReaderFontWeight.MIN
+                        if (view.progress != target) view.progress = target
+                    }
                 )
             }
         }
@@ -351,6 +368,7 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
         modifier: Modifier = Modifier,
         onValueChange: (Int) -> Unit
     ) {
+        val latestOnValueChange by rememberUpdatedState(onValueChange)
         Surface(
             modifier = modifier.heightIn(min = 58.dp),
             shape = RoundedCornerShape(style.actionRadius),
@@ -386,14 +404,27 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
                         maxLines = 1
                     )
                 }
-                AppThemedStepperSlider(
-                    value = value.coerceIn(range),
-                    range = range,
-                    onValueChange = { onValueChange(it.coerceIn(range)) },
-                    palette = style.toMiuixPalette(),
-                    trackHeight = 34.dp,
-                    thumbSize = 26.dp,
-                    endpointWidth = 30.dp
+                AndroidView(
+                    factory = { ctx ->
+                        SeekBar(ctx).apply {
+                            max = (range.last - range.first).coerceAtLeast(1)
+                            progress = value.coerceIn(range) - range.first
+                            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                                    if (fromUser) latestOnValueChange(range.first + progress)
+                                }
+
+                                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
+                                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                            })
+                        }
+                    },
+                    update = { view ->
+                        view.max = (range.last - range.first).coerceAtLeast(1)
+                        val target = value.coerceIn(range) - range.first
+                        if (view.progress != target) view.progress = target
+                    }
                 )
             }
         }

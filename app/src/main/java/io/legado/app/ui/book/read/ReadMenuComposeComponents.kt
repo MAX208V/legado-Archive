@@ -60,6 +60,7 @@ import io.legado.app.help.book.library.LibraryCloudState
 import io.legado.app.ui.book.read.ReadMenuButtonConfig
 import io.legado.app.ui.widget.ModernActionPopup
 import io.legado.app.ui.widget.compose.AppDialogStyle
+import io.legado.app.help.config.AppConfig
 import io.legado.app.ui.widget.compose.AppThemedStepperSlider
 import io.legado.app.ui.widget.compose.toMiuixPalette
 import io.legado.app.utils.dpToPx
@@ -476,19 +477,36 @@ fun ReadMenuSeekBarRow(
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        // 进度滑块
+        // 进度滑块（系统原生 SeekBar）
         var localProgress by remember { mutableIntStateOf(seekProgress) }
         LaunchedEffect(seekProgress) { localProgress = seekProgress }
-        AppThemedStepperSlider(
-            value = localProgress,
-            range = 0..seekMax.coerceAtLeast(1),
-            onValueChange = { localProgress = it },
-            onValueChangeFinished = { onSeekStop(localProgress) },
-            palette = style.toMiuixPalette(),
+        val latestOnSeekStart by rememberUpdatedState(onSeekStart)
+        val latestOnSeekStop by rememberUpdatedState(onSeekStop)
+        AndroidView(
             modifier = Modifier.weight(1f),
-            trackHeight = 28.dp,
-            thumbSize = 22.dp,
-            endpointWidth = 24.dp
+            factory = { ctx ->
+                SeekBar(ctx).apply {
+                    max = seekMax.coerceAtLeast(1)
+                    progress = localProgress
+                    setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                            if (fromUser) localProgress = progress
+                        }
+
+                        override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                            latestOnSeekStart()
+                        }
+
+                        override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                            latestOnSeekStop(localProgress)
+                        }
+                    })
+                }
+            },
+            update = { view ->
+                view.max = seekMax.coerceAtLeast(1)
+                if (view.progress != localProgress) view.progress = localProgress
+            }
         )
 
         Spacer(modifier = Modifier.width(10.dp))
@@ -775,7 +793,11 @@ private fun readMenuButtonTitle(
             ReadMenuButtonConfig.Builtin.SEARCH -> "搜索"
             ReadMenuButtonConfig.Builtin.AUTO_PAGE -> "自动"
             ReadMenuButtonConfig.Builtin.REPLACE_RULE -> "替换"
-            ReadMenuButtonConfig.Builtin.NIGHT_THEME -> "夜间"
+            ReadMenuButtonConfig.Builtin.NIGHT_THEME -> when (AppConfig.themeMode) {
+                "2" -> "夜间"
+                "0" -> "自动"
+                else -> "日间"
+            }
             ReadMenuButtonConfig.Builtin.CATALOG -> "目录"
             ReadMenuButtonConfig.Builtin.READ_ALOUD -> "朗读"
             ReadMenuButtonConfig.Builtin.READ_STYLE -> "界面"
@@ -802,8 +824,10 @@ private fun readMenuButtonIconRes(
             if (autoPageActive) R.drawable.ic_auto_page_stop else R.drawable.ic_auto_page
         }
         ReadMenuButtonConfig.Builtin.REPLACE_RULE -> R.drawable.ic_find_replace
-        ReadMenuButtonConfig.Builtin.NIGHT_THEME -> {
-            if (isNightTheme) R.drawable.ic_daytime else R.drawable.ic_brightness
+        ReadMenuButtonConfig.Builtin.NIGHT_THEME -> when (AppConfig.themeMode) {
+            "2" -> R.drawable.ic_daytime
+            "0" -> R.drawable.ic_brightness_auto
+            else -> R.drawable.ic_brightness
         }
         ReadMenuButtonConfig.Builtin.CATALOG -> R.drawable.ic_toc
         ReadMenuButtonConfig.Builtin.READ_ALOUD -> R.drawable.ic_read_aloud

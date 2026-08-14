@@ -2403,7 +2403,8 @@ Selected text or question:
     <string name="bookshelf_list_intro_lines_3">3 lines</string>
     <string name="bookshelf_wood_shelf">Wooden Bookshelf</string>
     <string name="bookshelf_wood_shelf_short">Wood</string>
-    <string name="bookshelf_wood_style">Wood Tone</string>
+    <string name="bookshelf_wood_style">Wood Tone (Day)</string>
+    <string name="bookshelf_wood_style_night">Wood Tone (Night)</string>
     <string name="wood_style_teak">Teak</string>
     <string name="wood_style_walnut">Walnut</string>
     <string name="wood_style_oak">Oak</string>

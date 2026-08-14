@@ -4057,6 +4057,8 @@ class ReadBookActivity : BaseReadBookActivity(),
             refreshEpubCoreAfterConfigurationChange()
         } else {
             readView.refreshVisualStyle()
+            // 日夜切换后重启壁纸轮换：按新模式的过滤结果立即刷新（免重进阅读界面）
+            startWallpaperRotation()
         }
         upSystemUiVisibility()
     }

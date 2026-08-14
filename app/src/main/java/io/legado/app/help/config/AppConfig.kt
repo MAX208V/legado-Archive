@@ -337,6 +337,21 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefInt(PreferKey.woodShelfStyle, value)
         }
 
+    /** 夜间木色主题（-1 = 未设置，跟随日间木色） */
+    var woodShelfStyleNight: Int
+        get() = appCtx.getPrefInt(PreferKey.woodShelfStyleNight, -1)
+        set(value) {
+            appCtx.putPrefInt(PreferKey.woodShelfStyleNight, value)
+        }
+
+    /** 生效木色：夜间模式用夜间木色（未设置时跟随日间），白天用日间木色 */
+    val woodShelfStyleEffective: Int
+        get() {
+            val night = woodShelfStyleNight
+            val day = woodShelfStyle
+            return if (isNightTheme) (if (night in 0..4) night else day) else day
+        }
+
     var woodShelfEnabled: Boolean
         get() = appCtx.getPrefBoolean(PreferKey.woodShelfEnabled, false)
         set(value) {

@@ -88,6 +88,7 @@ data class BookshelfConfigValues(
     val listIntroLines: Int,
     val woodShelfEnabled: Boolean,
     val woodShelfStyle: Int,
+    val woodShelfStyleNight: Int,
     val margin: Int
 )
 
@@ -119,6 +120,7 @@ private data class BookshelfConfigTexts(
     val woodShelfLabel: String,
     val woodShelfShortLabel: String,
     val woodStyleLabel: String,
+    val woodStyleNightLabel: String,
     val marginTitle: String,
     val marginLabel: String,
     val cancelLabel: String,
@@ -175,6 +177,7 @@ class BookshelfConfigDialog : ComposeDialogFragment() {
         listIntroLines = 2,
         woodShelfEnabled = false,
         woodShelfStyle = 0,
+        woodShelfStyleNight = -1,
         margin = 12
     )
     private var onApply: ((BookshelfConfigValues) -> Unit)? = null
@@ -298,6 +301,7 @@ class BookshelfConfigDialog : ComposeDialogFragment() {
             woodShelfLabel = getString(R.string.bookshelf_wood_shelf),
             woodShelfShortLabel = getString(R.string.bookshelf_wood_shelf_short),
             woodStyleLabel = getString(R.string.bookshelf_wood_style),
+            woodStyleNightLabel = getString(R.string.bookshelf_wood_style_night),
             marginTitle = getString(R.string.margin),
             marginLabel = getString(R.string.margin),
             cancelLabel = getString(android.R.string.cancel),
@@ -365,6 +369,15 @@ private fun BookshelfConfigContent(
                     options = options.woodStyles,
                     selectedValue = values.woodShelfStyle,
                     onSelected = { onValuesChange(values.copy(woodShelfStyle = it)) }
+                )
+            )
+            add(
+                BookshelfSelectItem(
+                    key = "woodStyleNight",
+                    label = texts.woodStyleNightLabel,
+                    options = options.woodStyles,
+                    selectedValue = values.woodShelfStyleNight.coerceIn(0, 4),
+                    onSelected = { onValuesChange(values.copy(woodShelfStyleNight = it)) }
                 )
             )
         }

@@ -415,7 +415,7 @@ class BooksFragment() : BaseFragment(R.layout.fragment_books) {
         Box(modifier = Modifier.fillMaxSize()) {
             BookshelfWoodShelfContent(
                 items = composeItems,
-                woodStyle = AppConfig.woodShelfStyle,
+                woodStyle = AppConfig.woodShelfStyleEffective,
                 listState = listState,
                 modifier = lazyModifier,
                 contentTopPadding = contentTopPadding,

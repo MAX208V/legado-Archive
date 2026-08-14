@@ -295,6 +295,7 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
                     listIntroLines = listIntroLines,
                     woodShelfEnabled = AppConfig.woodShelfEnabled,
                     woodShelfStyle = AppConfig.woodShelfStyle,
+                    woodShelfStyleNight = AppConfig.woodShelfStyleNight,
                     margin = AppConfig.bookshelfMargin
                 ),
                 onPreviewMarginChange = ::previewBookshelfMargin,
@@ -394,6 +395,10 @@ abstract class BaseBookshelfFragment(layoutId: Int) : VMBaseFragment<BookshelfVi
         }
         if (AppConfig.woodShelfStyle != values.woodShelfStyle) {
             AppConfig.woodShelfStyle = values.woodShelfStyle
+            refreshBookshelf = true
+        }
+        if (AppConfig.woodShelfStyleNight != values.woodShelfStyleNight) {
+            AppConfig.woodShelfStyleNight = values.woodShelfStyleNight
             refreshBookshelf = true
         }
         if (notifyMain) {

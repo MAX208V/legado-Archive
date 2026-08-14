@@ -638,7 +638,13 @@ class ReadMenu @JvmOverloads constructor(
             }
             ReadMenuButtonConfig.Builtin.REPLACE_RULE -> callBack.openReplaceRule()
             ReadMenuButtonConfig.Builtin.NIGHT_THEME -> {
-                AppConfig.isNightTheme = !AppConfig.isNightTheme
+                // 三态循环：日间(1) → 夜间(2) → 自动(0，跟随系统) → 日间
+                val mode = AppConfig.themeMode
+                AppConfig.themeMode = when (mode) {
+                    "1" -> "2"
+                    "2" -> "0"
+                    else -> "1"
+                }
                 ThemeConfig.applyDayNight(context)
                 callBack.onNightThemeChanged()
             }
