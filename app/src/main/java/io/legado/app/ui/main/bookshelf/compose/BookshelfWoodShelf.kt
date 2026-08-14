@@ -128,7 +128,7 @@ private fun WoodShelfLayer(
                     modifier = Modifier.weight(1f),
                     compactBottomSpace = true,
                     woodContactShadow = true,
-                    woodSpineGlow = true,
+                    woodSpineGlow = false,
                     woodCoverShade = true,
                     coverStyle = FLAT_COVER_STYLE,
                     fragment = fragment,
