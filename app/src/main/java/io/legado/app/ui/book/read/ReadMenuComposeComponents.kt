@@ -795,7 +795,7 @@ private fun readMenuButtonTitle(
             ReadMenuButtonConfig.Builtin.REPLACE_RULE -> "替换"
             ReadMenuButtonConfig.Builtin.NIGHT_THEME -> when (AppConfig.themeMode) {
                 "2" -> "夜间"
-                "0" -> "自动"
+                "0" -> "跟随"
                 else -> "日间"
             }
             ReadMenuButtonConfig.Builtin.CATALOG -> "目录"

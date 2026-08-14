@@ -187,12 +187,18 @@ object NetworkUtils {
     fun getAbsoluteURL(baseURL: URL?, relativePath: String): String {
         val relativePathTrim = relativePath.trim()
         if (baseURL == null) return relativePathTrim
-        if (relativePathTrim.isAbsUrl()) return relativePathTrim
-        if (relativePathTrim.isDataUrl()) return relativePathTrim
-        if (relativePathTrim.startsWith("javascript")) return ""
-        var relativeUrl = relativePathTrim
+        // 兼容书源返回 file:/// 开头的伪协议相对路径（如独步小说等模板站）：
+        // 剥掉 file:/// 前缀后按相对路径拼接出真实 http(s) 绝对地址
+        var relative = relativePathTrim
+        if (relative.startsWith("file:///", true)) {
+            relative = relative.substring("file:///".length)
+        }
+        if (relative.isAbsUrl()) return relative
+        if (relative.isDataUrl()) return relative
+        if (relative.startsWith("javascript")) return ""
+        var relativeUrl = relative
         try {
-            val parseUrl = URL(baseURL, relativePath)
+            val parseUrl = URL(baseURL, relative)
             relativeUrl = parseUrl.toString()
             return relativeUrl
         } catch (e: Exception) {
