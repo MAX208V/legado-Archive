@@ -765,8 +765,10 @@ class ReadMenu @JvmOverloads constructor(
 
     private fun resolveChapterUrl(chapter: io.legado.app.data.entities.BookChapter): String? {
         val candidates = listOf(
-            chapter.url,
+            // 绝对化优先：解析出真实 http(s) 地址（NetworkUtils 已兼容 file:/// 伪协议相对路径），
+            // 避免 preview 拿到书源原始残缺 url（如 file:///book/xxx.html）
             runCatching { chapter.getAbsoluteURL() }.getOrNull(),
+            chapter.url,
             chapter.baseUrl,
             ReadBook.book?.bookUrl
         )
