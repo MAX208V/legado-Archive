@@ -5,17 +5,13 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
 
-    <!-- 太阳（左半） -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M6.5,9.4a2.6,2.6 0 1,0 0.001,0z" />
+    <!-- 圆形外轮廓（居中，r=8.8） -->
     <path
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="1.4"
-        android:strokeLineCap="round"
-        android:pathData="M6.5,9.4V7.1M6.5,14.6V16.9M3.9,12H1.9M9.1,12H11.1M4.7,9.6L3.3,8.2M8.3,14.4L9.7,15.8M4.7,14.4L3.3,15.8M8.3,9.6L9.7,8.2" />
-    <!-- 月亮（右半） -->
+        android:strokeWidth="1.6"
+        android:pathData="M12,3.2a8.8,8.8 0 1,0 0.001,0z" />
+    <!-- 右半实心：太阳/白天侧（左半空心 = 月亮/黑夜侧），表达自动跟随日夜 -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M17.5,8.8A3.2,3.2 0 1,0 17.5,15.2A2.4,2.4 0 1,1 17.5,8.8Z" />
+        android:pathData="M12,3.2A8.8,8.8 0 0,1 12,20.8Z" />
 </vector>
