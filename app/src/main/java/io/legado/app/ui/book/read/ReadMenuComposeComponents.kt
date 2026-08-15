@@ -826,7 +826,7 @@ private fun readMenuButtonIconRes(
         ReadMenuButtonConfig.Builtin.REPLACE_RULE -> R.drawable.ic_find_replace
         ReadMenuButtonConfig.Builtin.NIGHT_THEME -> when (AppConfig.themeMode) {
             "2" -> R.drawable.ic_daytime
-            "0" -> R.drawable.ic_brightness_auto
+            "0" -> R.drawable.ic_brightness_follow
             else -> R.drawable.ic_brightness
         }
         ReadMenuButtonConfig.Builtin.CATALOG -> R.drawable.ic_toc

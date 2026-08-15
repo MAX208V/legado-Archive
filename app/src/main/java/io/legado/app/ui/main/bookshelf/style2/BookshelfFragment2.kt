@@ -678,7 +678,7 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         observeEvent<String>(EventBus.BOOKSHELF_REFRESH) {
             bookshelfMargin = AppConfig.bookshelfMargin
             woodShelfEnabled = AppConfig.woodShelfEnabled
-            woodShelfStyle = AppConfig.woodShelfStyle
+            woodShelfStyle = AppConfig.woodShelfStyleEffective
             composeListItemStyle = AppConfig.bookshelfListItemStyle
             composeListIntroLines = AppConfig.bookshelfListIntroLines
             updateComposeItems()
@@ -695,7 +695,7 @@ class BookshelfFragment2() : BaseBookshelfFragment(R.layout.fragment_bookshelf2)
         bookshelfLayout = AppConfig.bookshelfLayout.coerceIn(0, 6)
         bookshelfMargin = AppConfig.bookshelfMargin
         woodShelfEnabled = AppConfig.woodShelfEnabled
-        woodShelfStyle = AppConfig.woodShelfStyle
+        woodShelfStyle = AppConfig.woodShelfStyleEffective
         composeListItemStyle = AppConfig.bookshelfListItemStyle
         composeListIntroLines = AppConfig.bookshelfListIntroLines
         composeScrollPositions.clear()
