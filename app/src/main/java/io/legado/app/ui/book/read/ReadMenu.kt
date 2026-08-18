@@ -607,7 +607,7 @@ class ReadMenu @JvmOverloads constructor(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 26.dp)
-                    .offset(y = (-20).dp)
+                    .offset(y = (-44).dp)
                     .size(46.dp),
                 shape = CircleShape,
                 color = Color.Transparent,
