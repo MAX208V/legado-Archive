@@ -40,6 +40,9 @@ import androidx.core.view.doOnLayout
 import androidx.core.view.size
 import androidx.core.widget.NestedScrollView
 import androidx.lifecycle.lifecycleScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.jaredrummler.android.colorpicker.ColorPickerDialogListener
 import io.legado.app.BuildConfig
 import io.legado.app.R
@@ -146,6 +149,8 @@ import io.legado.app.ui.book.read.config.ParagraphRuleManageActivity
 import io.legado.app.ui.book.read.config.ParagraphRuleQuickDialog
 import io.legado.app.ui.book.read.config.ReadMenuCustomButtonEditActivity
 import io.legado.app.ui.book.read.config.ReadMenuButtonManageActivity
+import io.legado.app.ui.book.read.tomato.TomatoClock
+import io.legado.app.ui.book.read.tomato.TomatoLayer
 import io.legado.app.ui.book.read.config.ReadAloudDialog
 import io.legado.app.ui.book.read.config.ReadStyleDialog
 import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TIP_COLOR
@@ -256,6 +261,9 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     private var pendingReadAloudPlayerOpen = false
     private var pendingReadAloudPanelIntentOpen = false
+
+    // 番茄钟：菜单面板滑条右上方按钮 → 显示番茄面板
+    private val tomatoPanelVisible = mutableStateOf(false)
 
     private val tocActivity =
         registerForActivityResult(TocActivityResult()) {
@@ -449,6 +457,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readAiPanel.attach(this)
         binding.readAiSummaryPanel.attach(this)
         binding.readAloudPlayerPanel.attach(this, this)
+        initTomato()
         ReadAloudAppCapsuleHost.updateReadBookPanelActive(binding.readAloudPlayerPanel.isFullPanelActive())
         binding.readAloudPlayerPanel.post {
             consumeGlobalReadAloudPanelOpen()
@@ -707,6 +716,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onResume() {
         super.onResume()
+        TomatoClock.resume()
         ReadBook.readStartTime = System.currentTimeMillis()
         if (bookChanged) {
             bookChanged = false
@@ -746,6 +756,7 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     override fun onPause() {
         super.onPause()
+        TomatoClock.pause()
         stopWallpaperRotation()
         binding.readAloudPlayerPanel.setForegroundActive(false)
         autoPageStop()
@@ -4609,6 +4620,26 @@ class ReadBookActivity : BaseReadBookActivity(),
         skipToSearch(searchResult)
     }
 
+    private fun initTomato() {
+        val composeView = ComposeView(this).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                TomatoLayer(
+                    showPanel = tomatoPanelVisible.value,
+                    onClosePanel = { tomatoPanelVisible.value = false }
+                )
+            }
+        }
+        binding.tomatoHost.addView(
+            composeView,
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+    }
+
+    override fun showTomatoPanel() {
+        tomatoPanelVisible.value = true
+    }
+
     override fun onMenuShow() {
         binding.readAloudPlayerPanel.setReadMenuVisible(true)
         binding.readMenu.post { syncReadMenuAvoidBounds() }
@@ -4621,6 +4652,10 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readAloudPlayerPanel.setReadMenuAvoidBounds(null)
         if (epubCoreActive) return
         binding.readView.autoPager.resume()
+    }
+
+    override fun showTomatoPanel() {
+        tomatoPanelVisible.value = true
     }
 
     private fun syncReadMenuAvoidBounds() {
@@ -5041,6 +5076,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     override fun onDestroy() {
+        if (isFinishing) TomatoClock.stop()
         if (!isChangingConfigurations) {
             ReadAloudAppCapsuleHost.updateReadBookPanelActive(false)
         }

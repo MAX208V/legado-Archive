@@ -2588,6 +2588,18 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
     val progressBarBehavior: String?
         get() = appCtx.getPrefString(PreferKey.progressBarBehavior, "page")
 
+    var tomatoFocusMin: Int
+        get() = appCtx.getPrefInt(PreferKey.tomatoFocusMin, 40)
+        set(value) = appCtx.putPrefInt(PreferKey.tomatoFocusMin, value)
+
+    var tomatoRestMin: Int
+        get() = appCtx.getPrefInt(PreferKey.tomatoRestMin, 10)
+        set(value) = appCtx.putPrefInt(PreferKey.tomatoRestMin, value)
+
+    var tomatoRounds: Int
+        get() = appCtx.getPrefInt(PreferKey.tomatoRounds, 4)
+        set(value) = appCtx.putPrefInt(PreferKey.tomatoRounds, value)
+
     val keyPageOnLongPress
         get() = appCtx.getPrefBoolean(PreferKey.keyPageOnLongPress, false)
 

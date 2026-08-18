@@ -15,6 +15,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -33,8 +34,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -46,9 +50,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 import io.legado.app.R
@@ -485,6 +491,7 @@ class ReadMenu @JvmOverloads constructor(
             .asPaddingValues()
             .calculateBottomPadding()
 
+        Box {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -591,6 +598,26 @@ class ReadMenu @JvmOverloads constructor(
                         onLongClick = { ref -> handleMenuButtonLongClick(ref) }
                     )
                 }
+            }
+        }
+
+            // 番茄钟悬浮按钮：上下页滑条右上方（目录/朗读同一面板）
+            Surface(
+                onClick = { callBack.showTomatoPanel() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 26.dp)
+                    .offset(y = (-20).dp)
+                    .size(46.dp),
+                shape = CircleShape,
+                color = Color.Transparent,
+                shadowElevation = 8.dp
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.ic_tomato),
+                    contentDescription = "番茄钟",
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         }
     }
@@ -790,6 +817,7 @@ class ReadMenu @JvmOverloads constructor(
         fun showMoreSetting()
         fun openReadAiSummary()
         fun showReadAloudDialog()
+        fun showTomatoPanel() = Unit
         fun upSystemUiVisibility()
         fun onClickReadAloud()
         fun showHelp()
