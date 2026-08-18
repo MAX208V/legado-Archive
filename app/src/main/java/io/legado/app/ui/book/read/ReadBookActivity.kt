@@ -4654,10 +4654,6 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readView.autoPager.resume()
     }
 
-    override fun showTomatoPanel() {
-        tomatoPanelVisible.value = true
-    }
-
     private fun syncReadMenuAvoidBounds() {
         val bounds = binding.readMenu.bottomMenuBoundsIn(binding.readAloudPlayerPanel)
         binding.readAloudPlayerPanel.setReadMenuAvoidBounds(bounds)
