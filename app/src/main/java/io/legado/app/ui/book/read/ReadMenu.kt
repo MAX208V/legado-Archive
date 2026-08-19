@@ -15,6 +15,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -604,6 +605,7 @@ class ReadMenu @JvmOverloads constructor(
         }
 
             // 番茄钟悬浮按钮：上下页滑条右上方（目录/朗读同一面板），运行中上方显示剩余时间
+            // 配色统一采用 Legado 菜单风格（AppDialogStyle）
             val tomatoState by TomatoClock.state.collectAsState()
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -619,9 +621,10 @@ class ReadMenu @JvmOverloads constructor(
                             tomatoState.remainingSeconds % 60
                         ),
                         fontSize = 11.sp,
-                        color = Color.White,
+                        color = style.primaryText,
                         modifier = Modifier
-                            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .background(style.fieldSurface, RoundedCornerShape(8.dp))
+                            .border(1.dp, style.stroke.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 7.dp, vertical = 3.dp)
                     )
                     Spacer(modifier = Modifier.height(5.dp))
@@ -630,7 +633,8 @@ class ReadMenu @JvmOverloads constructor(
                     onClick = { callBack.showTomatoPanel() },
                     modifier = Modifier.size(46.dp),
                     shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.5f),
+                    color = style.surface,
+                    border = BorderStroke(1.dp, style.stroke),
                     shadowElevation = 8.dp
                 ) {
                     Box(contentAlignment = Alignment.Center) {

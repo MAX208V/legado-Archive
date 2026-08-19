@@ -24,7 +24,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -54,11 +53,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import io.legado.app.R
 import io.legado.app.help.config.AppConfig
+import io.legado.app.ui.widget.compose.AppDialogFrame
+import io.legado.app.ui.widget.compose.AppDialogStyle
+import io.legado.app.ui.widget.compose.LegadoComposeTheme
+import io.legado.app.ui.widget.compose.rememberAppDialogStyle
 
 /**
  * 番茄钟 UI 层：设置/状态面板 + 休息大番茄覆盖层。
  * 入口按钮位于阅读菜单底部面板的上下页滑条右上方（由 ReadMenu 提供），
  * 点击后通过 showPanel 打开番茄面板。
+ * UI 统一采用 Legado 风格（AppDialogStyle 配色 + Legado 字体）；休息覆盖层除外。
  */
 @Composable
 fun TomatoLayer(
@@ -68,7 +72,9 @@ fun TomatoLayer(
 ) {
     val dark = AppConfig.isNightTheme
     MaterialTheme(colorScheme = if (dark) darkColorScheme() else lightColorScheme()) {
-        TomatoLayerContent(showPanel = showPanel, onClosePanel = onClosePanel, modifier = modifier)
+        LegadoComposeTheme {
+            TomatoLayerContent(showPanel = showPanel, onClosePanel = onClosePanel, modifier = modifier)
+        }
     }
 }
 
@@ -124,7 +130,10 @@ private fun TomatoLayerContent(
             title = { Text("🍅 开始第 $round 轮") },
             text = { Text("休息结束，开始专注阅读 ${state.focusMinutes} 分钟") },
             confirmButton = {
-                TextButton(onClick = { nextRoundTip = null }) { Text("知道了") }
+                TextButton(
+                    onClick = { nextRoundTip = null },
+                    colors = ButtonDefaults.textButtonColors(contentColor = rememberAppDialogStyle().accent)
+                ) { Text("知道了") }
             }
         )
     }
@@ -135,12 +144,19 @@ private fun TomatoLayerContent(
             title = { Text("🍅 全部完成") },
             text = { Text("恭喜完成全部 ${state.totalRounds} 轮番茄钟！") },
             confirmButton = {
-                TextButton(onClick = { allDone = false }) { Text("好的") }
+                TextButton(
+                    onClick = { allDone = false },
+                    colors = ButtonDefaults.textButtonColors(contentColor = rememberAppDialogStyle().accent)
+                ) { Text("好的") }
             }
         )
     }
 }
 
+/**
+ * 休息覆盖层：保持 Legado 之外的专属视觉（黑底白字大番茄 + 倒计时）。
+ * 仅点击大番茄并二次确认后提前结束休息；点击其余任意位置不结束、也不穿透翻页。
+ */
 @Composable
 private fun RestTomatoOverlay(
     state: TomatoUiState,
@@ -231,6 +247,7 @@ private fun RestTomatoOverlay(
     }
 }
 
+/** 番茄钟设置/状态面板：Legado 风格对话框（AppDialogFrame + AppDialogStyle）。 */
 @Composable
 private fun TomatoPanel(
     state: TomatoUiState,
@@ -240,127 +257,149 @@ private fun TomatoPanel(
     onStop: () -> Unit,
     onConfigChange: (Int, Int, Int) -> Unit
 ) {
+    val style = rememberAppDialogStyle()
     var focus by rememberSaveable { mutableIntStateOf(state.focusMinutes) }
     var rest by rememberSaveable { mutableIntStateOf(state.restMinutes) }
     var rounds by rememberSaveable { mutableIntStateOf(state.totalRounds) }
 
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 6.dp,
-        shadowElevation = 12.dp,
-        modifier = Modifier.widthIn(max = 320.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "🍅 番茄钟",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(Modifier.height(8.dp))
-            if (state.running) {
-                Text(
-                    text = when (state.phase) {
-                        TomatoPhase.FOCUS -> "专注中 · 第 ${state.currentRound}/${state.totalRounds} 轮"
-                        TomatoPhase.REST -> "休息中 · 第 ${state.currentRound}/${state.totalRounds} 轮"
-                        TomatoPhase.IDLE -> ""
-                    },
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = formatTime(state.remainingSeconds),
-                    fontSize = 44.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                if (state.paused) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "已暂停（返回阅读页继续）",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            } else {
-                StepperRow(
-                    label = "专注",
-                    unit = "分钟",
-                    value = focus,
-                    min = 10,
-                    max = 120,
-                    step = 10,
-                    onChange = {
-                        focus = it
-                        onConfigChange(focus, rest, rounds)
+    AppDialogFrame(
+        title = "🍅 番茄钟",
+        actions = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (state.running) {
+                    if (state.paused) {
+                        Button(
+                            onClick = onResume,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = style.accent,
+                                contentColor = style.onAccent
+                            )
+                        ) {
+                            Text("继续")
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        TextButton(
+                            onClick = onStop,
+                            colors = ButtonDefaults.textButtonColors(contentColor = style.danger)
+                        ) {
+                            Text("停止")
+                        }
+                    } else {
+                        Button(
+                            onClick = onStop,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = style.danger,
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Text("停止")
+                        }
                     }
-                )
-                Spacer(Modifier.height(6.dp))
-                StepperRow(
-                    label = "休息",
-                    unit = "分钟",
-                    value = rest,
-                    min = 5,
-                    max = 30,
-                    step = 5,
-                    onChange = {
-                        rest = it
-                        onConfigChange(focus, rest, rounds)
-                    }
-                )
-                Spacer(Modifier.height(6.dp))
-                StepperRow(
-                    label = "总轮次",
-                    unit = "轮",
-                    value = rounds,
-                    min = 1,
-                    max = 12,
-                    step = 1,
-                    onChange = {
-                        rounds = it
-                        onConfigChange(focus, rest, rounds)
-                    }
-                )
-            }
-            Spacer(Modifier.height(20.dp))
-            if (state.running) {
-                if (state.paused) {
-                    Button(onClick = onResume) {
-                        Text("继续")
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    TextButton(onClick = onStop) {
-                        Text("停止")
+                    Spacer(Modifier.width(10.dp))
+                    TextButton(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.textButtonColors(contentColor = style.secondaryText)
+                    ) {
+                        Text("关闭")
                     }
                 } else {
                     Button(
-                        onClick = onStop,
+                        onClick = onStart,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.error
+                            containerColor = style.accent,
+                            contentColor = style.onAccent
                         )
                     ) {
-                        Text("停止")
+                        Text("开始")
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    TextButton(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.textButtonColors(contentColor = style.secondaryText)
+                    ) {
+                        Text("关闭")
                     }
                 }
-            } else {
-                Button(onClick = onStart) {
-                    Text("开始")
+            }
+        }
+    ) {
+        if (state.running) {
+            Text(
+                text = when (state.phase) {
+                    TomatoPhase.FOCUS -> "专注中 · 第 ${state.currentRound}/${state.totalRounds} 轮"
+                    TomatoPhase.REST -> "休息中 · 第 ${state.currentRound}/${state.totalRounds} 轮"
+                    TomatoPhase.IDLE -> ""
+                },
+                fontSize = 13.sp,
+                color = style.secondaryText
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = formatTime(state.remainingSeconds),
+                fontSize = 44.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                color = style.primaryText
+            )
+            if (state.paused) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "已暂停（返回阅读页继续）",
+                    fontSize = 12.sp,
+                    color = style.danger
+                )
+            }
+        } else {
+            StepperRow(
+                label = "专注",
+                unit = "分钟",
+                value = focus,
+                min = 10,
+                max = 120,
+                step = 10,
+                style = style,
+                onChange = {
+                    focus = it
+                    onConfigChange(focus, rest, rounds)
                 }
-            }
-            Spacer(Modifier.height(4.dp))
-            TextButton(onClick = onDismiss) {
-                Text("关闭")
-            }
+            )
+            Spacer(Modifier.height(6.dp))
+            StepperRow(
+                label = "休息",
+                unit = "分钟",
+                value = rest,
+                min = 5,
+                max = 30,
+                step = 5,
+                style = style,
+                onChange = {
+                    rest = it
+                    onConfigChange(focus, rest, rounds)
+                }
+            )
+            Spacer(Modifier.height(6.dp))
+            StepperRow(
+                label = "总轮次",
+                unit = "轮",
+                value = rounds,
+                min = 1,
+                max = 12,
+                step = 1,
+                style = style,
+                onChange = {
+                    rounds = it
+                    onConfigChange(focus, rest, rounds)
+                }
+            )
         }
     }
 }
 
+/** 数字步进行（± 按钮）：Legado 风格 accent 着色。 */
 @Composable
 private fun StepperRow(
     label: String,
@@ -369,6 +408,7 @@ private fun StepperRow(
     min: Int,
     max: Int,
     step: Int,
+    style: AppDialogStyle,
     onChange: (Int) -> Unit
 ) {
     Row(
@@ -378,12 +418,13 @@ private fun StepperRow(
         Text(
             text = label,
             fontSize = 14.sp,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = style.primaryText,
             modifier = Modifier.weight(1f)
         )
         TextButton(
             onClick = { onChange((value - step).coerceAtLeast(min)) },
             enabled = value > min,
+            colors = ButtonDefaults.textButtonColors(contentColor = style.accent),
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
@@ -395,12 +436,13 @@ private fun StepperRow(
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = style.primaryText,
             modifier = Modifier.width(52.dp)
         )
         TextButton(
             onClick = { onChange((value + step).coerceAtMost(max)) },
             enabled = value < max,
+            colors = ButtonDefaults.textButtonColors(contentColor = style.accent),
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
@@ -410,7 +452,7 @@ private fun StepperRow(
         Text(
             text = unit,
             fontSize = 12.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = style.secondaryText,
             modifier = Modifier.width(36.dp)
         )
     }
