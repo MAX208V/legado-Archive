@@ -81,7 +81,6 @@ import io.legado.app.lib.theme.titleTypeface
 import io.legado.app.lib.theme.uiTypeface
 import io.legado.app.ui.book.read.config.rememberReaderMenuDialogStyle
 import io.legado.app.ui.book.read.tomato.TomatoClock
-import io.legado.app.ui.book.read.tomato.TomatoClock
 import io.legado.app.model.ReadBook
 import io.legado.app.model.SourceCallBack
 import io.legado.app.ui.browser.WebViewActivity
