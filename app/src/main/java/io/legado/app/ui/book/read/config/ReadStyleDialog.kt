@@ -258,7 +258,6 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
                         SeekBar(ctx).apply {
                             progressTintList = ColorStateList.valueOf(style.accent.toArgb())
                             thumbTintList = ColorStateList.valueOf(style.accent.toArgb())
-                            progressBackgroundTintList = ColorStateList.valueOf(style.stroke.copy(alpha = 0.5f).toArgb())
                             max = ReaderFontWeight.MAX - ReaderFontWeight.MIN
                             progress = value.coerceIn(ReaderFontWeight.MIN, ReaderFontWeight.MAX) - ReaderFontWeight.MIN
                             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -414,7 +413,6 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
                         SeekBar(ctx).apply {
                             progressTintList = ColorStateList.valueOf(style.accent.toArgb())
                             thumbTintList = ColorStateList.valueOf(style.accent.toArgb())
-                            progressBackgroundTintList = ColorStateList.valueOf(style.stroke.copy(alpha = 0.5f).toArgb())
                             max = (range.last - range.first).coerceAtLeast(1)
                             progress = value.coerceIn(range) - range.first
                             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
