@@ -43,6 +43,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -79,6 +80,8 @@ import io.legado.app.lib.theme.rememberThemeUiPalette
 import io.legado.app.lib.theme.titleTypeface
 import io.legado.app.lib.theme.uiTypeface
 import io.legado.app.ui.book.read.config.rememberReaderMenuDialogStyle
+import io.legado.app.ui.book.read.tomato.TomatoClock
+import io.legado.app.ui.book.read.tomato.TomatoClock
 import io.legado.app.model.ReadBook
 import io.legado.app.model.SourceCallBack
 import io.legado.app.ui.browser.WebViewActivity
@@ -601,25 +604,43 @@ class ReadMenu @JvmOverloads constructor(
             }
         }
 
-            // 番茄钟悬浮按钮：上下页滑条右上方（目录/朗读同一面板）
-            Surface(
-                onClick = { callBack.showTomatoPanel() },
+            // 番茄钟悬浮按钮：上下页滑条右上方（目录/朗读同一面板），运行中上方显示剩余时间
+            val tomatoState by TomatoClock.state.collectAsState()
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 26.dp)
-                    .offset(y = (-54).dp)
-                    .size(46.dp),
-                shape = CircleShape,
-                color = Color.White.copy(alpha = 0.5f),
-                shadowElevation = 8.dp
+                    .offset(y = if (tomatoState.running) (-112).dp else (-54).dp)
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                if (tomatoState.running) {
                     Text(
-                        text = "🍅",
-                        fontSize = 26.sp,
+                        text = "%02d:%02d".format(
+                            tomatoState.remainingSeconds / 60,
+                            tomatoState.remainingSeconds % 60
+                        ),
+                        fontSize = 11.sp,
+                        color = Color.White,
                         modifier = Modifier
-                            .align(Alignment.Center)
+                            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 7.dp, vertical = 3.dp)
                     )
+                    Spacer(modifier = Modifier.height(5.dp))
+                }
+                Surface(
+                    onClick = { callBack.showTomatoPanel() },
+                    modifier = Modifier.size(46.dp),
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.5f),
+                    shadowElevation = 8.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "🍅",
+                            fontSize = 26.sp,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    }
                 }
             }
         }
