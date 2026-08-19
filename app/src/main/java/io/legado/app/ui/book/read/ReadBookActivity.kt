@@ -5094,7 +5094,8 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     override fun onDestroy() {
-        if (isFinishing) TomatoClock.stop()
+        // 番茄钟不随阅读页销毁而停止：退出阅读页仅暂停（onPause），
+        // 重新进入由 onResume 恢复；停止由用户操作或全部轮次完成触发
         if (!isChangingConfigurations) {
             ReadAloudAppCapsuleHost.updateReadBookPanelActive(false)
         }

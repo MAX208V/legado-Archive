@@ -104,6 +104,10 @@ private fun TomatoLayerContent(
                     TomatoClock.start()
                     onClosePanel()
                 },
+                onResume = {
+                    TomatoClock.resume()
+                    onClosePanel()
+                },
                 onStop = {
                     TomatoClock.stop()
                     onClosePanel()
@@ -210,6 +214,7 @@ private fun TomatoPanel(
     state: TomatoUiState,
     onDismiss: () -> Unit,
     onStart: () -> Unit,
+    onResume: () -> Unit,
     onStop: () -> Unit,
     onConfigChange: (Int, Int, Int) -> Unit
 ) {
@@ -303,13 +308,23 @@ private fun TomatoPanel(
             }
             Spacer(Modifier.height(20.dp))
             if (state.running) {
-                Button(
-                    onClick = onStop,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("停止")
+                if (state.paused) {
+                    Button(onClick = onResume) {
+                        Text("继续")
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(onClick = onStop) {
+                        Text("停止")
+                    }
+                } else {
+                    Button(
+                        onClick = onStop,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("停止")
+                    }
                 }
             } else {
                 Button(onClick = onStart) {
