@@ -86,6 +86,7 @@ import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.book.read.page.WallpaperItem
 import io.legado.app.ui.book.read.page.WallpaperLayerType
+import io.legado.app.ui.book.read.page.isWallpaperPrefab
 import io.legado.app.ui.file.HandleFileContract
 import androidx.compose.runtime.MutableState
 import io.legado.app.ui.widget.compose.AppDialogStyle
@@ -355,6 +356,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             rotationEnabled = it
             ReadBookConfig.durConfig.wallpaperRotationEnabled = it
             postReadConfigChanged(9, 10)
+            refreshTick++ // 联动壁纸图层：轮换项随开关显示/隐藏
         }
         if (rotationEnabled) {
             SliderRow(
@@ -1316,7 +1318,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             mutableStateOf(ReadBookConfig.durConfig.wallpaperLayersEnabled)
         }
         var items by rememberSaveable(refreshTick) {
-            mutableStateOf(ReadBookConfig.durConfig.wallpaperLayerItems)
+            val raw = ArrayList(ReadBookConfig.durConfig.wallpaperLayerItems)
+            val norm = normalizeLayerItems(raw)
+            if (norm != raw) ReadBookConfig.durConfig.wallpaperLayerItems = norm
+            mutableStateOf(norm)
         }
         ReaderSwitchRow(
             title = "壁纸图层",
@@ -1325,7 +1330,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             summary = if (enabled) {
                 "多图层从下到上叠放，可调顺序（如：底层视频+上层镂空窗户）"
             } else {
-                "支持图片/视频/URL 多层叠加壁纸"
+                "默认含原有背景图片；轮换开启时含轮换壁纸项"
             }
         ) {
             enabled = it
@@ -1338,15 +1343,14 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = "图层顺序：列表底部=最底层，顶部=最上层（↑ ↓ 调整，✕ 删除）",
+                    text = "图层顺序：列表底部=最底层，顶部=最上层（↑ ↓ 调整，✕ 删除；背景/轮换为预置项）",
                     color = style.secondaryText,
                     fontSize = 11.sp,
                     modifier = Modifier.padding(start = 6.dp, top = 4.dp)
                 )
                 items.forEachIndexed { index, entry ->
-                    val item = WallpaperItem.fromJson(entry) ?: return@forEachIndexed
                     WallpaperLayerRow(
-                        item = item,
+                        entry = entry,
                         canUp = index > 0,
                         canDown = index < items.size - 1,
                         style = style,
@@ -1381,9 +1385,91 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
+    /** 图层项缩略图：预置项显示实际背景/轮换缩略，自定义项显示来源 */
+    @Composable
+    private fun WallpaperLayerThumb(entry: String, style: AppDialogStyle) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(style.surface)
+        ) {
+            when (entry) {
+                WallpaperLayerType.PREFAB_BG -> {
+                    val cfg = ReadBookConfig.durConfig
+                    val bgPath = configBgImagePath(cfg)
+                    if (bgPath != null) {
+                        AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { ctx ->
+                                AppCompatImageView(ctx).apply {
+                                    scaleType = ImageView.ScaleType.CENTER_CROP
+                                }
+                            },
+                            update = { iv ->
+                                iv.setImageDrawable(null)
+                                ImageLoader.load(iv.context, bgPath).centerCrop().into(iv)
+                            }
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(configBgColor(cfg))
+                        )
+                    }
+                }
+                WallpaperLayerType.PREFAB_ROTATION -> {
+                    val first = ReadBookConfig.durConfig.wallpaperRotationImageList.firstOrNull()
+                    if (first != null) {
+                        WallpaperThumb(first, style)
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_play_mode_random),
+                            contentDescription = null,
+                            tint = style.secondaryText,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                else -> {
+                    val item = WallpaperItem.fromJson(entry)
+                    when {
+                        item == null -> Unit
+                        item.type == WallpaperLayerType.VIDEO -> Icon(
+                            painter = painterResource(R.drawable.ic_play_24dp),
+                            contentDescription = null,
+                            tint = style.accent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        item.type == WallpaperLayerType.URL_IMAGE ||
+                            item.type == WallpaperLayerType.URL_RESOLVE -> Icon(
+                            painter = painterResource(R.drawable.ic_add_online),
+                            contentDescription = null,
+                            tint = style.accent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        else -> AndroidView(
+                            modifier = Modifier.fillMaxSize(),
+                            factory = { ctx ->
+                                AppCompatImageView(ctx).apply {
+                                    scaleType = ImageView.ScaleType.CENTER_CROP
+                                }
+                            },
+                            update = { iv ->
+                                iv.setImageDrawable(null)
+                                ImageLoader.load(iv.context, item.src).centerCrop().into(iv)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     @Composable
     private fun WallpaperLayerRow(
-        item: WallpaperItem,
+        entry: String,
         canUp: Boolean,
         canDown: Boolean,
         style: AppDialogStyle,
@@ -1391,6 +1477,18 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         onDown: () -> Unit,
         onDelete: () -> Unit
     ) {
+        val isPrefab = entry.isWallpaperPrefab()
+        val item = WallpaperItem.fromJson(entry)
+        val label = when (entry) {
+            WallpaperLayerType.PREFAB_BG -> "背景图片"
+            WallpaperLayerType.PREFAB_ROTATION -> "轮换壁纸"
+            else -> item?.typeLabel() ?: "未知图层"
+        }
+        val sub = when (entry) {
+            WallpaperLayerType.PREFAB_BG -> "Legado 原有背景"
+            WallpaperLayerType.PREFAB_ROTATION -> "轮换壁纸（轮换中）"
+            else -> item?.src ?: ""
+        }
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(style.actionRadius),
@@ -1400,27 +1498,35 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             shadowElevation = 0.dp
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = item.typeLabel(),
-                    color = style.accent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.width(64.dp)
-                )
-                Text(
-                    text = item.src,
-                    color = style.primaryText,
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+                WallpaperLayerThumb(entry, style)
+                Spacer(Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = label,
+                        color = style.primaryText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = sub,
+                        color = style.secondaryText,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 LayerIconButton("↑", canUp, style) { onUp() }
                 LayerIconButton("↓", canDown, style) { onDown() }
-                LayerIconButton("✕", true, style) { onDelete() }
+                if (!isPrefab) {
+                    LayerIconButton("✕", true, style) { onDelete() }
+                } else {
+                    Spacer(Modifier.width(30.dp))
+                }
             }
         }
     }
@@ -1499,6 +1605,23 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         (activity as? ReadBookActivity)?.refreshWallpaperLayers()
     }
 
+    /** 规整图层列表：保证含预置项 __bg__（头部）；轮换开启时含 __rotation__（背景后），关闭时移除 */
+    private fun normalizeLayerItems(raw: ArrayList<String>): ArrayList<String> {
+        val list = ArrayList(raw)
+        val hasBg = list.contains(WallpaperLayerType.PREFAB_BG)
+        if (!hasBg) list.add(0, WallpaperLayerType.PREFAB_BG)
+        val rotationOn = ReadBookConfig.durConfig.wallpaperRotationEnabled
+        if (rotationOn) {
+            if (!list.contains(WallpaperLayerType.PREFAB_ROTATION)) {
+                val bgIdx = list.indexOf(WallpaperLayerType.PREFAB_BG)
+                list.add(bgIdx + 1, WallpaperLayerType.PREFAB_ROTATION)
+            }
+        } else {
+            list.remove(WallpaperLayerType.PREFAB_ROTATION)
+        }
+        return list
+    }
+
     private fun moveWallpaperLayer(index: Int, delta: Int) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
         val target = index + delta
@@ -1507,15 +1630,17 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         val t = mutable[index]
         mutable[index] = mutable[target]
         mutable[target] = t
-        ReadBookConfig.durConfig.wallpaperLayerItems = ArrayList(mutable)
+        ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
         applyWallpaperLayers()
     }
 
     private fun removeWallpaperLayer(index: Int) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
+        val entry = list.getOrNull(index) ?: return
+        if (entry.isWallpaperPrefab()) return // 预置项不可删除
         val mutable = list.toMutableList()
         mutable.removeAt(index)
-        ReadBookConfig.durConfig.wallpaperLayerItems = ArrayList(mutable)
+        ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
         applyWallpaperLayers()
     }
 
@@ -1553,7 +1678,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 destFile.outputStream().use { out -> inputStream.copyTo(out) }
                 val list = ReadBookConfig.durConfig.wallpaperLayerItems
                 list.add(WallpaperItem(type, destFile.absolutePath).toJson())
-                ReadBookConfig.durConfig.wallpaperLayerItems = list
+                ReadBookConfig.durConfig.wallpaperLayerItems =
+                    normalizeLayerItems(ArrayList(list))
                 applyWallpaperLayers()
             } catch (e: Exception) {
                 requireContext().toastOnUi(e.stackTraceStr)
@@ -1596,7 +1722,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun addWallpaperLayerUrl(url: String, type: Int) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
         list.add(WallpaperItem(type, url).toJson())
-        ReadBookConfig.durConfig.wallpaperLayerItems = list
+        ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(list))
         applyWallpaperLayers()
     }
 

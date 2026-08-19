@@ -160,7 +160,6 @@ import io.legado.app.ui.book.read.page.ContentTextView
 import io.legado.app.ui.book.read.page.ReadView
 import io.legado.app.ui.book.read.page.LottieImageBitmapCache
 import io.legado.app.ui.book.read.page.WallpaperHost
-import io.legado.app.ui.book.read.page.WallpaperItem
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
 import io.legado.app.ui.book.read.page.entities.BookmarkMark
 import io.legado.app.ui.book.read.page.entities.buildBookmarkMarks
@@ -698,11 +697,12 @@ class ReadBookActivity : BaseReadBookActivity(),
             newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
                 Configuration.UI_MODE_NIGHT_YES
         } else {
-            AppConfig.isNightTheme
-        }
-        val readerNightModeChanged = readerNightMode != lastReaderNightMode
-        lastReaderNightMode = readerNightMode
-        upSystemUiVisibility()
+                    readView.refreshVisualStyle()
+                    // 日夜切换后重启壁纸轮换：按新模式的过滤结果立即刷新（免重进阅读界面）
+                    startWallpaperRotation()
+                    wallpaperHost?.refreshBgLayer()
+                }
+                upSystemUiVisibility()
         binding.readView.upStatusBar()
         if (epubCoreActive) {
             refreshEpubCoreAfterConfigurationChange()
@@ -2524,6 +2524,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         if (needBackground) {
             readView.upBg()
+            wallpaperHost?.refreshBgLayer()
         }
         if (values.contains(3)) {
             readView.upBgAlpha()
@@ -4076,6 +4077,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             readView.refreshVisualStyle()
             // 日夜切换后重启壁纸轮换：按新模式的过滤结果立即刷新（免重进阅读界面）
             startWallpaperRotation()
+            wallpaperHost?.refreshBgLayer()
         }
         upSystemUiVisibility()
     }
@@ -4652,8 +4654,6 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         val items = if (ReadBookConfig.durConfig.wallpaperLayersEnabled) {
             ReadBookConfig.durConfig.wallpaperLayerItems
-                .mapNotNull { WallpaperItem.fromJson(it) }
-                .filter { it.src.isNotBlank() }
         } else {
             emptyList()
         }
@@ -5480,6 +5480,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         refreshPagOverlay()
         binding.readView.upBg()
+        wallpaperHost?.refreshRotationLayer()
         if (needStyleRefresh) {
             binding.readView.upStyle()
         }

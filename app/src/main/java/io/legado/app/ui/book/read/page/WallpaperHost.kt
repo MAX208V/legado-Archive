@@ -13,6 +13,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import io.legado.app.help.config.AppConfig
+import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.glide.ImageLoader
 import io.legado.app.help.http.getProxyClient
 import kotlinx.coroutines.CoroutineScope
@@ -33,7 +34,14 @@ object WallpaperLayerType {
     const val VIDEO = 1        // 视频：本地文件路径或 http(s) 视频 URL
     const val URL_IMAGE = 2    // URL 图片（直链加载）
     const val URL_RESOLVE = 3  // URL 图片（解析：HTTP 请求后解码）
+
+    // 预置图层标记（存储在图层列表字符串中，非 JSON）
+    const val PREFAB_BG = "__bg__"            // Legado 原有背景图片项
+    const val PREFAB_ROTATION = "__rotation__" // 轮换壁纸项（开启轮换时显示）
 }
+
+fun String.isWallpaperPrefab(): Boolean =
+    this == WallpaperLayerType.PREFAB_BG || this == WallpaperLayerType.PREFAB_ROTATION
 
 /**
  * 单个壁纸图层配置
@@ -89,12 +97,12 @@ class WallpaperHost @JvmOverloads constructor(
         setWillNotDraw(true)
     }
 
-    /** 重建图层（按 items 顺序从底到顶叠放） */
-    fun setLayers(items: List<WallpaperItem>) {
+    /** 重建图层（按 items 顺序从底到顶叠放；含预置项 __bg__ / __rotation__） */
+    fun setLayers(items: List<String>) {
         clearLayers()
         removeAllViews()
-        items.forEachIndexed { index, item ->
-            val layer = createLayer(item)
+        items.forEachIndexed { index, entry ->
+            val layer = createLayer(entry) ?: return@forEachIndexed
             layers.add(layer)
             addView(layer.view, index)
             layer.load()
@@ -104,6 +112,16 @@ class WallpaperHost @JvmOverloads constructor(
     fun hasLayers(): Boolean = layers.isNotEmpty()
 
     fun isEmpty(): Boolean = layers.isEmpty()
+
+    /** 背景图片预置层刷新（样式/日夜切换后调用） */
+    fun refreshBgLayer() {
+        layers.filterIsInstance<BgPrefabLayer>().forEach { it.load() }
+    }
+
+    /** 轮换壁纸预置层刷新（轮换切换后调用） */
+    fun refreshRotationLayer() {
+        layers.filterIsInstance<RotationPrefabLayer>().forEach { it.load() }
+    }
 
     /** 阅读页 onStart：恢复播放所有视频层 */
     fun onActivityStart() {
@@ -131,10 +149,17 @@ class WallpaperHost @JvmOverloads constructor(
         loadJobs.clear()
     }
 
-    private fun createLayer(item: WallpaperItem): LayerView {
-        return when (item.type) {
-            WallpaperLayerType.VIDEO -> VideoLayerView(context, item)
-            else -> ImageLayerView(context, item)
+    private fun createLayer(entry: String): LayerView? {
+        return when (entry) {
+            WallpaperLayerType.PREFAB_BG -> BgPrefabLayer(context)
+            WallpaperLayerType.PREFAB_ROTATION -> RotationPrefabLayer(context)
+            else -> {
+                val item = WallpaperItem.fromJson(entry) ?: return null
+                when (item.type) {
+                    WallpaperLayerType.VIDEO -> VideoLayerView(context, item)
+                    else -> ImageLayerView(context, item)
+                }
+            }
         }
     }
 
@@ -144,6 +169,70 @@ class WallpaperHost @JvmOverloads constructor(
         fun start() {}
         fun pause() {}
         fun release() {}
+    }
+
+    // ===== 预置：Legado 原有背景图片 =====
+    private inner class BgPrefabLayer(context: Context) : LayerView {
+        override val view: AppCompatImageView = AppCompatImageView(context).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            isClickable = false
+            isFocusable = false
+        }
+
+        override fun load() {
+            val w = view.width.coerceAtLeast(1)
+            val h = view.height.coerceAtLeast(1)
+            val d = runCatching {
+                ReadBookConfig.durConfig.buildBgDrawable(
+                    w, h,
+                    ReadBookConfig.durConfig.curBgType(),
+                    ReadBookConfig.durConfig.curBgStr()
+                )
+            }.getOrNull()
+            view.setImageDrawable(d)
+        }
+
+        override fun release() {
+            view.setImageDrawable(null)
+        }
+    }
+
+    // ===== 预置：轮换壁纸（当前轮换条目，跟随轮换 Job 切换刷新） =====
+    private inner class RotationPrefabLayer(context: Context) : LayerView {
+        override val view: AppCompatImageView = AppCompatImageView(context).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            isClickable = false
+            isFocusable = false
+        }
+
+        override fun load() {
+            val w = view.width.coerceAtLeast(1)
+            val h = view.height.coerceAtLeast(1)
+            view.setImageDrawable(rotationDrawable(w, h))
+        }
+
+        private fun rotationDrawable(w: Int, h: Int): android.graphics.drawable.Drawable? = runCatching {
+            val cfg = ReadBookConfig
+            val styleIdx = cfg.rotationStyleIndex
+            when {
+                styleIdx != null -> {
+                    val sc = ReadBookConfig.getConfig(styleIdx)
+                    ReadBookConfig.durConfig.buildBgDrawable(
+                        w, h, sc.curBgType(), sc.curBgStr()
+                    )
+                }
+                cfg.rotationBgType != null && cfg.rotationBgStr != null -> {
+                    ReadBookConfig.durConfig.buildBgDrawable(
+                        w, h, cfg.rotationBgType!!, cfg.rotationBgStr!!
+                    )
+                }
+                else -> null
+            }
+        }.getOrNull()
+
+        override fun release() {
+            view.setImageDrawable(null)
+        }
     }
 
     // ===== 图片图层 =====
