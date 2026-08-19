@@ -254,6 +254,7 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
                     )
                 }
                 AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
                     factory = { ctx ->
                         SeekBar(ctx).apply {
                             progressTintList = ColorStateList.valueOf(style.accent.toArgb())
@@ -409,6 +410,7 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
                     )
                 }
                 AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
                     factory = { ctx ->
                         SeekBar(ctx).apply {
                             progressTintList = ColorStateList.valueOf(style.accent.toArgb())
