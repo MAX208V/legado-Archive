@@ -151,6 +151,7 @@ import io.legado.app.ui.book.read.config.ReadMenuCustomButtonEditActivity
 import io.legado.app.ui.book.read.config.ReadMenuButtonManageActivity
 import io.legado.app.ui.book.read.tomato.TomatoClock
 import io.legado.app.ui.book.read.tomato.TomatoLayer
+import io.legado.app.ui.book.read.tomato.TomatoPhase
 import io.legado.app.ui.book.read.config.ReadAloudDialog
 import io.legado.app.ui.book.read.config.ReadStyleDialog
 import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TIP_COLOR
@@ -4621,6 +4622,27 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     private fun initTomato() {
+        // 注册持久化：退出阅读页/应用自动暂停并保存，冷启动后恢复继续
+        val tomatoSp = getSharedPreferences("tomato_clock", Context.MODE_PRIVATE)
+        TomatoClock.persist = { phase, round, remaining ->
+            tomatoSp.edit()
+                .putString(PREF_TOMATO_PHASE, phase.name)
+                .putInt(PREF_TOMATO_ROUND, round)
+                .putInt(PREF_TOMATO_REMAINING, remaining)
+                .apply()
+        }
+        TomatoClock.clearPersist = {
+            tomatoSp.edit().clear().apply()
+        }
+        if (!TomatoClock.state.value.running) {
+            tomatoSp.getString(PREF_TOMATO_PHASE, null)?.let { phaseName ->
+                TomatoClock.restore(
+                    TomatoPhase.valueOf(phaseName),
+                    tomatoSp.getInt(PREF_TOMATO_ROUND, 1),
+                    tomatoSp.getInt(PREF_TOMATO_REMAINING, 0)
+                )
+            }
+        }
         val composeView = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
@@ -5443,6 +5465,9 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     companion object {
         const val RESULT_DELETED = 100
+        private const val PREF_TOMATO_PHASE = "phase"
+        private const val PREF_TOMATO_ROUND = "round"
+        private const val PREF_TOMATO_REMAINING = "remaining"
         private val shareNoteProgressPercentRegex = Regex("""(\d+(?:[,.]\d+)?)\s*%""")
     }
 

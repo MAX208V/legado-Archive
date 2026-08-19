@@ -50,6 +50,12 @@ object TomatoClock {
     /** 全部轮次完成时回调 */
     var onAllCompleted: (() -> Unit)? = null
 
+    /** 暂停时持久化（退出应用后恢复） */
+    var persist: ((phase: TomatoPhase, currentRound: Int, remainingSeconds: Int) -> Unit)? = null
+
+    /** 停止/全部完成时清除持久化 */
+    var clearPersist: (() -> Unit)? = null
+
     fun start() {
         if (_state.value.running) return
         _state.value = TomatoUiState(
@@ -68,14 +74,31 @@ object TomatoClock {
         tickJob?.cancel()
         tickJob = null
         _state.value = TomatoUiState()
+        clearPersist?.invoke()
     }
 
-    /** 退到后台暂停 */
+    /**
+     * 从持久化恢复（App 重启后进入阅读页时调用）。
+     * 恢复到暂停状态，不自动开始计时，onResume 后继续。
+     */
+    fun restore(phase: TomatoPhase, currentRound: Int, remainingSeconds: Int) {
+        if (phase == TomatoPhase.IDLE) return
+        tickJob?.cancel()
+        _state.value = TomatoUiState(
+            phase = phase,
+            currentRound = currentRound.coerceAtLeast(1),
+            remainingSeconds = remainingSeconds.coerceAtLeast(0),
+            paused = true
+        )
+    }
+
+    /** 退到后台/退出应用暂停 */
     fun pause() {
         val s = _state.value
         if (!s.running || s.paused) return
         tickJob?.cancel()
         _state.value = s.copy(paused = true)
+        persist?.invoke(s.phase, s.currentRound, s.remainingSeconds)
     }
 
     /** 回到前台继续 */
