@@ -84,6 +84,8 @@ import io.legado.app.lib.dialogs.alert
 import io.legado.app.model.ReadBook
 import io.legado.app.model.analyzeRule.AnalyzeUrl
 import io.legado.app.ui.book.read.ReadBookActivity
+import io.legado.app.ui.book.read.page.WallpaperItem
+import io.legado.app.ui.book.read.page.WallpaperLayerType
 import io.legado.app.ui.file.HandleFileContract
 import androidx.compose.runtime.MutableState
 import io.legado.app.ui.widget.compose.AppDialogStyle
@@ -322,6 +324,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             }
             // 壁纸轮换
             WallpaperRotationSection(style)
+            // 壁纸图层
+            WallpaperLayersSection(style)
             // PAG叠加动画
             PagOverlaySection(style)
         }
@@ -1303,6 +1307,297 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             },
             onDismissAction = { refreshTick++ }
         )
+    }
+
+    // ===== 壁纸图层 =====
+    @Composable
+    private fun WallpaperLayersSection(style: AppDialogStyle) {
+        var enabled by rememberSaveable(refreshTick) {
+            mutableStateOf(ReadBookConfig.durConfig.wallpaperLayersEnabled)
+        }
+        var items by rememberSaveable(refreshTick) {
+            mutableStateOf(ReadBookConfig.durConfig.wallpaperLayerItems)
+        }
+        ReaderSwitchRow(
+            title = "壁纸图层",
+            checked = enabled,
+            style = style,
+            summary = if (enabled) {
+                "多图层从下到上叠放，可调顺序（如：底层视频+上层镂空窗户）"
+            } else {
+                "支持图片/视频/URL 多层叠加壁纸"
+            }
+        ) {
+            enabled = it
+            ReadBookConfig.durConfig.wallpaperLayersEnabled = it
+            applyWallpaperLayers()
+        }
+        if (enabled) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "图层顺序：列表底部=最底层，顶部=最上层（↑ ↓ 调整，✕ 删除）",
+                    color = style.secondaryText,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(start = 6.dp, top = 4.dp)
+                )
+                items.forEachIndexed { index, entry ->
+                    val item = WallpaperItem.fromJson(entry) ?: return@forEachIndexed
+                    WallpaperLayerRow(
+                        item = item,
+                        canUp = index > 0,
+                        canDown = index < items.size - 1,
+                        style = style,
+                        onUp = { moveWallpaperLayer(index, -1) },
+                        onDown = { moveWallpaperLayer(index, 1) },
+                        onDelete = { removeWallpaperLayer(index) }
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                LayerAddButton(
+                    icon = R.drawable.ic_image,
+                    text = "添加图片壁纸（PNG可镂空）",
+                    count = items.count { WallpaperItem.fromJson(it)?.type == WallpaperLayerType.IMAGE },
+                    style = style
+                ) { addWallpaperLayerFile(WallpaperLayerType.IMAGE) }
+                LayerAddButton(
+                    icon = R.drawable.ic_play_24dp,
+                    text = "添加视频壁纸（循环播放）",
+                    count = items.count { WallpaperItem.fromJson(it)?.type == WallpaperLayerType.VIDEO },
+                    style = style
+                ) { addWallpaperLayerFile(WallpaperLayerType.VIDEO) }
+                LayerAddButton(
+                    icon = R.drawable.ic_add_online,
+                    text = "添加URL壁纸（直链/解析）",
+                    count = items.count {
+                        val t = WallpaperItem.fromJson(it)?.type
+                        t == WallpaperLayerType.URL_IMAGE || t == WallpaperLayerType.URL_RESOLVE
+                    },
+                    style = style
+                ) { showAddWallpaperLayerUrlDialog() }
+            }
+        }
+    }
+
+    @Composable
+    private fun WallpaperLayerRow(
+        item: WallpaperItem,
+        canUp: Boolean,
+        canDown: Boolean,
+        style: AppDialogStyle,
+        onUp: () -> Unit,
+        onDown: () -> Unit,
+        onDelete: () -> Unit
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(style.actionRadius),
+            color = style.fieldSurface,
+            contentColor = style.primaryText,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = item.typeLabel(),
+                    color = style.accent,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.width(64.dp)
+                )
+                Text(
+                    text = item.src,
+                    color = style.primaryText,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                LayerIconButton("↑", canUp, style) { onUp() }
+                LayerIconButton("↓", canDown, style) { onDown() }
+                LayerIconButton("✕", true, style) { onDelete() }
+            }
+        }
+    }
+
+    @Composable
+    private fun LayerIconButton(
+        text: String,
+        enabled: Boolean,
+        style: AppDialogStyle,
+        onClick: () -> Unit
+    ) {
+        Box(
+            modifier = Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .clickable(enabled = enabled, onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                color = if (enabled) style.accent else style.secondaryText.copy(alpha = 0.3f),
+                fontSize = 14.sp
+            )
+        }
+    }
+
+    @Composable
+    private fun LayerAddButton(
+        icon: Int,
+        text: String,
+        count: Int,
+        style: AppDialogStyle,
+        onClick: () -> Unit
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(style.actionRadius),
+            color = style.fieldSurface,
+            contentColor = style.primaryText,
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(icon),
+                    contentDescription = null,
+                    tint = style.accent,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = text,
+                    color = style.primaryText,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${count}层",
+                    color = style.accent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+
+    private fun applyWallpaperLayers() {
+        refreshTick++
+        (activity as? ReadBookActivity)?.refreshWallpaperLayers()
+    }
+
+    private fun moveWallpaperLayer(index: Int, delta: Int) {
+        val list = ReadBookConfig.durConfig.wallpaperLayerItems
+        val target = index + delta
+        if (target < 0 || target >= list.size) return
+        val mutable = list.toMutableList()
+        val t = mutable[index]
+        mutable[index] = mutable[target]
+        mutable[target] = t
+        ReadBookConfig.durConfig.wallpaperLayerItems = ArrayList(mutable)
+        applyWallpaperLayers()
+    }
+
+    private fun removeWallpaperLayer(index: Int) {
+        val list = ReadBookConfig.durConfig.wallpaperLayerItems
+        val mutable = list.toMutableList()
+        mutable.removeAt(index)
+        ReadBookConfig.durConfig.wallpaperLayerItems = ArrayList(mutable)
+        applyWallpaperLayers()
+    }
+
+    /** 选择本地图片/视频文件作为壁纸图层（复制到 bg 目录持久保存） */
+    private fun addWallpaperLayerFile(type: Int) {
+        if (type == WallpaperLayerType.VIDEO) {
+            selectLayerVideo.launch {
+                mode = HandleFileContract.VIDEO
+                title = getString(R.string.select_video)
+            }
+        } else {
+            selectLayerImage.launch {
+                mode = HandleFileContract.IMAGE
+            }
+        }
+    }
+
+    private val selectLayerImage = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri -> addWallpaperLayerFromUri(uri, WallpaperLayerType.IMAGE) }
+    }
+
+    private val selectLayerVideo = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri -> addWallpaperLayerFromUri(uri, WallpaperLayerType.VIDEO) }
+    }
+
+    private fun addWallpaperLayerFromUri(uri: Uri, type: Int) {
+        lifecycleScope.launch {
+            try {
+                val context = requireContext()
+                val inputStream = context.contentResolver.openInputStream(uri) ?: return@launch
+                val bgDir = File(context.externalFiles, "bg")
+                bgDir.mkdirs()
+                val fileName = buildCustomWallpaperFileName(context, uri)
+                val destFile = File(bgDir, fileName)
+                destFile.outputStream().use { out -> inputStream.copyTo(out) }
+                val list = ReadBookConfig.durConfig.wallpaperLayerItems
+                list.add(WallpaperItem(type, destFile.absolutePath).toJson())
+                ReadBookConfig.durConfig.wallpaperLayerItems = list
+                applyWallpaperLayers()
+            } catch (e: Exception) {
+                requireContext().toastOnUi(e.stackTraceStr)
+            }
+        }
+    }
+
+    /** URL 壁纸：直链 / 解析 二选一添加 */
+    private fun showAddWallpaperLayerUrlDialog() {
+        val context = requireContext()
+        val editText = android.widget.EditText(context).apply {
+            hint = "https://example.com/image.jpg"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_URI
+        }
+        val container = android.widget.FrameLayout(context).apply {
+            val pad = (12 * context.resources.displayMetrics.density).toInt()
+            setPadding(pad, pad, pad, pad)
+            addView(
+                editText,
+                android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+        alert("添加URL壁纸") {
+            customView { container }
+            neutralButton("直链") {
+                val url = editText.text?.toString()?.trim().orEmpty()
+                if (url.isNotBlank()) addWallpaperLayerUrl(url, WallpaperLayerType.URL_IMAGE)
+            }
+            positiveButton("解析") {
+                val url = editText.text?.toString()?.trim().orEmpty()
+                if (url.isNotBlank()) addWallpaperLayerUrl(url, WallpaperLayerType.URL_RESOLVE)
+            }
+        }
+    }
+
+    private fun addWallpaperLayerUrl(url: String, type: Int) {
+        val list = ReadBookConfig.durConfig.wallpaperLayerItems
+        list.add(WallpaperItem(type, url).toJson())
+        ReadBookConfig.durConfig.wallpaperLayerItems = list
+        applyWallpaperLayers()
     }
 
     @Composable

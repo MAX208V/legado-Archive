@@ -789,6 +789,9 @@ object ReadBookConfig {
         var wallpaperRotationEnabled: Boolean = false,
         var wallpaperRotationIntervalSec: Int = 60,
         var wallpaperRotationImageList: ArrayList<String> = arrayListOf(),
+        // 壁纸图层（有序叠放，index 0 为最底层）
+        var wallpaperLayersEnabled: Boolean = false,
+        var wallpaperLayerItems: ArrayList<String> = arrayListOf(),
         // PAG叠加动画
         var pagOverlayPath: String = "",
         var pagOverlayEnabled: Boolean = false
@@ -1116,6 +1119,8 @@ object ReadBookConfig {
             "wallpaperRotationEnabled" to wallpaperRotationEnabled,
             "wallpaperRotationIntervalSec" to wallpaperRotationIntervalSec,
             "wallpaperRotationImageList" to wallpaperRotationImageList,
+            "wallpaperLayersEnabled" to wallpaperLayersEnabled,
+            "wallpaperLayerItems" to wallpaperLayerItems,
             "pagOverlayPath" to pagOverlayPath,
             "pagOverlayEnabled" to pagOverlayEnabled
         )

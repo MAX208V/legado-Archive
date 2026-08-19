@@ -27,6 +27,9 @@ class HandleFileContract :
         if (handleFileParam.mode == IMAGE) {
             handleFileParam.allowExtensions = arrayOf("jpg", "png", "bmp", "webp")
         }
+        if (handleFileParam.mode == VIDEO) {
+            handleFileParam.allowExtensions = arrayOf("mp4", "mkv", "webm", "avi", "mov", "3gp", "flv", "m4v", "ts")
+        }
         if (handleFileParam.mode == PAG) {
             handleFileParam.allowExtensions = arrayOf("pag")
             handleFileParam.title = handleFileParam.title ?: "选择PAG动画"
@@ -67,6 +70,7 @@ class HandleFileContract :
         const val EXPORT = 3
         const val IMAGE = 4
         const val PAG = 5
+        const val VIDEO = 6
     }
 
     @Suppress("ArrayInDataClass")

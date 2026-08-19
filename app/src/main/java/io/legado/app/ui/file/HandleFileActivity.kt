@@ -90,6 +90,7 @@ class HandleFileActivity :
 
             HandleFileContract.IMAGE -> getImageActions()
             HandleFileContract.PAG -> getFileActions()
+            HandleFileContract.VIDEO -> getFileActions()
             else -> arrayListOf()
         }
         intent.getJsonArray<SelectItem<Int>>("otherActions")?.let {
@@ -100,6 +101,7 @@ class HandleFileActivity :
                 HandleFileContract.EXPORT -> return@let getString(R.string.export)
                 HandleFileContract.DIR -> return@let getString(R.string.select_folder)
                 HandleFileContract.IMAGE -> return@let getString(R.string.select_image)
+                HandleFileContract.VIDEO -> return@let getString(R.string.select_video)
                 else -> return@let getString(R.string.select_file)
             }
         }

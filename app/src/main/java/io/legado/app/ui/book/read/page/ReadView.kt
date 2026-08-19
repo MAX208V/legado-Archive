@@ -8,6 +8,7 @@ import android.os.Build
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.ViewConfiguration
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.Magnifier
@@ -59,6 +60,10 @@ class ReadView(context: Context, attrs: AttributeSet) :
 
     val callBack: CallBack get() = activity as CallBack
     var pageFactory: TextPageFactory = TextPageFactory(this)
+
+    /** 壁纸图层挂载容器（阅读页根布局，背景之上、文字之下） */
+    val wallpaperLayerParent: ViewGroup get() = binding.vwRoot
+
     var pageDelegate: PageDelegate? = null
         private set(value) {
             field?.onDestroy()

@@ -159,6 +159,8 @@ import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TIP_DIVIDER_C
 import io.legado.app.ui.book.read.page.ContentTextView
 import io.legado.app.ui.book.read.page.ReadView
 import io.legado.app.ui.book.read.page.LottieImageBitmapCache
+import io.legado.app.ui.book.read.page.WallpaperHost
+import io.legado.app.ui.book.read.page.WallpaperItem
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
 import io.legado.app.ui.book.read.page.entities.BookmarkMark
 import io.legado.app.ui.book.read.page.entities.buildBookmarkMarks
@@ -459,6 +461,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readAiSummaryPanel.attach(this)
         binding.readAloudPlayerPanel.attach(this, this)
         initTomato()
+        refreshWallpaperLayers()
         ReadAloudAppCapsuleHost.updateReadBookPanelActive(binding.readAloudPlayerPanel.isFullPanelActive())
         binding.readAloudPlayerPanel.post {
             consumeGlobalReadAloudPanelOpen()
@@ -753,12 +756,14 @@ class ReadBookActivity : BaseReadBookActivity(),
             consumeGlobalReadAloudPanelOpen()
         }
         startWallpaperRotation()
+        wallpaperHost?.onActivityStart()
     }
 
     override fun onPause() {
         super.onPause()
         TomatoClock.pause()
         stopWallpaperRotation()
+        wallpaperHost?.onActivityStop()
         binding.readAloudPlayerPanel.setForegroundActive(false)
         autoPageStop()
         backupJob?.cancel()
@@ -4621,6 +4626,40 @@ class ReadBookActivity : BaseReadBookActivity(),
         skipToSearch(searchResult)
     }
 
+    private var wallpaperHost: WallpaperHost? = null
+
+    /**
+     * 初始化/刷新壁纸图层：挂载到阅读页底层（vwRoot 索引 0，背景之上、文字之下），
+     * 支持多图层叠放（如底层视频 + 上层 PNG 镂空窗户），可调整顺序。
+     * 由首次进入阅读页与 BgTextConfigDialog 配置变更时调用。
+     */
+    internal fun refreshWallpaperLayers() {
+        val host = wallpaperHost ?: run {
+            val h = WallpaperHost(this)
+            val vwRoot = binding.readView.wallpaperLayerParent
+            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
+            }
+            vwRoot.addView(h, 0, lp)
+            wallpaperHost = h
+            h
+        }
+        val items = if (ReadBookConfig.wallpaperLayersEnabled) {
+            ReadBookConfig.wallpaperLayerItems
+                .mapNotNull { WallpaperItem.fromJson(it) }
+                .filter { it.src.isNotBlank() }
+        } else {
+            emptyList()
+        }
+        host.setLayers(items)
+    }
+
     private fun initTomato() {
         // 注册 app 上下文（提示音/震动）
         TomatoClock.attach(applicationContext)
@@ -5096,6 +5135,8 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     override fun onDestroy() {
+        // 壁纸图层释放（视频播放器）
+        wallpaperHost?.onDestroy()
         // 番茄钟不随阅读页销毁而停止：退出阅读页仅暂停（onPause），
         // 重新进入由 onResume 恢复；停止由用户操作或全部轮次完成触发
         if (!isChangingConfigurations) {
