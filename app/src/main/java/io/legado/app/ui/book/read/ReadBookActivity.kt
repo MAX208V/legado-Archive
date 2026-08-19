@@ -4650,8 +4650,8 @@ class ReadBookActivity : BaseReadBookActivity(),
             wallpaperHost = h
             h
         }
-        val items = if (ReadBookConfig.wallpaperLayersEnabled) {
-            ReadBookConfig.wallpaperLayerItems
+        val items = if (ReadBookConfig.durConfig.wallpaperLayersEnabled) {
+            ReadBookConfig.durConfig.wallpaperLayerItems
                 .mapNotNull { WallpaperItem.fromJson(it) }
                 .filter { it.src.isNotBlank() }
         } else {
