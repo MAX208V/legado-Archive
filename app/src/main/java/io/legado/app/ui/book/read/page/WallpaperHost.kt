@@ -132,11 +132,12 @@ class WallpaperHost @JvmOverloads constructor(
     fun setLayers(items: List<String>) {
         clearLayers()
         removeAllViews()
-        // 列表底部 = 最底层：index 0（列表顶部）addView 到最上面
-        items.forEachIndexed { index, entry ->
-            val layer = createLayer(entry) ?: return@forEachIndexed
-            layers.add(layer)
-            addView(layer.view, items.size - 1 - index)
+        // 列表底部 = 最底层：从底部项开始逐个追加到最上。
+        // layers 保持与 items 同序（add(0, ...)），UI index ↔ setLayerSound(index) 一致
+        items.reversed().forEach { entry ->
+            val layer = createLayer(entry) ?: return@forEach
+            layers.add(0, layer)
+            addView(layer.view, childCount)
             layer.load()
         }
     }
