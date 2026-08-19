@@ -1582,6 +1582,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
+    @Composable
     private fun LayerAddButton(
         icon: Int,
         text: String,
