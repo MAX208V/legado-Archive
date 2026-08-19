@@ -15,7 +15,6 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -54,8 +53,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.graphics.toColorInt
 import io.legado.app.R
 import io.legado.app.constant.BookType
@@ -607,17 +606,20 @@ class ReadMenu @JvmOverloads constructor(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 26.dp)
-                    .offset(y = (-44).dp)
+                    .offset(y = (-54).dp)
                     .size(46.dp),
                 shape = CircleShape,
-                color = Color.Transparent,
+                color = Color.White.copy(alpha = 0.5f),
                 shadowElevation = 8.dp
             ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_tomato),
-                    contentDescription = "番茄钟",
-                    modifier = Modifier.fillMaxSize()
-                )
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "🍅",
+                        fontSize = 26.sp,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                    )
+                }
             }
         }
     }
