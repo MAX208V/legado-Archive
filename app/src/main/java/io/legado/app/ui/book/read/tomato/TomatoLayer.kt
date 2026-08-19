@@ -264,6 +264,62 @@ private fun TomatoPanel(
 
     AppDialogFrame(
         title = "🍅 番茄钟",
+        content = {
+            if (state.running) {
+                Text(
+                    text = when (state.phase) {
+                        TomatoPhase.FOCUS -> "专注中 · 第 ${state.currentRound}/${state.totalRounds} 轮"
+                        TomatoPhase.REST -> "休息中 · 第 ${state.currentRound}/${state.totalRounds} 轮"
+                        TomatoPhase.IDLE -> ""
+                    },
+                    fontSize = 13.sp,
+                    color = style.secondaryText
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = formatTime(state.remainingSeconds),
+                    fontSize = 44.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    color = style.primaryText
+                )
+                if (state.paused) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "已暂停（返回阅读页继续）",
+                        fontSize = 12.sp,
+                        color = style.danger
+                    )
+                }
+            } else {
+                StepperRow(
+                    label = "专注", unit = "分钟", value = focus,
+                    min = 10, max = 120, step = 10, style = style,
+                    onChange = {
+                        focus = it
+                        onConfigChange(focus, rest, rounds)
+                    }
+                )
+                Spacer(Modifier.height(6.dp))
+                StepperRow(
+                    label = "休息", unit = "分钟", value = rest,
+                    min = 5, max = 30, step = 5, style = style,
+                    onChange = {
+                        rest = it
+                        onConfigChange(focus, rest, rounds)
+                    }
+                )
+                Spacer(Modifier.height(6.dp))
+                StepperRow(
+                    label = "总轮次", unit = "轮", value = rounds,
+                    min = 1, max = 12, step = 1, style = style,
+                    onChange = {
+                        rounds = it
+                        onConfigChange(focus, rest, rounds)
+                    }
+                )
+            }
+        },
         actions = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -278,16 +334,12 @@ private fun TomatoPanel(
                                 containerColor = style.accent,
                                 contentColor = style.onAccent
                             )
-                        ) {
-                            Text("继续")
-                        }
+                        ) { Text("继续") }
                         Spacer(Modifier.width(10.dp))
                         TextButton(
                             onClick = onStop,
                             colors = ButtonDefaults.textButtonColors(contentColor = style.danger)
-                        ) {
-                            Text("停止")
-                        }
+                        ) { Text("停止") }
                     } else {
                         Button(
                             onClick = onStop,
@@ -295,17 +347,13 @@ private fun TomatoPanel(
                                 containerColor = style.danger,
                                 contentColor = Color.White
                             )
-                        ) {
-                            Text("停止")
-                        }
+                        ) { Text("停止") }
                     }
                     Spacer(Modifier.width(10.dp))
                     TextButton(
                         onClick = onDismiss,
                         colors = ButtonDefaults.textButtonColors(contentColor = style.secondaryText)
-                    ) {
-                        Text("关闭")
-                    }
+                    ) { Text("关闭") }
                 } else {
                     Button(
                         onClick = onStart,
@@ -313,90 +361,16 @@ private fun TomatoPanel(
                             containerColor = style.accent,
                             contentColor = style.onAccent
                         )
-                    ) {
-                        Text("开始")
-                    }
+                    ) { Text("开始") }
                     Spacer(Modifier.width(10.dp))
                     TextButton(
                         onClick = onDismiss,
                         colors = ButtonDefaults.textButtonColors(contentColor = style.secondaryText)
-                    ) {
-                        Text("关闭")
-                    }
+                    ) { Text("关闭") }
                 }
             }
         }
-    ) {
-        if (state.running) {
-            Text(
-                text = when (state.phase) {
-                    TomatoPhase.FOCUS -> "专注中 · 第 ${state.currentRound}/${state.totalRounds} 轮"
-                    TomatoPhase.REST -> "休息中 · 第 ${state.currentRound}/${state.totalRounds} 轮"
-                    TomatoPhase.IDLE -> ""
-                },
-                fontSize = 13.sp,
-                color = style.secondaryText
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = formatTime(state.remainingSeconds),
-                fontSize = 44.sp,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                color = style.primaryText
-            )
-            if (state.paused) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "已暂停（返回阅读页继续）",
-                    fontSize = 12.sp,
-                    color = style.danger
-                )
-            }
-        } else {
-            StepperRow(
-                label = "专注",
-                unit = "分钟",
-                value = focus,
-                min = 10,
-                max = 120,
-                step = 10,
-                style = style,
-                onChange = {
-                    focus = it
-                    onConfigChange(focus, rest, rounds)
-                }
-            )
-            Spacer(Modifier.height(6.dp))
-            StepperRow(
-                label = "休息",
-                unit = "分钟",
-                value = rest,
-                min = 5,
-                max = 30,
-                step = 5,
-                style = style,
-                onChange = {
-                    rest = it
-                    onConfigChange(focus, rest, rounds)
-                }
-            )
-            Spacer(Modifier.height(6.dp))
-            StepperRow(
-                label = "总轮次",
-                unit = "轮",
-                value = rounds,
-                min = 1,
-                max = 12,
-                step = 1,
-                style = style,
-                onChange = {
-                    rounds = it
-                    onConfigChange(focus, rest, rounds)
-                }
-            )
-        }
-    }
+    )
 }
 
 /** 数字步进行（± 按钮）：Legado 风格 accent 着色。 */
