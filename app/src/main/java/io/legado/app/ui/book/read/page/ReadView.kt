@@ -61,9 +61,10 @@ class ReadView(context: Context, attrs: AttributeSet) :
     val callBack: CallBack get() = activity as CallBack
     var pageFactory: TextPageFactory = TextPageFactory(this)
 
-    /** 壁纸图层挂载容器（阅读页根布局 vwRoot：背景之上、文字之下） */
+    /** 壁纸图层挂载容器：挂载到阅读视图最底层（所有页面之上层之下），
+     *  壁纸启用时页面背景透明化，图层即可透过页面显示 */
     val wallpaperLayerParent: ViewGroup
-        get() = getChildAt(0) as? ViewGroup ?: this
+        get() = this
 
     var pageDelegate: PageDelegate? = null
         private set(value) {

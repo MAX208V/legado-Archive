@@ -360,15 +360,25 @@ class PageView(context: Context) : FrameLayout(context) {
      * 更新背景
      */
     fun upBg() {
+        // 壁纸图层启用时：页面背景完全透明，让底层壁纸图层透出（文字仍正常绘制）
+        val wallpaperOn = ReadBookConfig.durConfig.wallpaperLayersEnabled
         val bgDrawable = ReadBookConfig.bg?.safePageBackgroundDrawable()
         val followScrollBackground =
-            AppConfig.readScrollFollowBackground &&
+            !wallpaperOn &&
+                AppConfig.readScrollFollowBackground &&
                 isScroll &&
                 !ReadBookConfig.isNineBgImg &&
                 bgDrawable is BitmapDrawable &&
                 !bgDrawable.bitmap.isRecycled
-        val bgAlpha = (ReadBookConfig.bgAlpha / 100f * 255).toInt()
-        val foregroundDrawable = if (followScrollBackground) {
+        val bgAlpha = if (wallpaperOn) {
+            0
+        } else {
+            (ReadBookConfig.bgAlpha / 100f * 255).toInt()
+        }
+        val foregroundDrawable = if (wallpaperOn) {
+            binding.contentTextView.setScrollFollowBackground(null, 0)
+            null
+        } else if (followScrollBackground) {
             binding.contentTextView.setScrollFollowBackground(bgDrawable.bitmap, bgAlpha)
             null
         } else {
@@ -382,7 +392,7 @@ class PageView(context: Context) : FrameLayout(context) {
                     it
                 )
             )
-        } ?: ReadBookConfig.bgMeanColor.toDrawable()
+        } ?: if (wallpaperOn) null else ReadBookConfig.bgMeanColor.toDrawable()
         upBgAlpha()
     }
 
@@ -390,7 +400,11 @@ class PageView(context: Context) : FrameLayout(context) {
      * 更新背景透明度
      */
     fun upBgAlpha() {
-        val bgAlpha = (ReadBookConfig.bgAlpha / 100f * 255).toInt()
+        val bgAlpha = if (ReadBookConfig.durConfig.wallpaperLayersEnabled) {
+            0
+        } else {
+            (ReadBookConfig.bgAlpha / 100f * 255).toInt()
+        }
         binding.contentTextView.setScrollFollowBackgroundAlpha(bgAlpha)
         val background = binding.vwRoot.background
         if (background is LayerDrawable && background.numberOfLayers > 1) {

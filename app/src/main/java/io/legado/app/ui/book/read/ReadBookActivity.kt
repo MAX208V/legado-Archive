@@ -4638,17 +4638,12 @@ class ReadBookActivity : BaseReadBookActivity(),
     internal fun refreshWallpaperLayers() {
         val host = wallpaperHost ?: run {
             val h = WallpaperHost(this)
-            val vwRoot = binding.readView.wallpaperLayerParent
-            val lp = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams(
-                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT,
-                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.MATCH_PARENT
-            ).apply {
-                startToStart = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                endToEnd = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                topToTop = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                bottomToBottom = androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-            }
-            vwRoot.addView(h, 0, lp)
+            val parent = binding.readView.wallpaperLayerParent
+            val lp = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
+            )
+            parent.addView(h, 0, lp)
             wallpaperHost = h
             h
         }
@@ -4658,6 +4653,8 @@ class ReadBookActivity : BaseReadBookActivity(),
             emptyList()
         }
         host.setLayers(items)
+        // 壁纸启用/关闭时同步页面背景透明化（图层透出或恢复原背景）
+        binding.readView.upBg()
     }
 
     private fun initTomato() {

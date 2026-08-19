@@ -313,7 +313,9 @@ class WallpaperHost @JvmOverloads constructor(
         }
 
         override fun release() {
-            com.bumptech.glide.Glide.with(view.context).clear(view)
+            runCatching {
+                com.bumptech.glide.Glide.with(view.context.applicationContext).clear(view)
+            }
         }
     }
 
