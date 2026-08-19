@@ -610,7 +610,7 @@ class ReadMenu @JvmOverloads constructor(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 26.dp)
-                    .offset(y = if (tomatoState.running) (-102).dp else (-44).dp)
+                    .offset(y = if (tomatoState.running) (-102).dp else (-80).dp)
             ) {
                 if (tomatoState.running) {
                     Text(
