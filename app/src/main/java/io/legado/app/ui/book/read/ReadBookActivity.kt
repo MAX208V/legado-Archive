@@ -4622,6 +4622,8 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     private fun initTomato() {
+        // 注册 app 上下文（提示音/震动）
+        TomatoClock.attach(applicationContext)
         // 注册持久化：退出阅读页/应用自动暂停并保存，冷启动后恢复继续
         val tomatoSp = getSharedPreferences("tomato_clock", Context.MODE_PRIVATE)
         TomatoClock.persist = { phase, round, remaining ->
