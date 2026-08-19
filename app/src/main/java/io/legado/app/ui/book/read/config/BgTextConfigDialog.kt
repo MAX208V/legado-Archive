@@ -409,6 +409,25 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 style = style,
                 onClick = { selectPagThemeRoot() }
             )
+            RotationSourceRow(
+                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_VIDEO,
+                icon = R.drawable.ic_play_outline_24dp,
+                text = "添加视频壁纸",
+                count = entries.count { it.startsWith("video:") },
+                style = style,
+                onClick = { selectRotationVideo.launch {
+                    mode = HandleFileContract.VIDEO
+                    title = getString(R.string.select_video)
+                } }
+            )
+            RotationSourceRow(
+                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_URL,
+                icon = R.drawable.ic_web_outline,
+                text = "添加URL壁纸",
+                count = entries.count { it.startsWith("http") },
+                style = style,
+                onClick = { showAddRotationUrlDialog(entries) { entries = it } }
+            )
 
             // --- 当前轮换列表 ---
             if (entries.isNotEmpty()) {
@@ -684,6 +703,12 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun rotationEntryLabel(entry: String): String {
         val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
         return when {
+            pureEntry.startsWith("video:") -> {
+                "🎬 ${pureEntry.removePrefix("video:").substringAfterLast("/")}"
+            }
+            pureEntry.startsWith("http") -> {
+                "🌐 ${pureEntry.substringAfterLast("/")}"
+            }
             pureEntry.startsWith("custom:") -> {
                 val name = pureEntry.removePrefix("custom:").substringAfterLast("/")
                 "🖼️ $name"
@@ -716,6 +741,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             pureEntry.startsWith("pagtheme:") -> {
                 themeBackground(File(pureEntry.removePrefix("pagtheme:")))?.absolutePath
             }
+            pureEntry.startsWith("video:") -> pureEntry.removePrefix("video:")
+            pureEntry.startsWith("http") -> pureEntry
             else -> {
                 val name = pureEntry.removePrefix("asset:")
                 "file:///android_asset/bg/$name"
@@ -726,6 +753,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     /** 统一条目预览：PAG主题→动画预览，样式→完整预览（背景+PAG+文字），其余→大图预览 */
     private fun previewRotationEntry(entry: String) {
         val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
+        if (pureEntry.startsWith("video:")) {
+            requireContext().toastOnUi("🎬 视频壁纸（轮换到时循环播放）：${pureEntry.removePrefix("video:").substringAfterLast("/")}")
+            return
+        }
         when {
             pureEntry.startsWith("pagtheme:") -> {
                 pagThemePreview(File(pureEntry.removePrefix("pagtheme:")))
@@ -853,11 +884,21 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 .background(style.surface)
         ) {
             val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
+            if (pureEntry.startsWith("video:")) {
+                // 视频条目：▶ 图标
+                Icon(
+                    painter = painterResource(R.drawable.ic_play_24dp),
+                    contentDescription = null,
+                    tint = style.accent,
+                    modifier = Modifier.size(18.dp)
+                )
+            } else {
             val loadPath = when {
                 pureEntry.startsWith("custom:") -> pureEntry.removePrefix("custom:")
                 pureEntry.startsWith("pagtheme:") -> {
                     themeBackground(File(pureEntry.removePrefix("pagtheme:")))?.absolutePath
                 }
+                pureEntry.startsWith("http") -> pureEntry
                 pureEntry.startsWith("asset:") || !pureEntry.contains(":") -> {
                     val name = pureEntry.removePrefix("asset:")
                     "file:///android_asset/bg/$name"
@@ -897,6 +938,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 }.getOrDefault(0xFFEEEEEE.toInt())
                 Box(modifier = Modifier.fillMaxSize().background(Color(color)))
             }
+            }
         }
     }
 
@@ -910,6 +952,17 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     }
 
     private val selectCustomWallpaper = registerForActivityResult(HandleFileContract()) {
+
+    private val selectRotationVideo = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri ->
+            val entry = ReadBookConfig.buildRotationEntry("video:${uri}")
+            val list = ReadBookConfig.durConfig.wallpaperRotationImageList
+            list.add(entry)
+            ReadBookConfig.durConfig.wallpaperRotationImageList = list
+            refreshTick++
+            postReadConfigChanged(9)
+        }
+    }
         it.uri?.let { uri -> addCustomWallpaperFromUri(uri) }
     }
 
@@ -932,6 +985,45 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             } catch (e: Exception) {
                 requireContext().toastOnUi(e.stackTraceStr)
             }
+        }
+    }
+
+
+    /** 添加URL壁纸：直链（http/https）直接入轮换列表 */
+    private fun showAddRotationUrlDialog(
+        entries: MutableList<String>,
+        onChanged: (ArrayList<String>) -> Unit
+    ) {
+        val context = requireContext()
+        val editText = android.widget.EditText(context).apply {
+            hint = "https://example.com/wallpaper.jpg"
+            setSingleLine(true)
+        }
+        alert("添加URL壁纸") {
+            customView {
+                android.widget.LinearLayout(context).apply {
+                    orientation = android.widget.LinearLayout.VERTICAL
+                    addView(android.widget.TextView(context).apply {
+                        text = "支持图片/视频直链（https）"
+                        textSize = 12f
+                    })
+                    addView(editText)
+                }
+            }
+            okButton {
+                val url = editText.text.toString().trim()
+                if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                    context.toastOnUi("请输入 http/https 链接")
+                } else {
+                    val updated = ArrayList(entries)
+                    updated.add(ReadBookConfig.buildRotationEntry(url))
+                    onChanged(updated)
+                    ReadBookConfig.durConfig.wallpaperRotationImageList = updated
+                    refreshTick++
+                    postReadConfigChanged(9)
+                }
+            }
+            noButton()
         }
     }
 
@@ -1550,6 +1642,19 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         }
                     )
                 }
+                // 🔊 视频声音开关（仅视频自定义项；默认静音）
+                if (item?.type == WallpaperLayerType.VIDEO && !isPrefab) {
+                    val soundIcon = if (item.soundOn) "🔊" else "🔇"
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { toggleWallpaperLayerSound(index) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(soundIcon, fontSize = 13.sp)
+                    }
+                }
                 // ▶ 预览按钮
                 Box(
                     modifier = Modifier
@@ -1646,6 +1751,20 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         applyWallpaperLayers()
     }
 
+    /** 视频图层声音开关：只更新音量（不重建图层、不重启视频） */
+    private fun toggleWallpaperLayerSound(index: Int) {
+        val list = ReadBookConfig.durConfig.wallpaperLayerItems
+        val entry = list.getOrNull(index) ?: return
+        val item = WallpaperItem.fromJson(entry) ?: return
+        if (item.type != WallpaperLayerType.VIDEO || entry.isWallpaperPrefab()) return
+        val next = !item.soundOn
+        val mutable = list.toMutableList()
+        mutable[index] = item.copy(soundOn = next).toJson()
+        ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
+        (activity as? ReadBookActivity)?.setLayerSound(index, next)
+        refreshTick++
+    }
+
     /** 预览图层（预置项：背景/当前轮换；图片/URL：大图；视频：信息提示） */
     private fun previewWallpaperLayer(entry: String) {
         when (entry) {
@@ -1705,16 +1824,14 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     /** 规整图层列表：保证含预置项 __bg__（头部）；轮换开启时含 __rotation__（背景后），关闭时移除 */
     private fun normalizeLayerItems(raw: ArrayList<String>): ArrayList<String> {
         val list = ArrayList(raw)
-        val hasBg = list.contains(WallpaperLayerType.PREFAB_BG)
-        if (!hasBg) list.add(0, WallpaperLayerType.PREFAB_BG)
+        // 列表底部 = 最底层：背景恒置末尾（最底）
+        list.remove(WallpaperLayerType.PREFAB_BG)
+        list.add(WallpaperLayerType.PREFAB_BG)
+        list.remove(WallpaperLayerType.PREFAB_ROTATION)
         val rotationOn = ReadBookConfig.durConfig.wallpaperRotationEnabled
         if (rotationOn) {
-            if (!list.contains(WallpaperLayerType.PREFAB_ROTATION)) {
-                val bgIdx = list.indexOf(WallpaperLayerType.PREFAB_BG)
-                list.add(bgIdx + 1, WallpaperLayerType.PREFAB_ROTATION)
-            }
-        } else {
-            list.remove(WallpaperLayerType.PREFAB_ROTATION)
+            // 轮换壁纸紧贴背景之上（列表倒数第二位）
+            list.add(list.size - 1, WallpaperLayerType.PREFAB_ROTATION)
         }
         return list
     }
@@ -1767,6 +1884,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         lifecycleScope.launch {
             try {
                 val context = requireContext()
+                if (type == WallpaperLayerType.VIDEO) {
+                    // 视频：直接调用原文件（content:// URI），不复制。播放权限已由 HandleFileActivity 持久化
+                    val list = ReadBookConfig.durConfig.wallpaperLayerItems
+                    list.add(WallpaperItem(type, uri.toString()).toJson())
+                    ReadBookConfig.durConfig.wallpaperLayerItems =
+                        normalizeLayerItems(ArrayList(list))
+                    applyWallpaperLayers()
+                    return@launch
+                }
                 val inputStream = context.contentResolver.openInputStream(uri) ?: return@launch
                 val bgDir = File(context.externalFiles, "bg")
                 bgDir.mkdirs()

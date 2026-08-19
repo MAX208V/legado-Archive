@@ -52,13 +52,16 @@ data class WallpaperItem(
     val src: String,
     val alpha: Int = 255,
     /** 显示模式：A=都可用(默认) / D=仅白天 / N=仅黑夜（与轮换条目模式一致） */
-    val mode: String = ReadBookConfig.ROTATION_MODE_ALL
+    val mode: String = ReadBookConfig.ROTATION_MODE_ALL,
+    /** 视频壁纸是否出声（默认静音） */
+    val soundOn: Boolean = false
 ) {
     fun toJson(): String = JSONObject()
         .put("type", type)
         .put("src", src)
         .put("alpha", alpha)
         .put("mode", mode)
+        .put("soundOn", soundOn)
         .toString()
 
     /** 当前日夜模式是否显示该图层 */
@@ -84,7 +87,8 @@ data class WallpaperItem(
                 type = j.optInt("type", 0),
                 src = j.optString("src", ""),
                 alpha = j.optInt("alpha", 255),
-                mode = j.optString("mode", ReadBookConfig.ROTATION_MODE_ALL)
+                mode = j.optString("mode", ReadBookConfig.ROTATION_MODE_ALL),
+                soundOn = j.optBoolean("soundOn", false)
             )
         }.getOrNull()
     }
@@ -110,10 +114,14 @@ class WallpaperHost @JvmOverloads constructor(
         setWillNotDraw(true)
     }
 
-    /** 首次布局/方向变化后重建预置层（布局尺寸 0 时 buildBgDrawable 会退化为纯色） */
+    private var firstLayoutDone = false
+
+    /** 首次布局完成后重建预置层一次（布局尺寸 0 时 buildBgDrawable 会退化为纯色）；
+     *  后续布局变化（insets/方向）不再重建，避免视频层反复重启导致画面抖动 */
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
-        if (changed && width > 0 && height > 0) {
+        if (changed && !firstLayoutDone && width > 0 && height > 0) {
+            firstLayoutDone = true
             refreshBgLayer()
             refreshRotationLayer()
         }
@@ -123,10 +131,11 @@ class WallpaperHost @JvmOverloads constructor(
     fun setLayers(items: List<String>) {
         clearLayers()
         removeAllViews()
+        // 列表底部 = 最底层：index 0（列表顶部）addView 到最上面
         items.forEachIndexed { index, entry ->
             val layer = createLayer(entry) ?: return@forEachIndexed
             layers.add(layer)
-            addView(layer.view, index)
+            addView(layer.view, items.size - 1 - index)
             layer.load()
         }
     }
@@ -138,6 +147,12 @@ class WallpaperHost @JvmOverloads constructor(
     /** 背景图片预置层刷新（样式/日夜切换后调用） */
     fun refreshBgLayer() {
         layers.filterIsInstance<BgPrefabLayer>().forEach { it.load() }
+    }
+
+    /** 图层视频声音开关（index 与 layers 顺序对应，即时生效） */
+    fun setLayerSound(index: Int, soundOn: Boolean) {
+        val layer = layers.getOrNull(index)
+        if (layer is VideoLayerView) layer.setSound(soundOn)
     }
 
     /** 轮换壁纸预置层刷新（轮换切换后调用） */
@@ -223,39 +238,88 @@ class WallpaperHost @JvmOverloads constructor(
 
     // ===== 预置：轮换壁纸（当前轮换条目，跟随轮换 Job 切换刷新） =====
     private inner class RotationPrefabLayer(context: Context) : LayerView {
-        override val view: AppCompatImageView = AppCompatImageView(context).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
+        override val view: FrameLayout = FrameLayout(context).apply {
             isClickable = false
             isFocusable = false
         }
+        private var imageView: AppCompatImageView? = null
+        private var videoLayer: VideoLayerView? = null
+        private var loadedEntry: String? = null
 
         override fun load() {
-            val w = view.width.coerceAtLeast(SystemUtils.screenWidthPx)
-            val h = view.height.coerceAtLeast(SystemUtils.screenHeightPx)
-            view.setImageDrawable(rotationDrawable(w, h))
+            val cfg = ReadBookConfig
+            // 读当前生效的轮换纯条目（applyRotationEntry 写入）
+            val entry = cfg.rotationCurrentEntry
+            if (entry == null || !cfg.durConfig.wallpaperLayersEnabled) {
+                releaseContent()
+                loadedEntry = entry
+                return
+            }
+            if (entry == loadedEntry) return
+            loadedEntry = entry
+            releaseContent()
+            if (entry.startsWith("video:")) {
+                renderVideoEntry(entry.removePrefix("video:"))
+            } else {
+                renderImageEntry(entry)
+            }
         }
 
-        private fun rotationDrawable(w: Int, h: Int): android.graphics.drawable.Drawable? = runCatching {
-            val cfg = ReadBookConfig
-            val styleIdx = cfg.rotationStyleIndex
-            when {
-                styleIdx != null -> {
-                    val sc = ReadBookConfig.getConfig(styleIdx)
-                    ReadBookConfig.durConfig.buildBgDrawable(
-                        w, h, sc.curBgType(), sc.curBgStr()
-                    )
+        private fun renderVideoEntry(path: String) {
+            val item = WallpaperItem(WallpaperLayerType.VIDEO, path)
+            val vl = VideoLayerView(view.context, item)
+            view.addView(vl.view, 0)
+            videoLayer = vl
+            vl.load()
+            vl.start()
+        }
+
+        private fun renderImageEntry(entry: String?) {
+            val path = rotationEntryPath(entry)
+            if (path != null) {
+                val iv = AppCompatImageView(view.context).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    isClickable = false
+                    isFocusable = false
                 }
-                cfg.rotationBgType != null && cfg.rotationBgStr != null -> {
-                    ReadBookConfig.durConfig.buildBgDrawable(
-                        w, h, cfg.rotationBgType!!, cfg.rotationBgStr!!
-                    )
-                }
-                else -> null
+                view.addView(iv, 0)
+                imageView = iv
+                ImageLoader.load(iv.context, path).centerCrop().into(iv)
             }
-        }.getOrNull()
+        }
+
+        /** 轮换条目 → 可直接加载的路径（video 已剪掉；http 直用；custom/asset 转路径；style 仅支持网络图） */
+        private fun rotationEntryPath(entry: String?): String? {
+            if (entry == null || entry.startsWith("video:")) return null
+            return when {
+                entry.startsWith("custom:") -> entry.removePrefix("custom:")
+                entry.startsWith("http") -> entry
+                entry.startsWith("style:") -> {
+                    val styleIdx = entry.removePrefix("style:").toIntOrNull() ?: 0
+                    val cfg = ReadBookConfig.getConfig(styleIdx)
+                    if (cfg.curBgStr().startsWith("http")) cfg.curBgStr() else null
+                }
+                else -> "file:///android_asset/bg/${entry.removePrefix("asset:")}"
+            }
+        }
+
+        private fun releaseContent() {
+            videoLayer?.release()
+            view.removeAllViews()
+            videoLayer = null
+            imageView = null
+        }
+
+        override fun start() {
+            videoLayer?.start()
+        }
+
+        override fun pause() {
+            videoLayer?.pause()
+        }
 
         override fun release() {
-            view.setImageDrawable(null)
+            releaseContent()
         }
     }
 
@@ -324,6 +388,14 @@ class WallpaperHost @JvmOverloads constructor(
         context: Context,
         private val item: WallpaperItem
     ) : LayerView, TextureView.SurfaceTextureListener {
+        var soundOn: Boolean = item.soundOn
+            private set
+
+        /** 切换视频声音（即时生效；不重建视图） */
+        fun setSound(on: Boolean) {
+            soundOn = on
+            mediaPlayer?.setVolume(if (on) 1f else 0f, if (on) 1f else 0f)
+        }
 
         private var mediaPlayer: MediaPlayer? = null
         private var surfaceReady = false
@@ -386,7 +458,7 @@ class WallpaperHost @JvmOverloads constructor(
                             .build()
                     )
                     isLooping = true
-                    setVolume(0f, 0f) // 壁纸静音
+                    setVolume(if (soundOn) 1f else 0f, if (soundOn) 1f else 0f)
                     setOnPreparedListener {
                         prepared = true
                         applyCover()
@@ -394,7 +466,15 @@ class WallpaperHost @JvmOverloads constructor(
                     }
                     setOnErrorListener { _, _, _ -> true }
                     setOnVideoSizeChangedListener { _, _, _ -> applyCover() }
-                    setDataSource(item.src) // 本地路径 / http(s) URL 均支持
+                    if (item.src.startsWith("content://")) {
+                        setDataSource(view.context, android.net.Uri.parse(item.src))
+                    } else {
+                        if (item.src.startsWith("content://")) {
+                        setDataSource(view.context, android.net.Uri.parse(item.src))
+                    } else {
+                        setDataSource(item.src) // 本地路径 / http(s) URL 均支持
+                    }
+                    }
                     prepareAsync()
                 }
             }.getOrNull()
@@ -420,6 +500,32 @@ class WallpaperHost @JvmOverloads constructor(
         override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
 
         /** 视频居中裁切（cover），适配任意视口方向 */
+        private var videoRotation = 0
+        private var lastCoverKey: String? = null
+
+        /** 视频旋转角度（部分竖屏拍摄视频带 90/270 旋转元数据，不处理会显示不全/抖动） */
+        private fun loadVideoRotation() {
+            scope.launch(Dispatchers.IO) {
+                val r = runCatching {
+                    val mmr = MediaMetadataRetriever()
+                    try {
+                        if (item.src.startsWith("content://")) {
+                            mmr.setDataSource(view.context, android.net.Uri.parse(item.src))
+                        } else {
+                            mmr.setDataSource(item.src)
+                        }
+                        mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
+                    } finally {
+                        runCatching { mmr.release() }
+                    }
+                }.getOrDefault(0)
+                if (r != videoRotation) {
+                    videoRotation = r
+                    applyCover()
+                }
+            }
+        }
+
         private fun applyCover() {
             val mp = mediaPlayer ?: return
             val vw = mp.videoWidth
@@ -428,10 +534,20 @@ class WallpaperHost @JvmOverloads constructor(
             val sw = view.width
             val sh = view.height
             if (sw <= 0 || sh <= 0) return
+            val rot = videoRotation
+            val key = "$vw:$vh:$sw:$sh:$rot"
+            if (key == lastCoverKey) return
+            lastCoverKey = key
+            // 旋转后的有效宽高（90/270 时宽高互换）
+            val rW = if (rot == 90 || rot == 270) vh else vw
+            val rH = if (rot == 90 || rot == 270) vw else vh
             val matrix = Matrix()
-            val scale = maxOf(sw.toFloat() / vw, sh.toFloat() / vh)
-            matrix.setScale(scale, scale)
-            matrix.postTranslate((sw - vw * scale) / 2f, (sh - vh * scale) / 2f)
+            val scale = maxOf(sw.toFloat() / rW, sh.toFloat() / rH)
+            // 以视频中心为锚缩放 + 旋转（中心及不动点，无需重算包围盒）
+            matrix.setScale(scale, scale, vw / 2f, vh / 2f)
+            matrix.postRotate(rot.toFloat(), vw / 2f, vh / 2f)
+            // 视频中心平移到视口中心
+            matrix.postTranslate(sw / 2f - vw / 2f, sh / 2f - vh / 2f)
             view.setTransform(matrix)
         }
     }

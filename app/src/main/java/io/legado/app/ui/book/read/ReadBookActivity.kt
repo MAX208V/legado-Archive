@@ -4657,6 +4657,11 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readView.upBg()
     }
 
+    /** 图层视频声音开关（即时生效，不重建图层） */
+    internal fun setLayerSound(index: Int, soundOn: Boolean) {
+        wallpaperHost?.setLayerSound(index, soundOn)
+    }
+
     private fun initTomato() {
         // 注册 app 上下文（提示音/震动）
         TomatoClock.attach(applicationContext)
@@ -5408,6 +5413,7 @@ class ReadBookActivity : BaseReadBookActivity(),
     private fun applyRotationEntry(entry: String) {
         // 拆分条目模式后缀，用纯条目判断来源
         val (pureEntry, _) = ReadBookConfig.parseRotationEntry(entry)
+        ReadBookConfig.rotationCurrentEntry = pureEntry
         // 默认回退到当前样式的 PAG（不残留轮换列表中某样式的 PAG）
         ReadBookConfig.rotationPagEnabled = null
         ReadBookConfig.rotationPagPath = null
@@ -5467,6 +5473,12 @@ class ReadBookActivity : BaseReadBookActivity(),
                 ReadBookConfig.rotationStyleIndex = null
                 ReadBookConfig.rotationBgType = 1
                 ReadBookConfig.rotationBgStr = pureEntry.removePrefix("asset:")
+            }
+            pureEntry.startsWith("video:") || pureEntry.startsWith("http") -> {
+                // 视频/URL 条目：由壁纸图层「轮换壁纸」项渲染；原生模式兜底显示样式侧背景
+                ReadBookConfig.rotationStyleIndex = null
+                ReadBookConfig.rotationBgType = 1
+                ReadBookConfig.rotationBgStr = pureEntry
             }
             else -> {
                 // 向后兼容：纯文件名 = 内置壁纸

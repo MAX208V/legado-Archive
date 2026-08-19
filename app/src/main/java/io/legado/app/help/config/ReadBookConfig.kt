@@ -138,11 +138,15 @@ object ReadBookConfig {
     const val PREF_ROTATION_SOURCE_STYLE = "pref_rotation_source_style"
     const val PREF_ROTATION_SOURCE_BUILTIN = "pref_rotation_source_builtin"
     const val PREF_ROTATION_SOURCE_PAGTHEME = "pref_rotation_source_pagtheme"
+    const val PREF_ROTATION_SOURCE_VIDEO = "pref_rotation_source_video"
+    const val PREF_ROTATION_SOURCE_URL = "pref_rotation_source_url"
 
     /** 判断条目来源是否启用（来源开关） */
     fun rotationSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
         val (pureEntry, _) = parseRotationEntry(entry)
         val key = when {
+            pureEntry.startsWith("video:") -> PREF_ROTATION_SOURCE_VIDEO
+            pureEntry.startsWith("http") -> PREF_ROTATION_SOURCE_URL
             pureEntry.startsWith("custom:") -> PREF_ROTATION_SOURCE_CUSTOM
             pureEntry.startsWith("style:") -> PREF_ROTATION_SOURCE_STYLE
             pureEntry.startsWith("pagtheme:") -> PREF_ROTATION_SOURCE_PAGTHEME
@@ -272,6 +276,9 @@ object ReadBookConfig {
     }
 
     var rotationCurrentIndex: Int = 0
+
+    /** 当前生效的轮换纯条目（壁纸图层「轮换壁纸」项按此渲染，支持 video:/http 前缀） */
+    var rotationCurrentEntry: String? = null
     var rotationJob: kotlinx.coroutines.Job? = null
 
     fun stopRotation() {
