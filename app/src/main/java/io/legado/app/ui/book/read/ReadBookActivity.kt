@@ -697,12 +697,11 @@ class ReadBookActivity : BaseReadBookActivity(),
             newConfig.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
                 Configuration.UI_MODE_NIGHT_YES
         } else {
-                    readView.refreshVisualStyle()
-                    // 日夜切换后重启壁纸轮换：按新模式的过滤结果立即刷新（免重进阅读界面）
-                    startWallpaperRotation()
-                    wallpaperHost?.refreshBgLayer()
-                }
-                upSystemUiVisibility()
+            AppConfig.isNightTheme
+        }
+        val readerNightModeChanged = readerNightMode != lastReaderNightMode
+        lastReaderNightMode = readerNightMode
+        upSystemUiVisibility()
         binding.readView.upStatusBar()
         if (epubCoreActive) {
             refreshEpubCoreAfterConfigurationChange()

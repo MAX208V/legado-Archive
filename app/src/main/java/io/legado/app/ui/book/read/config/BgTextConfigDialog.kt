@@ -1415,7 +1415,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(configBgColor(cfg))
+                                .background(Color(configBgColor(cfg)))
                         )
                     }
                 }
