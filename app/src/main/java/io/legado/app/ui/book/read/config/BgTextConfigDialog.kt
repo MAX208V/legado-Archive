@@ -1351,11 +1351,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 items.forEachIndexed { index, entry ->
                     WallpaperLayerRow(
                         entry = entry,
-                        canUp = index > 0,
-                        canDown = index < items.size - 1,
+                        index = index,
+                        total = items.size,
                         style = style,
-                        onUp = { moveWallpaperLayer(index, -1) },
-                        onDown = { moveWallpaperLayer(index, 1) },
                         onDelete = { removeWallpaperLayer(index) }
                     )
                 }
@@ -1470,11 +1468,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     @Composable
     private fun WallpaperLayerRow(
         entry: String,
-        canUp: Boolean,
-        canDown: Boolean,
+        index: Int,
+        total: Int,
         style: AppDialogStyle,
-        onUp: () -> Unit,
-        onDown: () -> Unit,
         onDelete: () -> Unit
     ) {
         val isPrefab = entry.isWallpaperPrefab()
@@ -1501,9 +1497,19 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                WallpaperLayerThumb(entry, style)
+                // 缩略图（点击预览）
+                Box(
+                    modifier = Modifier.clickable { previewWallpaperLayer(entry) }
+                ) {
+                    WallpaperLayerThumb(entry, style)
+                }
                 Spacer(Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
+                // 名称/来源（点击预览）
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { previewWallpaperLayer(entry) }
+                ) {
                     Text(
                         text = label,
                         color = style.primaryText,
@@ -1520,10 +1526,55 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                LayerIconButton("↑", canUp, style) { onUp() }
-                LayerIconButton("↓", canDown, style) { onDown() }
+                // 白天/黑夜模式按钮（☀️→🌙→🌓 三态循环；预置项固定 🌓 不可改）
+                val mode = item?.mode ?: ReadBookConfig.ROTATION_MODE_ALL
+                val modeIcon = when (mode) {
+                    ReadBookConfig.ROTATION_MODE_DAY -> "☀️"
+                    ReadBookConfig.ROTATION_MODE_NIGHT -> "🌙"
+                    else -> "🌓"
+                }
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(enabled = !isPrefab) { setWallpaperLayerMode(index) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = modeIcon,
+                        fontSize = 13.sp,
+                        color = if (isPrefab) {
+                            style.secondaryText.copy(alpha = 0.4f)
+                        } else {
+                            androidx.compose.material3.LocalContentColor.current
+                        }
+                    )
+                }
+                // ▶ 预览按钮
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { previewWallpaperLayer(entry) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("▶", color = style.accent, fontSize = 13.sp)
+                }
+                // ≡ 拖动手柄（长按拖动排序，同轮换列表）
+                RotationEntryDragHandle(
+                    onMoveBy = { delta -> moveWallpaperLayer(index, delta) }
+                )
+                // ✕ 删除（仅自定义层）
                 if (!isPrefab) {
-                    LayerIconButton("✕", true, style) { onDelete() }
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(onClick = onDelete),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("✕", color = style.danger, fontSize = 13.sp)
+                    }
                 } else {
                     Spacer(Modifier.width(30.dp))
                 }
@@ -1531,29 +1582,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
-    @Composable
-    private fun LayerIconButton(
-        text: String,
-        enabled: Boolean,
-        style: AppDialogStyle,
-        onClick: () -> Unit
-    ) {
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .clickable(enabled = enabled, onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = text,
-                color = if (enabled) style.accent else style.secondaryText.copy(alpha = 0.3f),
-                fontSize = 14.sp
-            )
-        }
-    }
-
-    @Composable
     private fun LayerAddButton(
         icon: Int,
         text: String,
@@ -1597,6 +1625,74 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     fontWeight = FontWeight.SemiBold
                 )
             }
+        }
+    }
+
+    /** 循环切换图层日夜模式：☀️仅白天 → 🌙仅黑夜 → 🌓都显示 */
+    private fun setWallpaperLayerMode(index: Int) {
+        val list = ReadBookConfig.durConfig.wallpaperLayerItems
+        val entry = list.getOrNull(index) ?: return
+        if (entry.isWallpaperPrefab()) return
+        val item = WallpaperItem.fromJson(entry) ?: return
+        val next = when (item.mode) {
+            ReadBookConfig.ROTATION_MODE_DAY -> ReadBookConfig.ROTATION_MODE_NIGHT
+            ReadBookConfig.ROTATION_MODE_NIGHT -> ReadBookConfig.ROTATION_MODE_ALL
+            else -> ReadBookConfig.ROTATION_MODE_DAY
+        }
+        val mutable = list.toMutableList()
+        mutable[index] = item.copy(mode = next).toJson()
+        ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
+        applyWallpaperLayers()
+    }
+
+    /** 预览图层（预置项：背景/当前轮换；图片/URL：大图；视频：信息提示） */
+    private fun previewWallpaperLayer(entry: String) {
+        when (entry) {
+            WallpaperLayerType.PREFAB_BG -> {
+                val cfg = ReadBookConfig.durConfig
+                previewLayerImagePath(configBgImagePath(cfg), configBgColor(cfg), "背景图片")
+            }
+            WallpaperLayerType.PREFAB_ROTATION -> {
+                val first = ReadBookConfig.durConfig.wallpaperRotationImageList.firstOrNull()
+                if (first != null) {
+                    showWallpaperPreview(first)
+                } else {
+                    requireContext().toastOnUi("当前无轮换壁纸")
+                }
+            }
+            else -> {
+                val item = WallpaperItem.fromJson(entry) ?: return
+                if (item.type == WallpaperLayerType.VIDEO) {
+                    requireContext().toastOnUi("视频壁纸（循环播放）：${item.src}")
+                } else {
+                    previewLayerImagePath(item.src, null, item.typeLabel())
+                }
+            }
+        }
+    }
+
+    /** 图层大图预览（path 空则显示纯色块） */
+    private fun previewLayerImagePath(path: String?, color: Int?, title: String) {
+        val context = requireContext()
+        val maxW = (SystemUtils.screenWidthPx * 0.92f).toInt()
+        val maxH = (SystemUtils.screenHeightPx * 0.72f).toInt()
+        val imageView = AppCompatImageView(context).apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            layoutParams = FrameLayout.LayoutParams(maxW, maxH)
+        }
+        if (path != null) {
+            ImageLoader.load(context, path)
+                .centerCrop()
+                .error(R.drawable.image_loading_error)
+                .into(imageView)
+        } else {
+            imageView.setBackgroundColor(color ?: 0xFFEEEEEE.toInt())
+        }
+        alert(title = title) {
+            customView {
+                imageView
+            }
+            okButton()
         }
     }
 

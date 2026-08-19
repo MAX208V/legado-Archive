@@ -49,13 +49,24 @@ fun String.isWallpaperPrefab(): Boolean =
 data class WallpaperItem(
     val type: Int,
     val src: String,
-    val alpha: Int = 255
+    val alpha: Int = 255,
+    /** 显示模式：A=都可用(默认) / D=仅白天 / N=仅黑夜（与轮换条目模式一致） */
+    val mode: String = ReadBookConfig.ROTATION_MODE_ALL
 ) {
     fun toJson(): String = JSONObject()
         .put("type", type)
         .put("src", src)
         .put("alpha", alpha)
+        .put("mode", mode)
         .toString()
+
+    /** 当前日夜模式是否显示该图层 */
+    fun visibleInCurrentMode(): Boolean {
+        if (mode == ReadBookConfig.ROTATION_MODE_ALL) return true
+        val isNight = AppConfig.isNightTheme
+        return if (isNight) mode == ReadBookConfig.ROTATION_MODE_NIGHT
+        else mode == ReadBookConfig.ROTATION_MODE_DAY
+    }
 
     fun typeLabel(): String = when (type) {
         WallpaperLayerType.IMAGE -> "图片"
@@ -71,7 +82,8 @@ data class WallpaperItem(
             WallpaperItem(
                 type = j.optInt("type", 0),
                 src = j.optString("src", ""),
-                alpha = j.optInt("alpha", 255)
+                alpha = j.optInt("alpha", 255),
+                mode = j.optString("mode", ReadBookConfig.ROTATION_MODE_ALL)
             )
         }.getOrNull()
     }
@@ -155,6 +167,8 @@ class WallpaperHost @JvmOverloads constructor(
             WallpaperLayerType.PREFAB_ROTATION -> RotationPrefabLayer(context)
             else -> {
                 val item = WallpaperItem.fromJson(entry) ?: return null
+                // 日夜模式过滤：当前模式不显示则跳过该层
+                if (!item.visibleInCurrentMode()) return null
                 when (item.type) {
                     WallpaperLayerType.VIDEO -> VideoLayerView(context, item)
                     else -> ImageLayerView(context, item)

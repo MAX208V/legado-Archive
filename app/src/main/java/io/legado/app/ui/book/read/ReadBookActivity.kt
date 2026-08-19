@@ -4076,7 +4076,8 @@ class ReadBookActivity : BaseReadBookActivity(),
             readView.refreshVisualStyle()
             // 日夜切换后重启壁纸轮换：按新模式的过滤结果立即刷新（免重进阅读界面）
             startWallpaperRotation()
-            wallpaperHost?.refreshBgLayer()
+            // 重建壁纸图层：自定义图层按日夜模式（☀️/🌙/🌓）过滤
+            refreshWallpaperLayers()
         }
         upSystemUiVisibility()
     }
