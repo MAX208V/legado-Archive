@@ -13,6 +13,7 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
 import io.legado.app.help.config.AppConfig
+import io.legado.app.utils.SystemUtils
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.glide.ImageLoader
 import io.legado.app.help.http.getProxyClient
@@ -109,6 +110,15 @@ class WallpaperHost @JvmOverloads constructor(
         setWillNotDraw(true)
     }
 
+    /** 首次布局/方向变化后重建预置层（布局尺寸 0 时 buildBgDrawable 会退化为纯色） */
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        if (changed && width > 0 && height > 0) {
+            refreshBgLayer()
+            refreshRotationLayer()
+        }
+    }
+
     /** 重建图层（按 items 顺序从底到顶叠放；含预置项 __bg__ / __rotation__） */
     fun setLayers(items: List<String>) {
         clearLayers()
@@ -194,8 +204,8 @@ class WallpaperHost @JvmOverloads constructor(
         }
 
         override fun load() {
-            val w = view.width.coerceAtLeast(1)
-            val h = view.height.coerceAtLeast(1)
+            val w = view.width.coerceAtLeast(SystemUtils.screenWidthPx)
+            val h = view.height.coerceAtLeast(SystemUtils.screenHeightPx)
             val d = runCatching {
                 ReadBookConfig.durConfig.buildBgDrawable(
                     w, h,
@@ -220,8 +230,8 @@ class WallpaperHost @JvmOverloads constructor(
         }
 
         override fun load() {
-            val w = view.width.coerceAtLeast(1)
-            val h = view.height.coerceAtLeast(1)
+            val w = view.width.coerceAtLeast(SystemUtils.screenWidthPx)
+            val h = view.height.coerceAtLeast(SystemUtils.screenHeightPx)
             view.setImageDrawable(rotationDrawable(w, h))
         }
 
