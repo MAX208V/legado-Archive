@@ -5,6 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +44,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -86,12 +88,9 @@ private fun TomatoLayerContent(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 休息覆盖层：大番茄 + 倒计时，点击提前结束休息
+        // 休息覆盖层：大番茄 + 倒计时，仅点击番茄并二次确认后提前结束
         if (state.isRest) {
-            RestTomatoOverlay(
-                state = state,
-                onClick = { TomatoClock.endRestEarly() }
-            )
+            RestTomatoOverlay(state = state)
         }
     }
 
@@ -145,9 +144,10 @@ private fun TomatoLayerContent(
 @Composable
 private fun RestTomatoOverlay(
     state: TomatoUiState,
-    onClick: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     var grown by remember { mutableStateOf(false) }
+    var confirmEnd by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { grown = true }
     val scale by animateFloatAsState(
         targetValue = if (grown) 1f else 0.2f,
@@ -161,10 +161,11 @@ private fun RestTomatoOverlay(
     )
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.45f))
-            .clickable(onClick = onClick),
+            // 拦截点击：防止穿透到阅读页，且点击任意位置不结束休息
+            .pointerInput(Unit) { detectTapGestures { } },
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -174,6 +175,7 @@ private fun RestTomatoOverlay(
                 .fillMaxWidth()
                 .alpha(alpha)
         ) {
+            // 只有点击大番茄才可提前结束休息（二次确认）
             Image(
                 painter = painterResource(R.drawable.ic_tomato_big),
                 contentDescription = null,
@@ -183,6 +185,7 @@ private fun RestTomatoOverlay(
                         scaleX = scale
                         scaleY = scale
                     }
+                    .clickable { confirmEnd = true }
             )
             Spacer(Modifier.height(18.dp))
             Text(
@@ -201,11 +204,30 @@ private fun RestTomatoOverlay(
             )
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "第 ${state.currentRound}/${state.totalRounds} 轮 · 点击番茄结束休息",
+                text = "第 ${state.currentRound}/${state.totalRounds} 轮 · 点击番茄可提前结束",
                 color = Color.White.copy(alpha = 0.85f),
                 fontSize = 14.sp
             )
         }
+    }
+
+    if (confirmEnd) {
+        AlertDialog(
+            onDismissRequest = { confirmEnd = false },
+            title = { Text("🍅 提前结束休息？") },
+            text = { Text("休息有助于保持专注，确定要提前结束休息吗？") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmEnd = false
+                        TomatoClock.endRestEarly()
+                    }
+                ) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmEnd = false }) { Text("取消") }
+            }
+        )
     }
 }
 
