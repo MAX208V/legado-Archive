@@ -952,6 +952,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     }
 
     private val selectCustomWallpaper = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri -> addCustomWallpaperFromUri(uri) }
+    }
 
     private val selectRotationVideo = registerForActivityResult(HandleFileContract()) {
         it.uri?.let { uri ->
@@ -962,8 +964,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             refreshTick++
             postReadConfigChanged(9)
         }
-    }
-        it.uri?.let { uri -> addCustomWallpaperFromUri(uri) }
     }
 
     private fun addCustomWallpaperFromUri(uri: Uri) {

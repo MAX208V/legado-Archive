@@ -12,6 +12,7 @@ import android.view.TextureView
 import android.widget.FrameLayout
 import android.widget.ImageView
 import androidx.appcompat.widget.AppCompatImageView
+import android.media.MediaMetadataRetriever
 import io.legado.app.help.config.AppConfig
 import io.legado.app.utils.SystemUtils
 import io.legado.app.help.config.ReadBookConfig
@@ -506,7 +507,7 @@ class WallpaperHost @JvmOverloads constructor(
         /** 视频旋转角度（部分竖屏拍摄视频带 90/270 旋转元数据，不处理会显示不全/抖动） */
         private fun loadVideoRotation() {
             scope.launch(Dispatchers.IO) {
-                val r = runCatching {
+                val r = runCatching<Int> {
                     val mmr = MediaMetadataRetriever()
                     try {
                         if (item.src.startsWith("content://")) {
