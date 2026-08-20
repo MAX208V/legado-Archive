@@ -117,6 +117,12 @@ class WallpaperHost @JvmOverloads constructor(
     private var topBgLayer: BgPrefabLayer? = null
     /** 底层：兜底背景（最底层；删光/清空图片时兜底显示，防闪） */
     private var bottomBgLayer: BgPrefabLayer? = null
+    /** 内容层容器：所有图片/视频/轮换层放这里——host 直接子节点固定为 3 个(底/容器/顶)，
+     *  内容层增删只触发容器内部重排，host 本身不重排 → 去除图片不再整页抖动 */
+    private val contentContainer = android.widget.FrameLayout(context).apply {
+        isClickable = false
+        isFocusable = false
+    }
 
     init {
         isClickable = false
@@ -162,9 +168,16 @@ class WallpaperHost @JvmOverloads constructor(
         return l
     }
 
-    /** 内容层插入：contentIndex 为内容层内相对位置（0=最底内容层），+1 跳过底层兜底；顶层原有背景恒末尾 */
+    /** 内容层容器：位于底层兜底(index 1)与顶层镜像之间 */
+    private fun ensureContainer() {
+        if (contentContainer.parent == null) {
+            addView(contentContainer, 1)
+        }
+    }
+
+    /** 内容层插入（容器内相对位置，0=最底内容层；容器位于底/顶背景之间，增删不触碰 host 子节点） */
     private fun addContentLayer(layer: LayerView, contentIndex: Int) {
-        addView(layer.view, contentIndex + 1)
+        contentContainer.addView(layer.view, contentIndex)
     }
 
     /** 差异更新图层（bg 兜底层常驻不参与）：头部/尾部匹配的层原样保留（不重启视频/不重载图片），
@@ -172,13 +185,14 @@ class WallpaperHost @JvmOverloads constructor(
      *  列表第 1 行(北)=最顶层，末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
     fun setLayers(items: List<String>) {
         ensureBottomBg()
+        ensureContainer()
         ensureTopBg()
         // 背景兜底层独立常驻 → 剩余内容层参与差异
         val contentItems = items.filter { it != WallpaperLayerType.PREFAB_BG }
         if (contentItems.isEmpty()) {
             while (layers.isNotEmpty()) {
                 val l = layers.removeAt(layers.size - 1)
-                removeView(l.view)
+                contentContainer.removeView(l.view)
                 l.release()
             }
             return
@@ -187,7 +201,7 @@ class WallpaperHost @JvmOverloads constructor(
             contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
-                addContentLayer(layer, childCount - 2)
+                addContentLayer(layer, layers.size - 1)
                 layer.load()
             }
             return
@@ -211,20 +225,20 @@ class WallpaperHost @JvmOverloads constructor(
         if (prefix == 0 || rebuildLen >= 2) {
             while (layers.isNotEmpty()) {
                 val l = layers.removeAt(layers.size - 1)
-                removeView(l.view)
+                contentContainer.removeView(l.view)
                 l.release()
             }
             contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
-                addContentLayer(layer, childCount - 2)
+                addContentLayer(layer, layers.size - 1)
                 layer.load()
             }
             return
         }
         // 释放中间段旧层（head 与 tail 之间的）
         val mid = layers.subList(prefix, layers.size - suffix).toList()
-        mid.forEach { removeView(it.view); it.release() }
+        mid.forEach { contentContainer.removeView(it.view); it.release() }
         layers.removeAll(mid.toSet())
         // 单层补齐；Z 位 = contentItems.size-1-idx（0 为最底），clamp 到当前 childCount 防越界
         for (idx in prefix until contentItems.size - suffix) {
