@@ -183,7 +183,8 @@ object ReadBookConfig {
     fun layerSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
         val item = io.legado.app.ui.book.read.page.WallpaperItem.fromJson(entry) ?: return true
         val key = when (item.type) {
-            io.legado.app.ui.book.read.page.WallpaperLayerType.IMAGE -> PREF_LAYER_SOURCE_IMAGE
+            io.legado.app.ui.book.read.page.WallpaperLayerType.IMAGE,
+            io.legado.app.ui.book.read.page.WallpaperLayerType.LIVE_PHOTO -> PREF_LAYER_SOURCE_IMAGE
             io.legado.app.ui.book.read.page.WallpaperLayerType.VIDEO -> PREF_LAYER_SOURCE_VIDEO
             io.legado.app.ui.book.read.page.WallpaperLayerType.URL_IMAGE,
             io.legado.app.ui.book.read.page.WallpaperLayerType.URL_RESOLVE -> PREF_LAYER_SOURCE_URL

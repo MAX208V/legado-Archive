@@ -36,6 +36,7 @@ object WallpaperLayerType {
     const val VIDEO = 1        // 视频：本地文件路径或 http(s) 视频 URL
     const val URL_IMAGE = 2    // URL 图片（直链加载）
     const val URL_RESOLVE = 3  // URL 图片（解析：HTTP 请求后解码）
+    const val LIVE_PHOTO = 4    // LivePhoto：照片(src) + 伴生视频(videoSrc)，可开声音
 
     // 预置图层标记（存储在图层列表字符串中，非 JSON）
     const val PREFAB_BG = "__bg__"            // Legado 原有背景图片项
@@ -55,7 +56,9 @@ data class WallpaperItem(
     /** 显示模式：A=都可用(默认) / D=仅白天 / N=仅黑夜（与轮换条目模式一致） */
     val mode: String = ReadBookConfig.ROTATION_MODE_ALL,
     /** 视频壁纸是否出声（默认静音） */
-    val soundOn: Boolean = false
+    val soundOn: Boolean = false,
+    /** LivePhoto 伴生视频（本地文件路径）；普通图层为空字符串 */
+    val videoSrc: String = ""
 ) {
     fun toJson(): String = JSONObject()
         .put("type", type)
@@ -63,6 +66,7 @@ data class WallpaperItem(
         .put("alpha", alpha)
         .put("mode", mode)
         .put("soundOn", soundOn)
+        .put("videoSrc", videoSrc)
         .toString()
 
     /** 当前日夜模式是否显示该图层 */
@@ -78,6 +82,7 @@ data class WallpaperItem(
         WallpaperLayerType.VIDEO -> "视频"
         WallpaperLayerType.URL_IMAGE -> "URL图片"
         WallpaperLayerType.URL_RESOLVE -> "解析URL"
+        WallpaperLayerType.LIVE_PHOTO -> "LivePhoto"
         else -> "未知"
     }
 
@@ -89,7 +94,8 @@ data class WallpaperItem(
                 src = j.optString("src", ""),
                 alpha = j.optInt("alpha", 255),
                 mode = j.optString("mode", ReadBookConfig.ROTATION_MODE_ALL),
-                soundOn = j.optBoolean("soundOn", false)
+                soundOn = j.optBoolean("soundOn", false),
+                videoSrc = j.optString("videoSrc", "")
             )
         }.getOrNull()
     }
@@ -197,7 +203,8 @@ class WallpaperHost @JvmOverloads constructor(
                 // 日夜模式过滤：当前模式不显示则跳过该层
                 if (!item.visibleInCurrentMode()) return null
                 when (item.type) {
-                    WallpaperLayerType.VIDEO -> VideoLayerView(context, item)
+                    WallpaperLayerType.VIDEO,
+                    WallpaperLayerType.LIVE_PHOTO -> VideoLayerView(context, item)
                     else -> ImageLayerView(context, item)
                 }
             }
@@ -390,6 +397,8 @@ class WallpaperHost @JvmOverloads constructor(
         context: Context,
         private val item: WallpaperItem
     ) : LayerView, TextureView.SurfaceTextureListener {
+        /** 视频源：LivePhoto 用 videoSrc，普通视频回退 item.src */
+        private val videoSrc: String = item.videoSrc.ifEmpty { item.src }
         var soundOn: Boolean = item.soundOn
             private set
 
@@ -468,13 +477,13 @@ class WallpaperHost @JvmOverloads constructor(
                     }
                     setOnErrorListener { _, _, _ -> true }
                     setOnVideoSizeChangedListener { _, _, _ -> applyCover() }
-                    if (item.src.startsWith("content://")) {
-                        setDataSource(view.context, android.net.Uri.parse(item.src))
+                    if (videoSrc.startsWith("content://")) {
+                        setDataSource(view.context, android.net.Uri.parse(videoSrc))
                     } else {
-                        if (item.src.startsWith("content://")) {
-                        setDataSource(view.context, android.net.Uri.parse(item.src))
+                        if (videoSrc.startsWith("content://")) {
+                        setDataSource(view.context, android.net.Uri.parse(videoSrc))
                     } else {
-                        setDataSource(item.src) // 本地路径 / http(s) URL 均支持
+                        setDataSource(videoSrc) // 本地路径 / http(s) URL 均支持
                     }
                     }
                     prepareAsync()
@@ -511,10 +520,10 @@ class WallpaperHost @JvmOverloads constructor(
                 val r = runCatching<Int> {
                     val mmr = MediaMetadataRetriever()
                     try {
-                        if (item.src.startsWith("content://")) {
-                            mmr.setDataSource(view.context, android.net.Uri.parse(item.src))
+                        if (videoSrc.startsWith("content://")) {
+                            mmr.setDataSource(view.context, android.net.Uri.parse(videoSrc))
                         } else {
-                            mmr.setDataSource(item.src)
+                            mmr.setDataSource(videoSrc)
                         }
                         mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull() ?: 0
                     } finally {

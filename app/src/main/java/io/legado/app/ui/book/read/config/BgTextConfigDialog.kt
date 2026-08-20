@@ -1576,7 +1576,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     val item = WallpaperItem.fromJson(entry)
                     when {
                         item == null -> Unit
-                        item.type == WallpaperLayerType.VIDEO -> Icon(
+                        item.type == WallpaperLayerType.VIDEO ||
+                            item.type == WallpaperLayerType.LIVE_PHOTO -> Icon(
                             painter = painterResource(R.drawable.ic_play_24dp),
                             contentDescription = null,
                             tint = style.accent,
@@ -1669,8 +1670,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                // 🔊 视频声音开关（仅视频自定义项；默认静音）
-                if (item?.type == WallpaperLayerType.VIDEO && !isPrefab) {
+                // 🔊 视频/LivePhoto 声音开关（仅自定义项；默认静音）
+                if ((item?.type == WallpaperLayerType.VIDEO ||
+                        item?.type == WallpaperLayerType.LIVE_PHOTO) && !isPrefab) {
                     val soundIcon = if (item.soundOn) "🔊" else "🔇"
                     Box(
                         modifier = Modifier
@@ -1808,7 +1810,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
         val entry = list.getOrNull(index) ?: return
         val item = WallpaperItem.fromJson(entry) ?: return
-        if (item.type != WallpaperLayerType.VIDEO || entry.isWallpaperPrefab()) return
+        if ((item.type != WallpaperLayerType.VIDEO &&
+                item.type != WallpaperLayerType.LIVE_PHOTO) || entry.isWallpaperPrefab()) return
         val next = !item.soundOn
         val mutable = list.toMutableList()
         mutable[index] = item.copy(soundOn = next).toJson()
@@ -1834,8 +1837,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             }
             else -> {
                 val item = WallpaperItem.fromJson(entry) ?: return
-                if (item.type == WallpaperLayerType.VIDEO) {
-                    requireContext().toastOnUi("视频壁纸（循环播放）：${item.src}")
+                if (item.type == WallpaperLayerType.VIDEO ||
+                    item.type == WallpaperLayerType.LIVE_PHOTO) {
+                    requireContext().toastOnUi("视频/LivePhoto（循环播放）：${item.src}")
                 } else {
                     previewLayerImagePath(item.src, null, item.typeLabel())
                 }
@@ -1971,11 +1975,55 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val fileName = buildCustomWallpaperFileName(context, uri)
                 val destFile = File(bgDir, fileName)
                 destFile.outputStream().use { out -> inputStream.copyTo(out) }
-                addWallpaperLayerItem(WallpaperItem(type, destFile.absolutePath))
+                // LivePhoto：照片与同名视频成对（如 IMG_1234.HEIC + IMG_1234.MOV）→ 存为 LivePhoto 层（可开声音）
+                val liveVideo = tryCopyLivePhotoVideo(context, uri, fileName, bgDir)
+                if (liveVideo != null) {
+                    addWallpaperLayerItem(
+                        WallpaperItem(WallpaperLayerType.LIVE_PHOTO, destFile.absolutePath, videoSrc = liveVideo.absolutePath)
+                    )
+                } else {
+                    addWallpaperLayerItem(WallpaperItem(type, destFile.absolutePath))
+                }
             } catch (e: Exception) {
                 requireContext().toastOnUi(e.stackTraceStr)
             }
         }
+    }
+
+    /** 检测并复制 LivePhoto 伴生视频：图库中与照片同基础名的视频（IMG_1234.MOV ↔ IMG_1234.HEIC） */
+    private suspend fun tryCopyLivePhotoVideo(
+        context: android.content.Context,
+        photoUri: android.net.Uri,
+        photoFileName: String,
+        bgDir: File
+    ): File? = withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val base = photoFileName.substringBeforeLast('.').trim()
+            if (base.isBlank()) return@runCatching null
+            val videoUri = context.contentResolver.query(
+                android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                arrayOf(android.provider.MediaStore.Video.Media._ID, android.provider.MediaStore.Video.Media.DISPLAY_NAME),
+                "${android.provider.MediaStore.Video.Media.DISPLAY_NAME} LIKE ?",
+                arrayOf("$base%"),
+                null
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    val name = c.getString(1) ?: continue
+                    if (name.substringBeforeLast('.').trim() == base) {
+                        return@use android.content.ContentUris.withAppendedId(
+                            android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                            c.getLong(0)
+                        )
+                    }
+                }
+                null
+            } ?: return@runCatching null
+            val videoFile = File(bgDir, "${base}.live.mp4")
+            context.contentResolver.openInputStream(videoUri)?.use { vin ->
+                videoFile.outputStream().use { out -> vin.copyTo(out) }
+            }
+            if (videoFile.isFile && videoFile.length() > 0) videoFile else null
+        }.getOrNull()
     }
 
     /** URL 壁纸：直链 / 解析 二选一添加 */
