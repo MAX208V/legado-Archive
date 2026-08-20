@@ -134,29 +134,43 @@ class WallpaperHost @JvmOverloads constructor(
         }
     }
 
-    /** 差异更新图层：保留未变化的层（不重启视频/不重载图片），只释放删除的、创建新增的。
+    /** 差异更新图层：保留前缀未变化的层（不重启视频/不重载图片），只释放删除的、创建新增的。
      *  阅读页不再因单个图层增删而整页重建闪烁。
-     *  列表第 1 行(北)=最顶层（Z 位最大），末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
+     *  列表第 1 行(北)=最顶层，末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
     fun setLayers(items: List<String>) {
-        // 1) 从尾部倒序释放「多余或错位」的旧层
-        var i = layers.size - 1
-        while (i >= 0) {
-            if (i < items.size && layers[i].entry == items[i]) {
-                i--
-                continue
+        // 保留「从头部开始 entry 相同」的层（前缀不动 → 不重建不闪）
+        var prefix = 0
+        while (prefix < layers.size && prefix < items.size &&
+            layers[prefix].entry == items[prefix]
+        ) {
+            prefix++
+        }
+        // 前缀完全不一致（拖动重排/大变动）或容器为空：整建（逆序逐个追加，末尾=最底层先 add）
+        if (prefix == 0) {
+            while (layers.isNotEmpty()) {
+                val l = layers.removeAt(layers.size - 1)
+                removeView(l.view)
+                l.release()
             }
-            val l = layers.removeAt(i)
+            items.reversed().forEach { entry ->
+                val layer = createLayer(entry) ?: return@forEach
+                layers.add(0, layer)
+                addView(layer.view, childCount)
+                layer.load()
+            }
+            return
+        }
+        // 释放前缀之后的旧层
+        while (layers.size > prefix) {
+            val l = layers.removeAt(layers.size - 1)
             removeView(l.view)
             l.release()
-            i--
         }
-        // 2) 正序补齐缺失的层（原位置保留的不动）
-        for (idx in items.indices) {
-            if (idx < layers.size && layers[idx].entry == items[idx]) continue
+        // 正序补齐剩余层；Z 位 = items.size-1-idx（0 为最底），clamp 到当前 childCount 防越界
+        for (idx in prefix until items.size) {
             val layer = createLayer(items[idx]) ?: continue
-            layers.add(idx, layer)
-            // Z 位：items[0]=最顶层 → view 末尾（最后绘制）；items[last]=最底层 → view 0
-            addView(layer.view, items.size - 1 - idx)
+            layers.add(layer)
+            addView(layer.view, kotlin.math.min(items.size - 1 - idx, childCount))
             layer.load()
         }
     }
