@@ -134,16 +134,29 @@ class WallpaperHost @JvmOverloads constructor(
         }
     }
 
-    /** 重建图层（按 items 顺序从底到顶叠放；含预置项 __bg__ / __rotation__） */
+    /** 差异更新图层：保留未变化的层（不重启视频/不重载图片），只释放删除的、创建新增的。
+     *  阅读页不再因单个图层增删而整页重建闪烁。
+     *  列表第 1 行(北)=最顶层（Z 位最大），末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
     fun setLayers(items: List<String>) {
-        clearLayers()
-        removeAllViews()
-        // 列表第 1 行(北)=最顶层, 末尾(南)=最底层：从末尾(最底层)开始逐个叠加。
-        // 先 add 的在底下；layers 与 items 同序，UI index ↔ setLayerSound(index) 一致
-        items.reversed().forEach { entry ->
-            val layer = createLayer(entry) ?: return@forEach
-            layers.add(0, layer)
-            addView(layer.view, childCount)
+        // 1) 从尾部倒序释放「多余或错位」的旧层
+        var i = layers.size - 1
+        while (i >= 0) {
+            if (i < items.size && layers[i].entry == items[i]) {
+                i--
+                continue
+            }
+            val l = layers.removeAt(i)
+            removeView(l.view)
+            l.release()
+            i--
+        }
+        // 2) 正序补齐缺失的层（原位置保留的不动）
+        for (idx in items.indices) {
+            if (idx < layers.size && layers[idx].entry == items[idx]) continue
+            val layer = createLayer(items[idx]) ?: continue
+            layers.add(idx, layer)
+            // Z 位：items[0]=最顶层 → view 末尾（最后绘制）；items[last]=最底层 → view 0
+            addView(layer.view, items.size - 1 - idx)
             layer.load()
         }
     }
@@ -212,6 +225,8 @@ class WallpaperHost @JvmOverloads constructor(
     }
 
     private interface LayerView {
+        /** 对应 items 中的原始条目（用于差异对比，避免无谓重建） */
+        val entry: String
         val view: android.view.View
         fun load()
         fun start() {}
@@ -221,6 +236,7 @@ class WallpaperHost @JvmOverloads constructor(
 
     // ===== 预置：Legado 原有背景图片 =====
     private inner class BgPrefabLayer(context: Context) : LayerView {
+        override val entry: String = WallpaperLayerType.PREFAB_BG
         override val view: AppCompatImageView = AppCompatImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             isClickable = false
@@ -247,6 +263,7 @@ class WallpaperHost @JvmOverloads constructor(
 
     // ===== 预置：轮换壁纸（当前轮换条目，跟随轮换 Job 切换刷新） =====
     private inner class RotationPrefabLayer(context: Context) : LayerView {
+        override val entry: String = WallpaperLayerType.PREFAB_ROTATION
         override val view: FrameLayout = FrameLayout(context).apply {
             isClickable = false
             isFocusable = false
@@ -337,6 +354,7 @@ class WallpaperHost @JvmOverloads constructor(
         context: Context,
         private val item: WallpaperItem
     ) : LayerView {
+        override val entry: String = item.toJson()
         override val view: AppCompatImageView = AppCompatImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             isClickable = false
@@ -397,6 +415,7 @@ class WallpaperHost @JvmOverloads constructor(
         context: Context,
         private val item: WallpaperItem
     ) : LayerView, TextureView.SurfaceTextureListener {
+        override val entry: String = item.toJson()
         /** 视频源：LivePhoto 用 videoSrc，普通视频回退 item.src */
         private val videoSrc: String = item.videoSrc.ifEmpty { item.src }
         var soundOn: Boolean = item.soundOn

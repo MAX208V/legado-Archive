@@ -446,6 +446,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         count: Int,
         total: Int? = null,
         style: AppDialogStyle,
+        onSourceToggled: () -> Unit = {},
         onClick: () -> Unit
     ) {
         val context = LocalContext.current
@@ -465,6 +466,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     context.defaultSharedPreferences.edit()
                         .putBoolean(prefKey, it)
                         .apply()
+                    onSourceToggled()
                     postReadConfigChanged(9)
                 },
                 palette = style.toMiuixPalette(),
@@ -1498,7 +1500,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         WallpaperItem.fromJson(it)?.type == WallpaperLayerType.IMAGE &&
                             ReadBookConfig.layerSourceEnabled(it, prefs)
                     },
-                    style = style
+                    style = style,
+                    onSourceToggled = { applyWallpaperLayers() }
                 ) { addWallpaperLayerFile(WallpaperLayerType.IMAGE) }
                 RotationSourceRow(
                     prefKey = ReadBookConfig.PREF_LAYER_SOURCE_VIDEO,
@@ -1508,7 +1511,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         WallpaperItem.fromJson(it)?.type == WallpaperLayerType.VIDEO &&
                             ReadBookConfig.layerSourceEnabled(it, prefs)
                     },
-                    style = style
+                    style = style,
+                    onSourceToggled = { applyWallpaperLayers() }
                 ) { addWallpaperLayerFile(WallpaperLayerType.VIDEO) }
                 RotationSourceRow(
                     prefKey = ReadBookConfig.PREF_LAYER_SOURCE_URL,
@@ -1519,7 +1523,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         (t == WallpaperLayerType.URL_IMAGE || t == WallpaperLayerType.URL_RESOLVE) &&
                             ReadBookConfig.layerSourceEnabled(it, prefs)
                     },
-                    style = style
+                    style = style,
+                    onSourceToggled = { applyWallpaperLayers() }
                 ) { showAddWallpaperLayerUrlDialog() }
             }
         }
