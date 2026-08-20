@@ -148,6 +148,7 @@ class WallpaperHost @JvmOverloads constructor(
         val l = BgPrefabLayer(context)
         topBgLayer = l
         addView(l.view) // 最后 add = 最顶层：原有背景镜像，图片/视频不覆盖它
+        l.load() // load 幂等（同尺寸同背景跳过）→ 立即加载，保证顶层镜像必然显示
         return l
     }
 
@@ -157,6 +158,7 @@ class WallpaperHost @JvmOverloads constructor(
         val l = BgPrefabLayer(context)
         bottomBgLayer = l
         addView(l.view, 0)
+        l.load() // 幂等加载，删光时兜底内容就绪
         return l
     }
 
@@ -317,6 +319,10 @@ class WallpaperHost @JvmOverloads constructor(
         }
 
         override fun load() {
+            // 幂等：同尺寸+同背景配置才加载（轮换式刷新逻辑——不重复加载 → 不闪不抖）
+            val key = "${view.width}x${view.height}|${ReadBookConfig.durConfig.curBgType()}|${ReadBookConfig.durConfig.curBgStr()}"
+            if (key == loadedKey) return
+            loadedKey = key
             val w = view.width.coerceAtLeast(SystemUtils.screenWidthPx)
             val h = view.height.coerceAtLeast(SystemUtils.screenHeightPx)
             val d = runCatching {
@@ -329,6 +335,7 @@ class WallpaperHost @JvmOverloads constructor(
             view.setImageDrawable(d)
             view.alpha = 1f // 原有背景清晰不透明，渲染最上层
         }
+        private var loadedKey: String? = null
 
         override fun release() {
             view.setImageDrawable(null)
