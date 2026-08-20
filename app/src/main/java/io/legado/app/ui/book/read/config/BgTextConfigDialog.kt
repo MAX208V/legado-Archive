@@ -627,6 +627,25 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 moveRotationEntryVis(entries, visIndex, delta, onChanged)
                             }
                         )
+                        // ▲▼ 保底排序按钮
+                        Column {
+                            Text(
+                                text = "▲", fontSize = 10.sp, color = style.accent,
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable { moveRotationEntryVis(entries, visIndex, -1, onChanged) },
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Text(
+                                text = "▼", fontSize = 10.sp, color = style.accent,
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable { moveRotationEntryVis(entries, visIndex, 1, onChanged) },
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
                         // ✕ 移除按钮（独立点击区）
                         Box(
                             modifier = Modifier
@@ -664,9 +683,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             contentDescription = null,
             tint = androidx.compose.material3.LocalContentColor.current.copy(alpha = 0.5f),
             modifier = Modifier
-                .size(40.dp)
+                .size(44.dp)
                 .pointerInput(Unit) {
-                    detectDragGestures(
+                    detectDragGesturesAfterLongPress(
                         onDragEnd = {
                             accumulatedY = 0f
                         },
@@ -1718,6 +1737,27 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 RotationEntryDragHandle(
                     onMoveBy = { delta -> moveWallpaperLayerVis(visIndex, delta) }
                 )
+                // ▲▼ 保底排序按钮（点击上移/下移一位，不依赖手势）
+                if (!isPrefab) {
+                    Column {
+                        Text(
+                            text = "▲", fontSize = 10.sp, color = style.accent,
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { moveWallpaperLayerVis(visIndex, -1) },
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                        Text(
+                            text = "▼", fontSize = 10.sp, color = style.accent,
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable { moveWallpaperLayerVis(visIndex, 1) },
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                }
                 // ✕ 删除（仅自定义层）
                 if (!isPrefab) {
                     Box(
@@ -1941,16 +1981,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     /** 新图层默认插入「自定义层底部」（预置项之上、已有自定义层之下） */
     private fun addWallpaperLayerItem(item: WallpaperItem) {
         val list = ArrayList(ReadBookConfig.durConfig.wallpaperLayerItems)
-        // 新项插入「最后一个已有自定义项之后」→ 默认位于列表底部
-        // （预置项可能被拖到任意位置，从后往前找首个非预置项，插其后面）
-        var insertAt = list.size
-        for (i in list.indices.reversed()) {
-            if (!list[i].isWallpaperPrefab()) {
-                insertAt = i + 1
-                break
-            }
-        }
-        list.add(insertAt, item.toJson())
+        // 直接插入列表末尾：normalize 会把预置项(__bg__/__rotation__)移到末尾，
+        // 新项恒落在预置项之前 = 列表底部（最底层，不遮挡已有自定义层）
+        list.add(item.toJson())
         ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(list)
         applyWallpaperLayers()
     }
