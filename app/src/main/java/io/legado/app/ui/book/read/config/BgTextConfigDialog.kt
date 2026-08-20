@@ -15,6 +15,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -656,16 +657,16 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     @Composable
     private fun RotationEntryDragHandle(onMoveBy: (Int) -> Unit) {
         val density = LocalDensity.current
-        val thresholdPx = with(density) { 58.dp.toPx() }
+        val thresholdPx = with(density) { 36.dp.toPx() }
         var accumulatedY by remember { mutableFloatStateOf(0f) }
         Icon(
             painter = painterResource(R.drawable.ic_menu),
             contentDescription = null,
             tint = androidx.compose.material3.LocalContentColor.current.copy(alpha = 0.5f),
             modifier = Modifier
-                .size(36.dp)
+                .size(40.dp)
                 .pointerInput(Unit) {
-                    detectDragGesturesAfterLongPress(
+                    detectDragGestures(
                         onDragEnd = {
                             accumulatedY = 0f
                         },
@@ -1940,10 +1941,12 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     /** 新图层默认插入「自定义层底部」（预置项之上、已有自定义层之下） */
     private fun addWallpaperLayerItem(item: WallpaperItem) {
         val list = ArrayList(ReadBookConfig.durConfig.wallpaperLayerItems)
+        // 新项插入「最后一个已有自定义项之后」→ 默认位于列表底部
+        // （预置项可能被拖到任意位置，从后往前找首个非预置项，插其后面）
         var insertAt = list.size
-        for (i in list.indices) {
-            if (list[i].isWallpaperPrefab()) {
-                insertAt = i
+        for (i in list.indices.reversed()) {
+            if (!list[i].isWallpaperPrefab()) {
+                insertAt = i + 1
                 break
             }
         }
