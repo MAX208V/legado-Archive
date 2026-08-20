@@ -4629,6 +4629,8 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     private var wallpaperHost: WallpaperHost? = null
+    private var lastWallpaperOn: Boolean? = null // 壁纸开关状态缓存（页面背景透明化仅开关/主题变化时切换）
+    private var lastNightTheme: Boolean? = null // 日夜主题缓存（主题切换时刷新原有背景层）
 
     /**
      * 初始化/刷新壁纸图层：挂载到阅读页底层（vwRoot 索引 0，背景之上、文字之下），
@@ -4647,7 +4649,18 @@ class ReadBookActivity : BaseReadBookActivity(),
             wallpaperHost = h
             h
         }
-        val items = if (ReadBookConfig.durConfig.wallpaperLayersEnabled) {
+        // 页面背景透明化只需在「壁纸开关」或「日夜主题」状态变化时切换；
+        // 图层增删/轮换切换不重设页面背景 → 与轮换壁纸一致，杜绝整页重绘抖动
+        val on = ReadBookConfig.durConfig.wallpaperLayersEnabled
+        if (lastWallpaperOn != on) {
+            lastWallpaperOn = on
+            binding.readView.upBg()
+        } else if (lastNightTheme != AppConfig.isNightTheme) {
+            lastNightTheme = AppConfig.isNightTheme
+            binding.readView.upBg()
+            host.refreshBgLayer() // 原有背景随日/夜主题刷新
+        }
+        val items = if (on) {
             ReadBookConfig.durConfig.wallpaperLayerItems.filter {
                 ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
             }
@@ -4655,8 +4668,6 @@ class ReadBookActivity : BaseReadBookActivity(),
             emptyList()
         }
         host.setLayers(items)
-        // 壁纸启用/关闭时同步页面背景透明化（图层透出或恢复原背景）
-        binding.readView.upBg()
     }
 
     /** 图层视频声音开关（即时生效，不重建图层） */
