@@ -1980,8 +1980,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val fileName = buildCustomWallpaperFileName(context, uri)
                 val destFile = File(bgDir, fileName)
                 destFile.outputStream().use { out -> inputStream.copyTo(out) }
-                // LivePhoto：照片与同名视频成对（如 IMG_1234.HEIC + IMG_1234.MOV）→ 存为 LivePhoto 层（可开声音）
+                // LivePhoto：①伴生视频文件(苹果 HEIC+MOV / 小米部分伴生) ②单文件 Motion Photo(谷歌标准: JPG 内嵌 H.264 视频流) → LivePhoto 层(可开声音)
                 val liveVideo = tryCopyLivePhotoVideo(context, uri, fileName, bgDir)
+                    ?: extractMotionPhotoVideo(context, uri, fileName, bgDir)
                 if (liveVideo != null) {
                     addWallpaperLayerItem(
                         WallpaperItem(WallpaperLayerType.LIVE_PHOTO, destFile.absolutePath, videoSrc = liveVideo.absolutePath)
@@ -2091,6 +2092,92 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             }
         } ?: return null
         return android.net.Uri.fromFile(match)
+    }
+
+    /** 单文件 Motion Photo（谷歌动态照片标准，vivo/OPPO/小米通用）：
+     *  JPEG 中段 XMP 元数据标记 GCamera:MotionPhoto，视频流(H.264)追加在 JPEG 文件尾部 → 提取为独立 .mp4 */
+    private suspend fun extractMotionPhotoVideo(
+        context: android.content.Context,
+        photoUri: android.net.Uri,
+        photoFileName: String,
+        bgDir: File
+    ): File? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        runCatching {
+            val base = photoFileName.substringBeforeLast('.').trim()
+            if (base.isBlank()) return@runCatching null
+            val tmp = File(context.cacheDir, "motion_${System.currentTimeMillis()}.jpg")
+            context.contentResolver.openInputStream(photoUri)?.use { i ->
+                tmp.outputStream().use { o -> i.copyTo(o) }
+            }
+            if (!tmp.isFile || tmp.length() <= 0) return@runCatching null
+            val bytes = tmp.readBytes()
+            tmp.delete()
+            if (bytes.size > 100_000_000) return@runCatching null // 超大文件跳过（防 OOM）
+            val xmpInfo = findMotionXmp(bytes) ?: return@runCatching null
+            val videoStart = motionVideoStart(bytes, xmpInfo.second) ?: return@runCatching null
+            val out = File(bgDir, "${base}.live.mp4")
+            out.outputStream().use { o -> o.write(bytes, videoStart, bytes.size - videoStart) }
+            if (out.isFile && out.length() > 0) out else null
+        }.getOrNull()
+    }
+
+    /** 在 JPEG 段(APP1)中查找谷歌相机 XMP：返回 (xmp 文本, 该段结束位置) */
+    private fun findMotionXmp(bytes: ByteArray): Pair<String, Int>? {
+        var i = 2 // 跳过 SOI
+        while (i + 4 <= bytes.size) {
+            if (bytes[i] == 0xFF.toByte()) {
+                val marker = bytes[i + 1].toInt() and 0xFF
+                if (marker == 0xE1) { // APP1
+                    if (i + 4 <= bytes.size) {
+                        val len = ((bytes[i + 2].toInt() and 0xFF) shl 8) or (bytes[i + 3].toInt() and 0xFF)
+                        if (len >= 2 && i + 2 + len <= bytes.size) {
+                            val seg = String(bytes, i + 4, len - 2, Charsets.UTF_8)
+                            if (seg.contains("http://ns.google.com/photos/1.0/camera/") ||
+                                seg.contains("GCamera") || seg.contains("MotionPhoto")
+                            ) {
+                                return seg to (i + 2 + len)
+                            }
+                            i += 2 + len
+                        } else return null
+                    } else return null
+                } else if (marker == 0xDA) { // SOS：图像数据开始，之后不再有段
+                    return null
+                } else if (marker == 0x01 || (marker in 0xD0..0xD9)) {
+                    i += 2
+                } else {
+                    if (i + 4 > bytes.size) return null
+                    val len = ((bytes[i + 2].toInt() and 0xFF) shl 8) or (bytes[i + 3].toInt() and 0xFF)
+                    i += 2 + len
+                }
+            } else i++
+        }
+        return null
+    }
+
+    /** 计算内嵌视频流起点：旧标准 MicroVideoOffset（尾部偏移）或新标准从 XMP 段之后的 ftyp 起 */
+    private fun motionVideoStart(bytes: ByteArray, xmp: String): Int? {
+        val off = Regex("MicroVideoOffset[\"']?\\s*[:=]\\s*[\"']?(\\d+)")
+            .find(xmp)?.groupValues?.get(1)?.toLongOrNull()
+        if (off != null && off > 0) {
+            return (bytes.size - off.toInt()).coerceIn(0, bytes.size - 1)
+        }
+        val xmpEnd = findMotionXmp(bytes)?.second ?: 2
+        var i = xmpEnd
+        val end = bytes.size - 8
+        while (i < end) {
+            if (bytes[i] == 'f'.code.toByte() && bytes[i + 1] == 't'.code.toByte() &&
+                bytes[i + 2] == 'y'.code.toByte() && bytes[i + 3] == 'p'.code.toByte()
+            ) {
+                // 校验 major brand 为可打印字符（isom/mp42/mp41/qt 等）
+                val ok = (0 until 4).all { k ->
+                    val b = bytes[i + 4 + k].toInt() and 0xFF
+                    b in 0x20..0x7E
+                }
+                if (ok) return i
+            }
+            i++
+        }
+        return null
     }
 
     /** URL 壁纸：直链 / 解析 二选一添加 */
