@@ -140,6 +140,9 @@ object ReadBookConfig {
     const val PREF_ROTATION_SOURCE_PAGTHEME = "pref_rotation_source_pagtheme"
     const val PREF_ROTATION_SOURCE_VIDEO = "pref_rotation_source_video"
     const val PREF_ROTATION_SOURCE_URL = "pref_rotation_source_url"
+    const val PREF_LAYER_SOURCE_IMAGE = "pref_layer_source_image"
+    const val PREF_LAYER_SOURCE_VIDEO = "pref_layer_source_video"
+    const val PREF_LAYER_SOURCE_URL = "pref_layer_source_url"
 
     /** 判断条目来源是否启用（来源开关） */
     fun rotationSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
@@ -176,6 +179,19 @@ object ReadBookConfig {
     }
 
     /** 判断条目是否匹配当前模式（isNight：当前是否为黑夜模式） */
+    /** 壁纸图层来源开关：关闭 → 该来源图层隐藏且不渲染（预置项恒显示） */
+    fun layerSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
+        val item = io.legado.app.ui.book.read.page.WallpaperItem.fromJson(entry) ?: return true
+        val key = when (item.type) {
+            io.legado.app.ui.book.read.page.WallpaperLayerType.IMAGE -> PREF_LAYER_SOURCE_IMAGE
+            io.legado.app.ui.book.read.page.WallpaperLayerType.VIDEO -> PREF_LAYER_SOURCE_VIDEO
+            io.legado.app.ui.book.read.page.WallpaperLayerType.URL_IMAGE,
+            io.legado.app.ui.book.read.page.WallpaperLayerType.URL_RESOLVE -> PREF_LAYER_SOURCE_URL
+            else -> return true
+        }
+        return prefs.getBoolean(key, true)
+    }
+
     fun rotationEntryMatchesMode(entry: String, isNight: Boolean): Boolean {
         val mode = parseRotationEntry(entry).second
         return when (mode) {

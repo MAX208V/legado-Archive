@@ -537,7 +537,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 fontSize = 11.sp,
                 modifier = Modifier.padding(start = 6.dp, top = 6.dp)
             )
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val prefs = ctx.defaultSharedPreferences
+            var visCount = 0
             entries.forEachIndexed { index, entry ->
+                val (pureForVis, _) = ReadBookConfig.parseRotationEntry(entry)
+                if (!ReadBookConfig.rotationSourceEnabled(pureForVis, prefs)) {
+                    return@forEachIndexed // 来源开关关闭：轮换列表项隐藏
+                }
+                val visIndex = visCount++
                 val label = rotationEntryLabel(entry)
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -615,7 +623,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         // ≡ 拖动手柄（长按拖动排序）
                         RotationEntryDragHandle(
                             onMoveBy = { delta ->
-                                moveRotationEntry(entries, index, delta, onChanged)
+                                moveRotationEntryVis(entries, visIndex, delta, onChanged)
                             }
                         )
                         // ✕ 移除按钮（独立点击区）
@@ -655,8 +663,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             contentDescription = null,
             tint = androidx.compose.material3.LocalContentColor.current.copy(alpha = 0.5f),
             modifier = Modifier
-                .size(32.dp)
-                .padding(8.dp)
+                .size(36.dp)
                 .pointerInput(Unit) {
                     detectDragGesturesAfterLongPress(
                         onDragEnd = {
@@ -679,25 +686,36 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         }
                     )
                 }
+                .padding(7.dp)
         )
     }
 
-    /** 移动轮换条目位置并持久化 */
-    private fun moveRotationEntry(
+    /** 轮换列表拖动：在「可见项」之间移动（关闭来源开关的项不参与排序） */
+    private fun moveRotationEntryVis(
         entries: MutableList<String>,
-        index: Int,
+        visIndex: Int,
         delta: Int,
         onChanged: (ArrayList<String>) -> Unit
     ) {
-        val target = index + delta
-        if (target in entries.indices) {
-            val mutable = entries.toMutableList()
-            val item = mutable.removeAt(index)
-            mutable.add(target, item)
-            onChanged(ArrayList(mutable))
-            ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
-            postReadConfigChanged(9)
+        val prefs = requireContext().defaultSharedPreferences
+        val visible = entries.filter {
+            ReadBookConfig.rotationSourceEnabled(
+                ReadBookConfig.parseRotationEntry(it).first, prefs
+            )
         }
+        if (visible.size <= 1) return
+        val targetVis = visIndex + delta
+        if (targetVis !in visible.indices) return
+        val moving = visible[visIndex]
+        val mutable = entries.toMutableList()
+        mutable.remove(moving)
+        val target = visible[targetVis]
+        val insertAt = mutable.indexOf(target)
+        if (insertAt < 0) return
+        mutable.add(if (targetVis < visIndex) insertAt else insertAt + 1, moving)
+        onChanged(ArrayList(mutable))
+        ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
+        postReadConfigChanged(9)
     }
 
     private fun rotationEntryLabel(entry: String): String {
@@ -1440,34 +1458,63 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     fontSize = 11.sp,
                     modifier = Modifier.padding(start = 6.dp, top = 4.dp)
                 )
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val prefs = ctx.defaultSharedPreferences
+            var visCount = 0
                 items.forEachIndexed { index, entry ->
+                    if (!entry.isWallpaperPrefab() &&
+                        !ReadBookConfig.layerSourceEnabled(entry, prefs)
+                    ) {
+                        return@forEachIndexed // 来源开关关闭：隐藏该图层项
+                    }
+                    val visIndex = visCount++
                     WallpaperLayerRow(
                         entry = entry,
                         index = index,
+                        visIndex = visIndex,
                         total = items.size,
                         style = style,
                         onDelete = { removeWallpaperLayer(index) }
                     )
                 }
+                if (visCount < items.size) {
+                    Text(
+                        text = "（部分来源已关闭开关，对应图层已隐藏）",
+                        color = style.secondaryText.copy(alpha = 0.7f),
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 6.dp)
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
-                LayerAddButton(
+                // 各来源带开关（与壁纸轮换一致）：关闭 → 该来源图层隐藏且不渲染
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_LAYER_SOURCE_IMAGE,
                     icon = R.drawable.ic_image,
                     text = "添加图片壁纸（PNG可镂空）",
-                    count = items.count { WallpaperItem.fromJson(it)?.type == WallpaperLayerType.IMAGE },
+                    count = items.count {
+                        WallpaperItem.fromJson(it)?.type == WallpaperLayerType.IMAGE &&
+                            ReadBookConfig.layerSourceEnabled(it, prefs)
+                    },
                     style = style
                 ) { addWallpaperLayerFile(WallpaperLayerType.IMAGE) }
-                LayerAddButton(
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_LAYER_SOURCE_VIDEO,
                     icon = R.drawable.ic_play_24dp,
                     text = "添加视频壁纸（循环播放）",
-                    count = items.count { WallpaperItem.fromJson(it)?.type == WallpaperLayerType.VIDEO },
+                    count = items.count {
+                        WallpaperItem.fromJson(it)?.type == WallpaperLayerType.VIDEO &&
+                            ReadBookConfig.layerSourceEnabled(it, prefs)
+                    },
                     style = style
                 ) { addWallpaperLayerFile(WallpaperLayerType.VIDEO) }
-                LayerAddButton(
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_LAYER_SOURCE_URL,
                     icon = R.drawable.ic_add_online,
                     text = "添加URL壁纸（直链/解析）",
                     count = items.count {
                         val t = WallpaperItem.fromJson(it)?.type
-                        t == WallpaperLayerType.URL_IMAGE || t == WallpaperLayerType.URL_RESOLVE
+                        (t == WallpaperLayerType.URL_IMAGE || t == WallpaperLayerType.URL_RESOLVE) &&
+                            ReadBookConfig.layerSourceEnabled(it, prefs)
                     },
                     style = style
                 ) { showAddWallpaperLayerUrlDialog() }
@@ -1561,6 +1608,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun WallpaperLayerRow(
         entry: String,
         index: Int,
+        visIndex: Int,
         total: Int,
         style: AppDialogStyle,
         onDelete: () -> Unit
@@ -1618,6 +1666,19 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                // 🔊 视频声音开关（仅视频自定义项；默认静音）
+                if (item?.type == WallpaperLayerType.VIDEO && !isPrefab) {
+                    val soundIcon = if (item.soundOn) "🔊" else "🔇"
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { toggleWallpaperLayerSound(index) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(soundIcon, fontSize = 13.sp)
+                    }
+                }
                 // 白天/黑夜模式按钮（☀️→🌙→🌓 三态循环；预置项固定 🌓 不可改）
                 val mode = item?.mode ?: ReadBookConfig.ROTATION_MODE_ALL
                 val modeIcon = when (mode) {
@@ -1642,19 +1703,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         }
                     )
                 }
-                // 🔊 视频声音开关（仅视频自定义项；默认静音）
-                if (item?.type == WallpaperLayerType.VIDEO && !isPrefab) {
-                    val soundIcon = if (item.soundOn) "🔊" else "🔇"
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable { toggleWallpaperLayerSound(index) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(soundIcon, fontSize = 13.sp)
-                    }
-                }
                 // ▶ 预览按钮
                 Box(
                     modifier = Modifier
@@ -1667,7 +1715,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 }
                 // ≡ 拖动手柄（长按拖动排序，同轮换列表）
                 RotationEntryDragHandle(
-                    onMoveBy = { delta -> moveWallpaperLayer(index, delta) }
+                    onMoveBy = { delta -> moveWallpaperLayerVis(visIndex, delta) }
                 )
                 // ✕ 删除（仅自定义层）
                 if (!isPrefab) {
@@ -1836,14 +1884,23 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         return list
     }
 
-    private fun moveWallpaperLayer(index: Int, delta: Int) {
+    /** 图层拖动：在「可见项」之间移动（隐藏项不参与排序） */
+    private fun moveWallpaperLayerVis(visIndex: Int, delta: Int) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
-        val target = index + delta
-        if (target < 0 || target >= list.size) return
+        val prefs = requireContext().defaultSharedPreferences
+        val visible = list.filter {
+            it.isWallpaperPrefab() || ReadBookConfig.layerSourceEnabled(it, prefs)
+        }
+        if (visible.size <= 1) return
+        val targetVis = visIndex + delta
+        if (targetVis !in visible.indices) return
+        val moving = visible[visIndex]
         val mutable = list.toMutableList()
-        val t = mutable[index]
-        mutable[index] = mutable[target]
-        mutable[target] = t
+        mutable.remove(moving)
+        val target = visible[targetVis]
+        val insertAt = mutable.indexOf(target)
+        if (insertAt < 0) return
+        mutable.add(if (targetVis < visIndex) insertAt else insertAt + 1, moving)
         ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
         applyWallpaperLayers()
     }
@@ -1880,17 +1937,28 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         it.uri?.let { uri -> addWallpaperLayerFromUri(uri, WallpaperLayerType.VIDEO) }
     }
 
+    /** 新图层默认插入「自定义层底部」（预置项之上、已有自定义层之下） */
+    private fun addWallpaperLayerItem(item: WallpaperItem) {
+        val list = ArrayList(ReadBookConfig.durConfig.wallpaperLayerItems)
+        var insertAt = list.size
+        for (i in list.indices) {
+            if (list[i].isWallpaperPrefab()) {
+                insertAt = i
+                break
+            }
+        }
+        list.add(insertAt, item.toJson())
+        ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(list)
+        applyWallpaperLayers()
+    }
+
     private fun addWallpaperLayerFromUri(uri: Uri, type: Int) {
         lifecycleScope.launch {
             try {
                 val context = requireContext()
                 if (type == WallpaperLayerType.VIDEO) {
                     // 视频：直接调用原文件（content:// URI），不复制。播放权限已由 HandleFileActivity 持久化
-                    val list = ReadBookConfig.durConfig.wallpaperLayerItems
-                    list.add(WallpaperItem(type, uri.toString()).toJson())
-                    ReadBookConfig.durConfig.wallpaperLayerItems =
-                        normalizeLayerItems(ArrayList(list))
-                    applyWallpaperLayers()
+                    addWallpaperLayerItem(WallpaperItem(type, uri.toString()))
                     return@launch
                 }
                 val inputStream = context.contentResolver.openInputStream(uri) ?: return@launch
@@ -1899,11 +1967,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 val fileName = buildCustomWallpaperFileName(context, uri)
                 val destFile = File(bgDir, fileName)
                 destFile.outputStream().use { out -> inputStream.copyTo(out) }
-                val list = ReadBookConfig.durConfig.wallpaperLayerItems
-                list.add(WallpaperItem(type, destFile.absolutePath).toJson())
-                ReadBookConfig.durConfig.wallpaperLayerItems =
-                    normalizeLayerItems(ArrayList(list))
-                applyWallpaperLayers()
+                addWallpaperLayerItem(WallpaperItem(type, destFile.absolutePath))
             } catch (e: Exception) {
                 requireContext().toastOnUi(e.stackTraceStr)
             }
@@ -1943,10 +2007,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     }
 
     private fun addWallpaperLayerUrl(url: String, type: Int) {
-        val list = ReadBookConfig.durConfig.wallpaperLayerItems
-        list.add(WallpaperItem(type, url).toJson())
-        ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(list))
-        applyWallpaperLayers()
+        addWallpaperLayerItem(WallpaperItem(type, url))
     }
 
     @Composable

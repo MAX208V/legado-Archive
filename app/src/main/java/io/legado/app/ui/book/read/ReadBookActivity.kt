@@ -4648,7 +4648,9 @@ class ReadBookActivity : BaseReadBookActivity(),
             h
         }
         val items = if (ReadBookConfig.durConfig.wallpaperLayersEnabled) {
-            ReadBookConfig.durConfig.wallpaperLayerItems
+            ReadBookConfig.durConfig.wallpaperLayerItems.filter {
+                ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
+            }
         } else {
             emptyList()
         }
