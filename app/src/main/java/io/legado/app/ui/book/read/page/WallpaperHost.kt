@@ -144,14 +144,14 @@ class WallpaperHost @JvmOverloads constructor(
         bgLayer?.let { return it }
         val l = BgPrefabLayer(context)
         bgLayer = l
-        addView(l.view, 0) // 兜底层恒最底；平时被内容层盖住不可见，删光图片时兜底显示防闪
+        addView(l.view, childCount) // Legado 原有背景恒最上层：图片层在其下(不覆盖)；常驻不重建=删光时兜底防闪
         l.load()
         return l
     }
 
-    /** 内容层插入：index 0=最底；contentIndex 为内容层内相对位置（0=最底内容层），+1 跳过 bg 兜底层 */
+    /** 内容层插入：index 0=最底；contentIndex 为内容层内相对位置（0=最底内容层），恒位于原有背景层之下 */
     private fun addContentLayer(layer: LayerView, contentIndex: Int) {
-        addView(layer.view, contentIndex + 1)
+        addView(layer.view, contentIndex)
     }
 
     /** 差异更新图层（bg 兜底层常驻不参与）：头部/尾部匹配的层原样保留（不重启视频/不重载图片），
@@ -314,7 +314,7 @@ class WallpaperHost @JvmOverloads constructor(
                 )
             }.getOrNull()
             view.setImageDrawable(d)
-            view.alpha = 1f // 兜底层不透明；平时被上层内容完全盖住不可见
+            view.alpha = 1f // 原有背景清晰不透明，渲染最上层
         }
 
         override fun release() {
