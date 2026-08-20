@@ -187,7 +187,7 @@ class WallpaperHost @JvmOverloads constructor(
             contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
-                addContentLayer(layer, childCount - 1)
+                addContentLayer(layer, childCount - 2)
                 layer.load()
             }
             return
@@ -217,7 +217,7 @@ class WallpaperHost @JvmOverloads constructor(
             contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
-                addContentLayer(layer, childCount - 1)
+                addContentLayer(layer, childCount - 2)
                 layer.load()
             }
             return
