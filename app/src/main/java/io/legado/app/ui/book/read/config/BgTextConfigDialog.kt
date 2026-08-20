@@ -1877,16 +1877,18 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         (activity as? ReadBookActivity)?.refreshWallpaperLayers()
     }
 
-    /** 规整图层列表：列表第 1 行 = 最底层。背景 __bg__ 恒在第 1 行，轮换 __rotation__ 紧随其后（第 2 行） */
+    /** 规整图层列表：列表第 1 行 = 最底层，依次向上。
+     *  背景图片 __bg__ 恒在列表【末尾】= 最上层（透明时不影响视觉）；
+     *  轮换 __rotation__ 恒在其前（倒数第二）。新添加的壁纸恒在第 1 行（最底）。
+     */
     private fun normalizeLayerItems(raw: ArrayList<String>): ArrayList<String> {
         val list = ArrayList(raw)
         list.remove(WallpaperLayerType.PREFAB_BG)
-        list.add(0, WallpaperLayerType.PREFAB_BG)
+        list.add(WallpaperLayerType.PREFAB_BG)
         list.remove(WallpaperLayerType.PREFAB_ROTATION)
         val rotationOn = ReadBookConfig.durConfig.wallpaperRotationEnabled
         if (rotationOn) {
-            // 轮换壁纸紧贴背景之上（第 2 行）
-            list.add(1, WallpaperLayerType.PREFAB_ROTATION)
+            list.add(list.size - 1, WallpaperLayerType.PREFAB_ROTATION)
         }
         return list
     }
@@ -1948,13 +1950,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     /** 新图层默认插入「自定义层底部」（预置项之上、已有自定义层之下） */
     private fun addWallpaperLayerItem(item: WallpaperItem) {
         val list = ArrayList(ReadBookConfig.durConfig.wallpaperLayerItems)
-        // 列表第 1 行 = 最底层（背景 __bg__ 恒在第 1 行）。
-        // 新壁纸插到 index 1（背景之后）= 紧贴底部、不覆盖已有内容
-        if (list.size <= 1) {
-            list.add(item.toJson())
-        } else {
-            list.add(1, item.toJson())
-        }
+        // 列表第 1 行 = 最底层。新壁纸恒插到第 1 行（index 0），
+        // 即在背景图片与所有已有图层之下；后续添加的壁纸会依次排在它上面
+        list.add(0, item.toJson())
         ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(list)
         applyWallpaperLayers()
     }
