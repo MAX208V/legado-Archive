@@ -149,9 +149,10 @@ class WallpaperHost @JvmOverloads constructor(
         return l
     }
 
-    /** 内容层插入：整建时恒插 bg 之前（childCount-1 = 末尾前） */
+    /** 内容层插入（index 0 = 最底）；bg 兜底层恒置最顶（列表第1行=最顶层语义） */
     private fun addContentLayer(layer: LayerView, targetIndex: Int) {
-        addView(layer.view, kotlin.math.min(targetIndex, (childCount - 1).coerceAtLeast(0)))
+        addView(layer.view, targetIndex)
+        bgLayer?.view?.bringToFront()
     }
 
     /** 差异更新图层（bg 兜底层常驻不参与）：头部/尾部匹配的层原样保留（不重启视频/不重载图片），
