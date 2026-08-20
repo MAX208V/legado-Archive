@@ -2114,7 +2114,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             tmp.delete()
             if (bytes.size > 100_000_000) return@runCatching null // 超大文件跳过（防 OOM）
             val xmpInfo = findMotionXmp(bytes) ?: return@runCatching null
-            val videoStart = motionVideoStart(bytes, xmpInfo.second) ?: return@runCatching null
+            val videoStart = motionVideoStart(bytes, xmpInfo.first) ?: return@runCatching null
             val out = File(bgDir, "${base}.live.mp4")
             out.outputStream().use { o -> o.write(bytes, videoStart, bytes.size - videoStart) }
             if (out.isFile && out.length() > 0) out else null
