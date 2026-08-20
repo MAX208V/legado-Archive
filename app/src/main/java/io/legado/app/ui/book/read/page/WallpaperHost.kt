@@ -144,15 +144,14 @@ class WallpaperHost @JvmOverloads constructor(
         bgLayer?.let { return it }
         val l = BgPrefabLayer(context)
         bgLayer = l
-        addView(l.view, childCount) // bg=列表第1行(最顶) → 渲染最上层；内容层一律插其前
+        addView(l.view, 0) // 兜底层恒最底；平时被内容层盖住不可见，删光图片时兜底显示防闪
         l.load()
         return l
     }
 
-    /** 内容层插入（index 0 = 最底）；bg 兜底层恒置最顶（列表第1行=最顶层语义） */
-    private fun addContentLayer(layer: LayerView, targetIndex: Int) {
-        addView(layer.view, targetIndex)
-        bgLayer?.view?.bringToFront()
+    /** 内容层插入：index 0=最底；contentIndex 为内容层内相对位置（0=最底内容层），+1 跳过 bg 兜底层 */
+    private fun addContentLayer(layer: LayerView, contentIndex: Int) {
+        addView(layer.view, contentIndex + 1)
     }
 
     /** 差异更新图层（bg 兜底层常驻不参与）：头部/尾部匹配的层原样保留（不重启视频/不重载图片），
@@ -174,7 +173,7 @@ class WallpaperHost @JvmOverloads constructor(
             contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
-                addContentLayer(layer, layers.size)
+                addContentLayer(layer, childCount - 1)
                 layer.load()
             }
             return
@@ -204,7 +203,7 @@ class WallpaperHost @JvmOverloads constructor(
             contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
-                addContentLayer(layer, layers.size)
+                addContentLayer(layer, childCount - 1)
                 layer.load()
             }
             return
@@ -315,8 +314,7 @@ class WallpaperHost @JvmOverloads constructor(
                 )
             }.getOrNull()
             view.setImageDrawable(d)
-            // 壁纸图层启用时背景半透明，让壁纸图层透出（原有背景观感不消失）
-            view.alpha = if (ReadBookConfig.durConfig.wallpaperLayersEnabled) 0.45f else 1f
+            view.alpha = 1f // 兜底层不透明；平时被上层内容完全盖住不可见
         }
 
         override fun release() {

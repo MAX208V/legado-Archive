@@ -4629,7 +4629,6 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     private var wallpaperHost: WallpaperHost? = null
-    private var lastWallpaperEnabled: Boolean? = null // 壁纸开关状态缓存（切换时刷新 bg 透明度）
 
     /**
      * 初始化/刷新壁纸图层：挂载到阅读页底层（vwRoot 索引 0，背景之上、文字之下），
@@ -4655,11 +4654,6 @@ class ReadBookActivity : BaseReadBookActivity(),
         } else {
             emptyList()
         }
-        // 壁纸开关状态变化 → 刷新 bg 兜底层透明度（启用半透明透出壁纸/禁用恢复原背景）
-        if (lastWallpaperEnabled != ReadBookConfig.durConfig.wallpaperLayersEnabled) {
-            host.refreshBgLayer()
-        }
-        lastWallpaperEnabled = ReadBookConfig.durConfig.wallpaperLayersEnabled
         host.setLayers(items)
         // 壁纸启用/关闭时同步页面背景透明化（图层透出或恢复原背景）
         binding.readView.upBg()
