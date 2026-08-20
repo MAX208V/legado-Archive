@@ -1995,7 +1995,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
-    /** 检测并复制 LivePhoto 伴生视频：图库中与照片同基础名的视频（IMG_1234.MOV ↔ IMG_1234.HEIC） */
+    /** 检测并复制 LivePhoto 伴生视频：
+     *  ① 媒体库中与照片同基础名的视频（苹果 HEIC↔MOV / 通用 IMG_1234 ↔ IMG_1234.mp4，均会进入 MediaStore）
+     *  ② 照片同目录伴生视频（小米动态照片等：JPG/HEIC + 同名 .mp4/.mov 未必入库，直接扫目录）
+     */
     private suspend fun tryCopyLivePhotoVideo(
         context: android.content.Context,
         photoUri: android.net.Uri,
@@ -2005,30 +2008,89 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         runCatching {
             val base = photoFileName.substringBeforeLast('.').trim()
             if (base.isBlank()) return@runCatching null
-            val videoUri = context.contentResolver.query(
-                android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                arrayOf(android.provider.MediaStore.Video.Media._ID, android.provider.MediaStore.Video.Media.DISPLAY_NAME),
-                "${android.provider.MediaStore.Video.Media.DISPLAY_NAME} LIKE ?",
-                arrayOf("$base%"),
-                null
-            )?.use { c ->
-                while (c.moveToNext()) {
-                    val name = c.getString(1) ?: continue
-                    if (name.substringBeforeLast('.').trim() == base) {
-                        return@use android.content.ContentUris.withAppendedId(
-                            android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                            c.getLong(0)
-                        )
-                    }
-                }
-                null
-            } ?: return@runCatching null
+            val videoUri = findLivePairInMediaStore(context, base)
+                ?: findLivePairInSameDir(context, photoUri, base)
+                ?: return@runCatching null
             val videoFile = File(bgDir, "${base}.live.mp4")
             context.contentResolver.openInputStream(videoUri)?.use { vin ->
                 videoFile.outputStream().use { out -> vin.copyTo(out) }
             }
             if (videoFile.isFile && videoFile.length() > 0) videoFile else null
         }.getOrNull()
+    }
+
+    /** 媒体库视频表中找同基础名视频（IMG_1234.MOV / IMG_1234.mp4） */
+    private fun findLivePairInMediaStore(context: android.content.Context, base: String): android.net.Uri? {
+        return context.contentResolver.query(
+            android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            arrayOf(
+                android.provider.MediaStore.Video.Media._ID,
+                android.provider.MediaStore.Video.Media.DISPLAY_NAME
+            ),
+            "${android.provider.MediaStore.Video.Media.DISPLAY_NAME} LIKE ?",
+            arrayOf("$base%"),
+            null
+        )?.use { c ->
+            while (c.moveToNext()) {
+                val name = c.getString(1) ?: continue
+                if (name.substringBeforeLast('.').trim().equals(base, ignoreCase = true)) {
+                    return@use android.content.ContentUris.withAppendedId(
+                        android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                        c.getLong(0)
+                    )
+                }
+            }
+            null
+        }
+    }
+
+    /** 照片同目录扫描伴生视频（小米动态照片：JPG/HEIC 与同名 .mp4 相邻存放；媒体库可能漏索引） */
+    private fun findLivePairInSameDir(
+        context: android.content.Context,
+        photoUri: android.net.Uri,
+        base: String
+    ): android.net.Uri? {
+        var dataPath: String? = null
+        try {
+            context.contentResolver.query(
+                photoUri,
+                arrayOf(android.provider.MediaStore.Images.Media.DATA),
+                null, null, null
+            )?.use { c ->
+                if (c.moveToFirst()) dataPath = c.getString(0)
+            }
+        } catch (_: Exception) {}
+        if (dataPath.isNullOrEmpty()) {
+            val id = photoUri.lastPathSegment?.toLongOrNull()
+            if (id != null) {
+                try {
+                    context.contentResolver.query(
+                        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        arrayOf(android.provider.MediaStore.Images.Media.DATA),
+                        "_id=?",
+                        arrayOf(id.toString()),
+                        null
+                    )?.use { c ->
+                        if (c.moveToFirst()) dataPath = c.getString(0)
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+        val dir = dataPath?.let { File(it).parentFile } ?: return null
+        if (!dir.isDirectory) return null
+        val videoExts = setOf("mp4", "mov", "hevc", "mkv", "3gp")
+        val lowerBase = base.lowercase()
+        val match = dir.listFiles()?.firstOrNull { f ->
+            if (!f.isFile) return@firstOrNull false
+            val name = f.name.lowercase()
+            if (name.substringBeforeLast('.').trim() == lowerBase) {
+                f.extension.lowercase() in videoExts
+            } else {
+                // 宽松兜底：以 base 开头且为视频（处理 IMG_1234(1).mp4 之类变体）
+                name.startsWith(lowerBase) && f.extension.lowercase() in videoExts
+            }
+        } ?: return null
+        return android.net.Uri.fromFile(match)
     }
 
     /** URL 壁纸：直链 / 解析 二选一添加 */
