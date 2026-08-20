@@ -2154,30 +2154,60 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         return null
     }
 
-    /** 计算内嵌视频流起点：旧标准 MicroVideoOffset（尾部偏移）或新标准从 XMP 段之后的 ftyp 起 */
+    /** 计算内嵌视频流起点：
+     *  旧标准 MicroVideoOffset（从文件尾向前偏移）；
+     *  新标准（谷歌 Motion Photo）：从 XMP 段后按 MP4 box 依次解析，定位 mdat（视频流起点，moov 在其后） */
     private fun motionVideoStart(bytes: ByteArray, xmp: String): Int? {
         val off = Regex("MicroVideoOffset[\"']?\\s*[:=]\\s*[\"']?(\\d+)")
             .find(xmp)?.groupValues?.get(1)?.toLongOrNull()
         if (off != null && off > 0) {
             return (bytes.size - off.toInt()).coerceIn(0, bytes.size - 1)
         }
-        val xmpEnd = findMotionXmp(bytes)?.second ?: 2
-        var i = xmpEnd
-        val end = bytes.size - 8
-        while (i < end) {
-            if (bytes[i] == 'f'.code.toByte() && bytes[i + 1] == 't'.code.toByte() &&
-                bytes[i + 2] == 'y'.code.toByte() && bytes[i + 3] == 'p'.code.toByte()
-            ) {
-                // 校验 major brand 为可打印字符（isom/mp42/mp41/qt 等）
-                val ok = (0 until 4).all { k ->
-                    val b = bytes[i + 4 + k].toInt() and 0xFF
-                    b in 0x20..0x7E
-                }
-                if (ok) return i
+        val start = findMotionXmp(bytes)?.second ?: 2
+        var pos = start
+        while (pos + 8 <= bytes.size) {
+            val size = ((bytes[pos].toInt() and 0xFF) shl 24) or
+                ((bytes[pos + 1].toInt() and 0xFF) shl 16) or
+                ((bytes[pos + 2].toInt() and 0xFF) shl 8) or
+                (bytes[pos + 3].toInt() and 0xFF)
+            if (size == 1) {
+                // 64-bit size box（大 mdat 通常如此）→ 视频流从本 box 起
+                return pos
             }
-            i++
+            if (size == 0) {
+                // box 延续到文件尾
+                return pos
+            }
+            if (size < 8 || pos + size > bytes.size) return null
+            val type = try {
+                String(bytes, pos + 4, 4, Charsets.ISO_8859_1)
+            } catch (_: Exception) {
+                return null
+            }
+            if (type == "mdat") {
+                // 校验该 box 之后（文件尾）含 moov，防止 JPEG 数据误匹配
+                val tail = bytes.copyOfRange(pos + size, bytes.size)
+                if (hasMoovBox(tail)) return pos
+                return null
+            }
+            if (type == "moov") return null // moov 在 mdat 前说明不是标准 Motion Photo
+            pos += size
         }
         return null
+    }
+
+    /** 文件尾区域是否含 moov box（动态照片视频流完整性校验） */
+    private fun hasMoovBox(tail: ByteArray): Boolean {
+        if (tail.size < 8) return false
+        val from = (tail.size - 2_000_000).coerceAtLeast(0) // 尾部 2MB 内
+        for (i in from until tail.size - 4) {
+            if (tail[i] == 'm'.code.toByte() && tail[i + 1] == 'o'.code.toByte() &&
+                tail[i + 2] == 'o'.code.toByte() && tail[i + 3] == 'v'.code.toByte()
+            ) {
+                return true
+            }
+        }
+        return false
     }
 
     /** URL 壁纸：直链 / 解析 二选一添加 */

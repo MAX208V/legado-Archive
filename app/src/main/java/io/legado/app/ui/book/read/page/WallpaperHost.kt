@@ -113,6 +113,8 @@ class WallpaperHost @JvmOverloads constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val layers = mutableListOf<LayerView>()
     private val loadJobs = mutableListOf<Deferred<*>>()
+    /** Legado 原有背景兜底层：常驻最底层，不参与任何图层增删重建（杜绝闪烁/残留） */
+    private var bgLayer: BgPrefabLayer? = null
 
     init {
         isClickable = false
@@ -137,22 +139,33 @@ class WallpaperHost @JvmOverloads constructor(
     /** 差异更新图层：保留前缀未变化的层（不重启视频/不重载图片），只释放删除的、创建新增的。
      *  阅读页不再因单个图层增删而整页重建闪烁。
      *  列表第 1 行(北)=最顶层，末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
+    /** 确保 Legado 原有背景兜底层存在（常驻最底，仅创建一次） */
+    private fun ensureBgLayer(): BgPrefabLayer {
+        bgLayer?.let { return it }
+        val l = BgPrefabLayer(context)
+        bgLayer = l
+        addView(l.view, 0)
+        l.load()
+        return l
+    }
+
+    /** 差异更新图层（bg 兜底层常驻不参与）：头部/尾部匹配的层原样保留（不重启视频/不重载图片），
+     *  只释放被删的、创建新增的；中间段 ≥2 层或前缀为空时整建（保证 Z 序）。
+     *  列表第 1 行(北)=最顶层，末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
     fun setLayers(items: List<String>) {
-        // 保留「从头部开始 entry 相同」的层（前缀不动 → 不重建不闪）
-        var prefix = 0
-        while (prefix < layers.size && prefix < items.size &&
-            layers[prefix].entry == items[prefix]
-        ) {
-            prefix++
-        }
-        // 前缀完全不一致（拖动重排/大变动）或容器为空：整建（逆序逐个追加，末尾=最底层先 add）
-        if (prefix == 0) {
+        ensureBgLayer()
+        // 背景兜底层独立常驻 → 剩余内容层参与差异
+        val contentItems = items.filter { it != WallpaperLayerType.PREFAB_BG }
+        if (contentItems.isEmpty()) {
             while (layers.isNotEmpty()) {
                 val l = layers.removeAt(layers.size - 1)
                 removeView(l.view)
                 l.release()
             }
-            items.reversed().forEach { entry ->
+            return
+        }
+        if (layers.isEmpty()) {
+            contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
                 addView(layer.view, childCount)
@@ -160,17 +173,45 @@ class WallpaperHost @JvmOverloads constructor(
             }
             return
         }
-        // 释放前缀之后的旧层
-        while (layers.size > prefix) {
-            val l = layers.removeAt(layers.size - 1)
-            removeView(l.view)
-            l.release()
+        // 尾部匹配（末尾增删常见 → 尾段保留）
+        var suffix = 0
+        while (suffix < layers.size && suffix < contentItems.size &&
+            layers[layers.size - 1 - suffix].entry == contentItems[contentItems.size - 1 - suffix]
+        ) {
+            suffix++
         }
-        // 正序补齐剩余层；Z 位 = items.size-1-idx（0 为最底），clamp 到当前 childCount 防越界
-        for (idx in prefix until items.size) {
-            val layer = createLayer(items[idx]) ?: continue
-            layers.add(layer)
-            addView(layer.view, kotlin.math.min(items.size - 1 - idx, childCount))
+        // 头部匹配
+        var prefix = 0
+        while (prefix < layers.size - suffix && prefix < contentItems.size - suffix &&
+            layers[prefix].entry == contentItems[prefix]
+        ) {
+            prefix++
+        }
+        val rebuildLen = (contentItems.size - suffix) - prefix
+        // 前缀为空或中间段 ≥2：整建（增量插 Z 位不可靠）
+        if (prefix == 0 || rebuildLen >= 2) {
+            while (layers.isNotEmpty()) {
+                val l = layers.removeAt(layers.size - 1)
+                removeView(l.view)
+                l.release()
+            }
+            contentItems.reversed().forEach { entry ->
+                val layer = createLayer(entry) ?: return@forEach
+                layers.add(0, layer)
+                addView(layer.view, childCount)
+                layer.load()
+            }
+            return
+        }
+        // 释放中间段旧层（head 与 tail 之间的）
+        val mid = layers.subList(prefix, layers.size - suffix).toList()
+        mid.forEach { removeView(it.view); it.release() }
+        layers.removeAll(mid.toSet())
+        // 单层补齐；Z 位 = contentItems.size-1-idx（0 为最底），clamp 到当前 childCount 防越界
+        for (idx in prefix until contentItems.size - suffix) {
+            val layer = createLayer(contentItems[idx]) ?: continue
+            layers.add(idx, layer)
+            addView(layer.view, kotlin.math.min(contentItems.size - 1 - idx, childCount))
             layer.load()
         }
     }
@@ -179,14 +220,14 @@ class WallpaperHost @JvmOverloads constructor(
 
     fun isEmpty(): Boolean = layers.isEmpty()
 
-    /** 背景图片预置层刷新（样式/日夜切换后调用） */
+    /** 背景图片预置层刷新（样式/日夜切换后调用）——bg 常驻兜底，独立于 layers */
     fun refreshBgLayer() {
-        layers.filterIsInstance<BgPrefabLayer>().forEach { it.load() }
+        bgLayer?.load()
     }
 
-    /** 图层视频声音开关（index 与 layers 顺序对应，即时生效） */
+    /** 图层视频声音开关（UI index 含 bg 占位 0 → layers 下标 index-1，即时生效） */
     fun setLayerSound(index: Int, soundOn: Boolean) {
-        val layer = layers.getOrNull(index)
+        val layer = layers.getOrNull(index - 1)
         if (layer is VideoLayerView) layer.setSound(soundOn)
     }
 
