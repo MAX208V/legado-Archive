@@ -627,25 +627,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 moveRotationEntryVis(entries, visIndex, delta, onChanged)
                             }
                         )
-                        // ▲▼ 保底排序按钮
-                        Column {
-                            Text(
-                                text = "▲", fontSize = 10.sp, color = style.accent,
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .clickable { moveRotationEntryVis(entries, visIndex, -1, onChanged) },
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                            Text(
-                                text = "▼", fontSize = 10.sp, color = style.accent,
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .clickable { moveRotationEntryVis(entries, visIndex, 1, onChanged) },
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                        }
+
                         // ✕ 移除按钮（独立点击区）
                         Box(
                             modifier = Modifier
@@ -1733,31 +1715,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 ) {
                     Text("▶", color = style.accent, fontSize = 13.sp)
                 }
-                // ≡ 拖动手柄（长按拖动排序，同轮换列表）
-                RotationEntryDragHandle(
-                    onMoveBy = { delta -> moveWallpaperLayerVis(visIndex, delta) }
-                )
-                // ▲▼ 保底排序按钮（点击上移/下移一位，不依赖手势）
+                // ≡ 拖动手柄（长按拖动排序，仅自定义层可拖；预置项恒底部）
                 if (!isPrefab) {
-                    Column {
-                        Text(
-                            text = "▲", fontSize = 10.sp, color = style.accent,
-                            modifier = Modifier
-                                .size(22.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .clickable { moveWallpaperLayerVis(visIndex, -1) },
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                        Text(
-                            text = "▼", fontSize = 10.sp, color = style.accent,
-                            modifier = Modifier
-                                .size(22.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .clickable { moveWallpaperLayerVis(visIndex, 1) },
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
+                    RotationEntryDragHandle(
+                        onMoveBy = { delta -> moveWallpaperLayerVis(visIndex, delta) }
+                    )
+                } else {
+                    Spacer(Modifier.width(44.dp))
                 }
+
                 // ✕ 删除（仅自定义层）
                 if (!isPrefab) {
                     Box(
@@ -1910,17 +1876,16 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         (activity as? ReadBookActivity)?.refreshWallpaperLayers()
     }
 
-    /** 规整图层列表：保证含预置项 __bg__（头部）；轮换开启时含 __rotation__（背景后），关闭时移除 */
+    /** 规整图层列表：列表第 1 行 = 最底层。背景 __bg__ 恒在第 1 行，轮换 __rotation__ 紧随其后（第 2 行） */
     private fun normalizeLayerItems(raw: ArrayList<String>): ArrayList<String> {
         val list = ArrayList(raw)
-        // 列表底部 = 最底层：背景恒置末尾（最底）
         list.remove(WallpaperLayerType.PREFAB_BG)
-        list.add(WallpaperLayerType.PREFAB_BG)
+        list.add(0, WallpaperLayerType.PREFAB_BG)
         list.remove(WallpaperLayerType.PREFAB_ROTATION)
         val rotationOn = ReadBookConfig.durConfig.wallpaperRotationEnabled
         if (rotationOn) {
-            // 轮换壁纸紧贴背景之上（列表倒数第二位）
-            list.add(list.size - 1, WallpaperLayerType.PREFAB_ROTATION)
+            // 轮换壁纸紧贴背景之上（第 2 行）
+            list.add(1, WallpaperLayerType.PREFAB_ROTATION)
         }
         return list
     }
@@ -1930,7 +1895,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
         val prefs = requireContext().defaultSharedPreferences
         val visible = list.filter {
-            it.isWallpaperPrefab() || ReadBookConfig.layerSourceEnabled(it, prefs)
+            !it.isWallpaperPrefab() && ReadBookConfig.layerSourceEnabled(it, prefs)
         }
         if (visible.size <= 1) return
         val targetVis = visIndex + delta
@@ -1981,9 +1946,13 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     /** 新图层默认插入「自定义层底部」（预置项之上、已有自定义层之下） */
     private fun addWallpaperLayerItem(item: WallpaperItem) {
         val list = ArrayList(ReadBookConfig.durConfig.wallpaperLayerItems)
-        // 直接插入列表末尾：normalize 会把预置项(__bg__/__rotation__)移到末尾，
-        // 新项恒落在预置项之前 = 列表底部（最底层，不遮挡已有自定义层）
-        list.add(item.toJson())
+        // 列表第 1 行 = 最底层（背景 __bg__ 恒在第 1 行）。
+        // 新壁纸插到 index 1（背景之后）= 紧贴底部、不覆盖已有内容
+        if (list.size <= 1) {
+            list.add(item.toJson())
+        } else {
+            list.add(1, item.toJson())
+        }
         ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(list)
         applyWallpaperLayers()
     }
