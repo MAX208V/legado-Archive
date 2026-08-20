@@ -113,8 +113,10 @@ class WallpaperHost @JvmOverloads constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val layers = mutableListOf<LayerView>()
     private val loadJobs = mutableListOf<Deferred<*>>()
-    /** Legado 原有背景兜底层：常驻最底层，不参与任何图层增删重建（杜绝闪烁/残留） */
-    private var bgLayer: BgPrefabLayer? = null
+    /** 顶层：Legado 原有背景镜像（最上层，图片/视频不覆盖它） */
+    private var topBgLayer: BgPrefabLayer? = null
+    /** 底层：兜底背景（最底层；删光/清空图片时兜底显示，防闪） */
+    private var bottomBgLayer: BgPrefabLayer? = null
 
     init {
         isClickable = false
@@ -131,7 +133,8 @@ class WallpaperHost @JvmOverloads constructor(
         super.onLayout(changed, left, top, right, bottom)
         if (changed && !firstLayoutDone && width > 0 && height > 0) {
             firstLayoutDone = true
-            refreshBgLayer()
+            topBgLayer?.load()
+            bottomBgLayer?.load()
             refreshRotationLayer()
         }
     }
@@ -140,25 +143,34 @@ class WallpaperHost @JvmOverloads constructor(
      *  阅读页不再因单个图层增删而整页重建闪烁。
      *  列表第 1 行(北)=最顶层，末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
     /** 确保 Legado 原有背景兜底层存在（常驻最底，仅创建一次） */
-    private fun ensureBgLayer(): BgPrefabLayer {
-        bgLayer?.let { return it }
+    private fun ensureTopBg(): BgPrefabLayer {
+        topBgLayer?.let { return it }
         val l = BgPrefabLayer(context)
-        bgLayer = l
-        addView(l.view, childCount) // Legado 原有背景恒最上层：图片层在其下(不覆盖)；常驻不重建=删光时兜底防闪
-        // 不在此时 load：等 onLayout 拿到真实尺寸后统一加载一次（避免重复 load 闪烁）
+        topBgLayer = l
+        addView(l.view) // 最后 add = 最顶层：原有背景镜像，图片/视频不覆盖它
         return l
     }
 
-    /** 内容层插入：index 0=最底；contentIndex 为内容层内相对位置（0=最底内容层），恒位于原有背景层之下 */
+    /** 底层兜底背景：index 0 = 最底层，删光/清空图片时兜底显示，防闪 */
+    private fun ensureBottomBg(): BgPrefabLayer {
+        bottomBgLayer?.let { return it }
+        val l = BgPrefabLayer(context)
+        bottomBgLayer = l
+        addView(l.view, 0)
+        return l
+    }
+
+    /** 内容层插入：contentIndex 为内容层内相对位置（0=最底内容层），+1 跳过底层兜底；顶层原有背景恒末尾 */
     private fun addContentLayer(layer: LayerView, contentIndex: Int) {
-        addView(layer.view, contentIndex)
+        addView(layer.view, contentIndex + 1)
     }
 
     /** 差异更新图层（bg 兜底层常驻不参与）：头部/尾部匹配的层原样保留（不重启视频/不重载图片），
      *  只释放被删的、创建新增的；中间段 ≥2 层或前缀为空时整建（保证 Z 序）。
      *  列表第 1 行(北)=最顶层，末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
     fun setLayers(items: List<String>) {
-        ensureBgLayer()
+        ensureBottomBg()
+        ensureTopBg()
         // 背景兜底层独立常驻 → 剩余内容层参与差异
         val contentItems = items.filter { it != WallpaperLayerType.PREFAB_BG }
         if (contentItems.isEmpty()) {
@@ -225,9 +237,10 @@ class WallpaperHost @JvmOverloads constructor(
 
     fun isEmpty(): Boolean = layers.isEmpty()
 
-    /** 背景图片预置层刷新（样式/日夜切换后调用）——bg 常驻兜底，独立于 layers */
+    /** 背景层刷新（顶层原有背景镜像 + 底层兜底；样式/日夜切换后调用） */
     fun refreshBgLayer() {
-        bgLayer?.load()
+        topBgLayer?.load()
+        bottomBgLayer?.load()
     }
 
     /** 图层视频声音开关（UI index 含 bg 占位 0 → layers 下标 index-1，即时生效） */
