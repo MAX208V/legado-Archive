@@ -2001,7 +2001,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         photoUri: android.net.Uri,
         photoFileName: String,
         bgDir: File
-    ): File? = withContext(kotlinx.coroutines.Dispatchers.IO) {
+    ): File? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
         runCatching {
             val base = photoFileName.substringBeforeLast('.').trim()
             if (base.isBlank()) return@runCatching null
