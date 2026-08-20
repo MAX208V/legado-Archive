@@ -145,7 +145,7 @@ class WallpaperHost @JvmOverloads constructor(
         val l = BgPrefabLayer(context)
         bgLayer = l
         addView(l.view, childCount) // Legado 原有背景恒最上层：图片层在其下(不覆盖)；常驻不重建=删光时兜底防闪
-        l.load()
+        // 不在此时 load：等 onLayout 拿到真实尺寸后统一加载一次（避免重复 load 闪烁）
         return l
     }
 
