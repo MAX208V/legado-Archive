@@ -144,9 +144,14 @@ class WallpaperHost @JvmOverloads constructor(
         bgLayer?.let { return it }
         val l = BgPrefabLayer(context)
         bgLayer = l
-        addView(l.view, 0)
+        addView(l.view, childCount) // bg=列表第1行(最顶) → 渲染最上层；内容层一律插其前
         l.load()
         return l
+    }
+
+    /** 内容层插入：整建时恒插 bg 之前（childCount-1 = 末尾前） */
+    private fun addContentLayer(layer: LayerView, targetIndex: Int) {
+        addView(layer.view, kotlin.math.min(targetIndex, (childCount - 1).coerceAtLeast(0)))
     }
 
     /** 差异更新图层（bg 兜底层常驻不参与）：头部/尾部匹配的层原样保留（不重启视频/不重载图片），
@@ -168,7 +173,7 @@ class WallpaperHost @JvmOverloads constructor(
             contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
-                addView(layer.view, childCount)
+                addContentLayer(layer, layers.size)
                 layer.load()
             }
             return
@@ -198,7 +203,7 @@ class WallpaperHost @JvmOverloads constructor(
             contentItems.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
-                addView(layer.view, childCount)
+                addContentLayer(layer, layers.size)
                 layer.load()
             }
             return
@@ -211,7 +216,7 @@ class WallpaperHost @JvmOverloads constructor(
         for (idx in prefix until contentItems.size - suffix) {
             val layer = createLayer(contentItems[idx]) ?: continue
             layers.add(idx, layer)
-            addView(layer.view, kotlin.math.min(contentItems.size - 1 - idx, childCount))
+            addContentLayer(layer, contentItems.size - 1 - idx)
             layer.load()
         }
     }
@@ -309,6 +314,8 @@ class WallpaperHost @JvmOverloads constructor(
                 )
             }.getOrNull()
             view.setImageDrawable(d)
+            // 壁纸图层启用时背景半透明，让壁纸图层透出（原有背景观感不消失）
+            view.alpha = if (ReadBookConfig.durConfig.wallpaperLayersEnabled) 0.45f else 1f
         }
 
         override fun release() {
