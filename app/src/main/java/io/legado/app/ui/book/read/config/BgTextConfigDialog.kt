@@ -624,7 +624,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         // ≡ 拖动手柄（长按拖动排序）
                         RotationEntryDragHandle(
                             onMoveBy = { delta ->
-                                moveRotationEntryVis(entries, visIndex, delta, onChanged)
+                                moveRotationEntryVis(entries, entry, delta, onChanged)
                             }
                         )
 
@@ -692,10 +692,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         )
     }
 
-    /** 轮换列表拖动：在「可见项」之间移动（关闭来源开关的项不参与排序） */
+    /** 轮换列表拖动：按「正在拖动的项」实时定位（拖动触发重组后 visIndex 过期 → 按 entry 查找避免越界） */
     private fun moveRotationEntryVis(
         entries: MutableList<String>,
-        visIndex: Int,
+        entry: String,
         delta: Int,
         onChanged: (ArrayList<String>) -> Unit
     ) {
@@ -706,15 +706,16 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             )
         }
         if (visible.size <= 1) return
-        val targetVis = visIndex + delta
-        if (targetVis !in visible.indices) return
-        val moving = visible[visIndex]
+        val from = visible.indexOf(entry)
+        if (from < 0) return
+        val target = from + delta
+        if (target !in visible.indices) return
         val mutable = entries.toMutableList()
-        mutable.remove(moving)
-        val target = visible[targetVis]
-        val insertAt = mutable.indexOf(target)
+        mutable.remove(entry)
+        val anchor = visible[target]
+        val insertAt = mutable.indexOf(anchor)
         if (insertAt < 0) return
-        mutable.add(if (targetVis < visIndex) insertAt else insertAt + 1, moving)
+        mutable.add(if (target < from) insertAt else insertAt + 1, entry)
         onChanged(ArrayList(mutable))
         ReadBookConfig.durConfig.wallpaperRotationImageList = ArrayList(mutable)
         postReadConfigChanged(9)
@@ -1718,7 +1719,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 // ≡ 拖动手柄（长按拖动排序，仅自定义层可拖；预置项恒底部）
                 if (!isPrefab) {
                     RotationEntryDragHandle(
-                        onMoveBy = { delta -> moveWallpaperLayerVis(visIndex, delta) }
+                        onMoveBy = { delta -> moveWallpaperLayerVis(entry, delta) }
                     )
                 } else {
                     Spacer(Modifier.width(44.dp))
@@ -1890,23 +1891,24 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         return list
     }
 
-    /** 图层拖动：在「可见项」之间移动（隐藏项不参与排序） */
-    private fun moveWallpaperLayerVis(visIndex: Int, delta: Int) {
+    /** 图层拖动：按「正在拖动的项」实时定位（拖动触发界面重组后 visIndex 会过期 → 必须按 entry 查找，避免越界崩溃） */
+    private fun moveWallpaperLayerVis(entry: String, delta: Int) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
         val prefs = requireContext().defaultSharedPreferences
         val visible = list.filter {
             !it.isWallpaperPrefab() && ReadBookConfig.layerSourceEnabled(it, prefs)
         }
         if (visible.size <= 1) return
-        val targetVis = visIndex + delta
-        if (targetVis !in visible.indices) return
-        val moving = visible[visIndex]
+        val from = visible.indexOf(entry)
+        if (from < 0) return
+        val target = from + delta
+        if (target !in visible.indices) return
         val mutable = list.toMutableList()
-        mutable.remove(moving)
-        val target = visible[targetVis]
-        val insertAt = mutable.indexOf(target)
+        mutable.remove(entry)
+        val anchor = visible[target]
+        val insertAt = mutable.indexOf(anchor)
         if (insertAt < 0) return
-        mutable.add(if (targetVis < visIndex) insertAt else insertAt + 1, moving)
+        mutable.add(if (target < from) insertAt else insertAt + 1, entry)
         ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
         applyWallpaperLayers()
     }
