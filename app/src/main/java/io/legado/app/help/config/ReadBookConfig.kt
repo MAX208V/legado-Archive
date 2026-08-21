@@ -819,13 +819,31 @@ object ReadBookConfig {
         // PAG叠加动画
         var pagOverlayPath: String = "",
         var pagOverlayEnabled: Boolean = false,
-        // URL 图层自动刷新（默认关闭；用户通过长按刷新按钮设置间隔后启用）
-        var urlRefreshIntervalMs: Long = 0L,
-        var lastUrlRefreshTime: Long = 0L
+        // URL 图层自动刷新（按条目独立存储刷新间隔与上次刷新时间）
+        var urlRefreshIntervals: HashMap<String, Long> = hashMapOf(),
+        var urlRefreshTimes: HashMap<String, Long> = hashMapOf()
     ) {
 
         @Transient
         private var textColorIntEInk = -1
+
+        /** 获取某条目的自动刷新间隔（毫秒）；0 = 该条目未启用自动刷新 */
+        fun getEntryRefreshInterval(entry: String): Long =
+            urlRefreshIntervals[entry] ?: 0L
+
+        /** 设置某条目的自动刷新间隔 */
+        fun setEntryRefreshInterval(entry: String, intervalMs: Long) {
+            urlRefreshIntervals[entry] = intervalMs
+        }
+
+        /** 获取某条目上次刷新时间戳；0 = 从未刷新 */
+        fun getEntryRefreshTime(entry: String): Long =
+            urlRefreshTimes[entry] ?: 0L
+
+        /** 设置某条目上次刷新时间戳 */
+        fun setEntryRefreshTime(entry: String, timeMs: Long) {
+            urlRefreshTimes[entry] = timeMs
+        }
 
         @Transient
         private var textColorIntNight = -1

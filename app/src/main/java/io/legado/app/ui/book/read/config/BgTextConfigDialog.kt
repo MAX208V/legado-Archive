@@ -158,6 +158,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private var presetBgImages by mutableStateOf<List<String>>(emptyList())
     private var refreshTick by mutableIntStateOf(0)
     private val showRefreshIntervalDialog = mutableStateOf(false)
+    private val refreshIntervalEntryKey = mutableStateOf("")
     private var pendingSelfConfigEvents = 0
 
     private val selectBgImage = registerForActivityResult(HandleFileContract()) {
@@ -454,14 +455,16 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             }
         }
 
-        // 长按刷新按钮 → 设置自动刷新间隔
+        // 长按刷新按钮 → 设置自动刷新间隔（按条目独立存储）
         if (showRefreshIntervalDialog.value) {
+            val entryKey = refreshIntervalEntryKey.value
             RefreshIntervalPicker(
-                currentMs = ReadBookConfig.durConfig.urlRefreshIntervalMs,
+                currentMs = ReadBookConfig.durConfig.getEntryRefreshInterval(entryKey),
+                entryKey = entryKey,
                 style = style,
                 onDismiss = { showRefreshIntervalDialog.value = false },
                 onConfirm = { newMs ->
-                    ReadBookConfig.durConfig.urlRefreshIntervalMs = newMs
+                    ReadBookConfig.durConfig.setEntryRefreshInterval(entryKey, newMs)
                     showRefreshIntervalDialog.value = false
                 }
             )
@@ -636,7 +639,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                             refreshing = true
                                             refreshUrlEntry(ctx, entry)
                                         },
-                                        onLongClick = { showRefreshIntervalDialog.value = true }
+                                        onLongClick = {
+                                            refreshIntervalEntryKey.value = entry
+                                            showRefreshIntervalDialog.value = true
+                                        }
                                     ),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -1593,14 +1599,16 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             }
         }
 
-        // 长按刷新按钮 → 设置自动刷新间隔
+        // 长按刷新按钮 → 设置自动刷新间隔（按条目独立存储）
         if (showRefreshIntervalDialog.value) {
+            val entryKey = refreshIntervalEntryKey.value
             RefreshIntervalPicker(
-                currentMs = ReadBookConfig.durConfig.urlRefreshIntervalMs,
+                currentMs = ReadBookConfig.durConfig.getEntryRefreshInterval(entryKey),
+                entryKey = entryKey,
                 style = style,
                 onDismiss = { showRefreshIntervalDialog.value = false },
                 onConfirm = { newMs ->
-                    ReadBookConfig.durConfig.urlRefreshIntervalMs = newMs
+                    ReadBookConfig.durConfig.setEntryRefreshInterval(entryKey, newMs)
                     showRefreshIntervalDialog.value = false
                 }
             )
@@ -1792,7 +1800,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                     refreshing = true
                                     refreshUrlLayer(ctx, entry)
                                 },
-                                onLongClick = { showRefreshIntervalDialog.value = true }
+                                onLongClick = {
+                                    refreshIntervalEntryKey.value = entry
+                                    showRefreshIntervalDialog.value = true
+                                }
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -1967,6 +1978,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     @Composable
     private fun RefreshIntervalPicker(
         currentMs: Long,
+        entryKey: String,
         style: AppDialogStyle,
         onDismiss: () -> Unit,
         onConfirm: (Long) -> Unit
@@ -2057,6 +2069,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             withContext(Dispatchers.IO) {
                 com.bumptech.glide.Glide.get(context).clearDiskCache()
             }
+            // 按条目记录刷新时间
+            ReadBookConfig.durConfig.setEntryRefreshTime(entry, System.currentTimeMillis())
             // 通知宿主 Activity 重启轮换 Job（含刚刷新的 URL）
             (requireActivity() as? io.legado.app.ui.book.read.ReadBookActivity)
                 ?.startWallpaperRotation()
@@ -2073,7 +2087,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 com.bumptech.glide.Glide.get(context).clearDiskCache()
             }
             applyWallpaperLayers()
-            ReadBookConfig.durConfig.lastUrlRefreshTime = System.currentTimeMillis()
+            // 按条目记录刷新时间
+            ReadBookConfig.durConfig.setEntryRefreshTime(entry, System.currentTimeMillis())
             context.toastOnUi("URL 图层已刷新")
         }
     }

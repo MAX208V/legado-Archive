@@ -764,20 +764,24 @@ class ReadBookActivity : BaseReadBookActivity(),
     private fun checkAndRefreshUrlLayers() {
         val config = ReadBookConfig.durConfig
         val now = System.currentTimeMillis()
-        if (config.urlRefreshIntervalMs <= 0) return
-        if (config.lastUrlRefreshTime > 0 && (now - config.lastUrlRefreshTime) < config.urlRefreshIntervalMs) return
-        // 超时：刷新所有 URL 类型条目
+        // 收集所有 URL 类型条目（轮换列表 + 壁纸图层）
         val urls = mutableListOf<String>()
-        // 轮换列表中的 URL 条目
         config.wallpaperRotationImageList.filter { it.startsWith("http") }.forEach { urls.add(it) }
-        // 壁纸图层中的 URL 条目
         config.wallpaperLayerItems.filter {
             val item = io.legado.app.ui.book.read.page.WallpaperItem.fromJson(it)
             item?.type == io.legado.app.ui.book.read.page.WallpaperLayerType.URL_IMAGE ||
                 item?.type == io.legado.app.ui.book.read.page.WallpaperLayerType.URL_RESOLVE
         }.forEach { urls.add(it) }
         if (urls.isEmpty()) return
-        config.lastUrlRefreshTime = now
+        // 按条目独立检查：仅刷新已超时的条目
+        val overdue = urls.filter { url ->
+            val interval = config.getEntryRefreshInterval(url)
+            interval > 0 && (config.getEntryRefreshTime(url) == 0L ||
+                (now - config.getEntryRefreshTime(url)) >= interval)
+        }
+        if (overdue.isEmpty()) return
+        // 记录本次刷新时间（仅更新超时条目）
+        overdue.forEach { config.setEntryRefreshTime(it, now) }
         // 后台清 Glide 缓存（不阻塞 UI）
         lifecycleScope.launch {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
