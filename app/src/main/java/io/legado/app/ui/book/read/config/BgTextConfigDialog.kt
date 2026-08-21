@@ -1753,7 +1753,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                             .clickable(enabled = !refreshing) {
                                 refreshing = true
                                 // ctx 已在 itemsForEach 顶部通过 LocalContext.current 获取
-                                refreshUrlLayer(ctx, entry)
+                                refreshUrlLayer(androidx.compose.ui.platform.LocalContext.current, entry)
                             },
                         contentAlignment = Alignment.Center
                     ) {
