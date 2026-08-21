@@ -819,8 +819,8 @@ object ReadBookConfig {
         // PAG叠加动画
         var pagOverlayPath: String = "",
         var pagOverlayEnabled: Boolean = false,
-        // URL 图层自动刷新（默认 1 天 = 86400000ms）
-        var urlRefreshIntervalMs: Long = 86400000L,
+        // URL 图层自动刷新（默认关闭；用户通过长按刷新按钮设置间隔后启用）
+        var urlRefreshIntervalMs: Long = 0L,
         var lastUrlRefreshTime: Long = 0L
     ) {
 
