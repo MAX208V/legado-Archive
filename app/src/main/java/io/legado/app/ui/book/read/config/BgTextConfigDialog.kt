@@ -390,7 +390,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "选择自定义壁纸",
                 count = entries.count { it.startsWith("custom:") },
                 style = style,
-                onSourceToggled = { refreshDialog() },
+                onSourceToggled = { refreshTick++ },
                 onClick = { addCustomWallpaper(entries) { entries = it } }
             )
             RotationSourceRow(
@@ -399,7 +399,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "添加样式壁纸",
                 count = entries.count { it.startsWith("style:") },
                 style = style,
-                onSourceToggled = { refreshDialog() },
+                onSourceToggled = { refreshTick++ },
                 onClick = { addStyleWallpaper(entries) { entries = it } }
             )
             RotationSourceRow(
@@ -409,7 +409,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 count = entries.count { it.startsWith("asset:") || !it.contains(":") },
                 total = presetImages.size,
                 style = style,
-                onSourceToggled = { refreshDialog() },
+                onSourceToggled = { refreshTick++ },
                 onClick = { showBuiltinWallpaperDialog(presetImages, entries) { entries = it } }
             )
             RotationSourceRow(
@@ -418,7 +418,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "选择PAG主题",
                 count = entries.count { it.startsWith("pagtheme:") },
                 style = style,
-                onSourceToggled = { refreshDialog() },
+                onSourceToggled = { refreshTick++ },
                 onClick = { selectPagThemeRoot() }
             )
             RotationSourceRow(
@@ -427,7 +427,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "添加视频壁纸",
                 count = entries.count { it.startsWith("video:") },
                 style = style,
-                onSourceToggled = { refreshDialog() },
+                onSourceToggled = { refreshTick++ },
                 onClick = { selectRotationVideo.launch {
                     mode = HandleFileContract.VIDEO
                     title = getString(R.string.select_video)
@@ -439,7 +439,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "添加URL壁纸",
                 count = entries.count { it.startsWith("http") },
                 style = style,
-                onSourceToggled = { refreshDialog() },
+                onSourceToggled = { refreshTick++ },
                 onClick = { showAddRotationUrlDialog(entries) { entries = it } }
             )
 
@@ -1752,7 +1752,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                             .clip(RoundedCornerShape(6.dp))
                             .clickable(enabled = !refreshing) {
                                 refreshing = true
-                                refreshUrlLayer(ctx, entry)
+                                refreshUrlLayer(LocalContext.current, entry)
                             },
                         contentAlignment = Alignment.Center
                     ) {
