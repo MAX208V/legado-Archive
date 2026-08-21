@@ -132,6 +132,12 @@ import java.io.FileOutputStream
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import splitties.init.appCtx
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class BgTextConfigDialog : BaseDialogFragment(0) {
 
@@ -383,6 +389,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "选择自定义壁纸",
                 count = entries.count { it.startsWith("custom:") },
                 style = style,
+                onSourceToggled = { refreshDialog() },
                 onClick = { addCustomWallpaper(entries) { entries = it } }
             )
             RotationSourceRow(
@@ -391,6 +398,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "添加样式壁纸",
                 count = entries.count { it.startsWith("style:") },
                 style = style,
+                onSourceToggled = { refreshDialog() },
                 onClick = { addStyleWallpaper(entries) { entries = it } }
             )
             RotationSourceRow(
@@ -400,6 +408,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 count = entries.count { it.startsWith("asset:") || !it.contains(":") },
                 total = presetImages.size,
                 style = style,
+                onSourceToggled = { refreshDialog() },
                 onClick = { showBuiltinWallpaperDialog(presetImages, entries) { entries = it } }
             )
             RotationSourceRow(
@@ -408,6 +417,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "选择PAG主题",
                 count = entries.count { it.startsWith("pagtheme:") },
                 style = style,
+                onSourceToggled = { refreshDialog() },
                 onClick = { selectPagThemeRoot() }
             )
             RotationSourceRow(
@@ -416,6 +426,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "添加视频壁纸",
                 count = entries.count { it.startsWith("video:") },
                 style = style,
+                onSourceToggled = { refreshDialog() },
                 onClick = { selectRotationVideo.launch {
                     mode = HandleFileContract.VIDEO
                     title = getString(R.string.select_video)
@@ -427,6 +438,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 text = "添加URL壁纸",
                 count = entries.count { it.startsWith("http") },
                 style = style,
+                onSourceToggled = { refreshDialog() },
                 onClick = { showAddRotationUrlDialog(entries) { entries = it } }
             )
 
@@ -585,6 +597,35 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                             ReadBookConfig.ROTATION_MODE_NIGHT -> "🌙"
                             ReadBookConfig.ROTATION_MODE_ALL -> "🌓"
                             else -> "☀️"
+                        }
+                        // URL 刷新按钮（仅 URL 类型条目显示；点击立即重新下载）
+                        val isUrlEntry = pureEntry.startsWith("http")
+                        if (isUrlEntry) {
+                            var refreshing by rememberSaveable(entry) { mutableStateOf(false) }
+                            val rotation by animateFloatAsState(
+                                targetValue = if (refreshing) 360f else 0f,
+                                animationSpec = tween(durationMillis = 1200, easing = LinearEasing),
+                                finishedListener = { if (refreshing) refreshing = false }
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable(enabled = !refreshing) {
+                                        refreshing = true
+                                        refreshUrlEntry(ctx, entry)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_refresh_white_24dp),
+                                    contentDescription = "刷新URL",
+                                    tint = style.secondaryText,
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .graphicsLayer { rotationZ = rotation }
+                                )
+                            }
                         }
                         Box(
                             modifier = Modifier
@@ -1696,6 +1737,34 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     ReadBookConfig.ROTATION_MODE_NIGHT -> "🌙"
                     else -> "🌓"
                 }
+                // URL 刷新按钮（仅 URL 类型图层显示）
+                if (item?.type == WallpaperLayerType.URL_IMAGE || item?.type == WallpaperLayerType.URL_RESOLVE) {
+                    var refreshing by rememberSaveable(entry) { mutableStateOf(false) }
+                    val rotation by animateFloatAsState(
+                        targetValue = if (refreshing) 360f else 0f,
+                        animationSpec = tween(durationMillis = 1200, easing = LinearEasing),
+                        finishedListener = { if (refreshing) refreshing = false }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable(enabled = !refreshing) {
+                                refreshing = true
+                                refreshUrlLayer(ctx, entry)
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_refresh_white_24dp),
+                            contentDescription = "刷新URL",
+                            tint = style.secondaryText,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .graphicsLayer { rotationZ = rotation }
+                        )
+                    }
+                }
                 Box(
                     modifier = Modifier
                         .size(30.dp)
@@ -1849,6 +1918,36 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     previewLayerImagePath(item.src, null, item.typeLabel())
                 }
             }
+        }
+    }
+
+
+    /** 刷新轮换列表中 URL 条目：清 Glide 磁盘缓存 → 重新 applyRotationEntry → 重启轮换 Job */
+    private fun refreshUrlEntry(context: android.content.Context, entry: String) {
+        val pureEntry = ReadBookConfig.parseRotationEntry(entry).first
+        if (!pureEntry.startsWith("http")) return
+        // 清 Glide 磁盘+内存缓存（针对该 URL）
+        context.mainScope.launch {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.bumptech.glide.Glide.get(context).clearDiskCache()
+            }
+            // 重启轮换 Job → 立即切换到下一张（含刚刷新的 URL）
+            startWallpaperRotation()
+            context.toastOnUi("URL 壁纸已刷新")
+        }
+    }
+
+    /** 刷新壁纸图层中 URL 图层：清 Glide 缓存 → applyWallpaperLayers → 重新渲染 */
+    private fun refreshUrlLayer(context: android.content.Context, entry: String) {
+        val item = WallpaperItem.fromJson(entry) ?: return
+        if (item.type != WallpaperLayerType.URL_IMAGE && item.type != WallpaperLayerType.URL_RESOLVE) return
+        context.mainScope.launch {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.bumptech.glide.Glide.get(context).clearDiskCache()
+            }
+            applyWallpaperLayers()
+            ReadBookConfig.durConfig.lastUrlRefreshTime = System.currentTimeMillis()
+            context.toastOnUi("URL 图层已刷新")
         }
     }
 

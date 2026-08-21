@@ -818,7 +818,10 @@ object ReadBookConfig {
         var wallpaperLayerItems: ArrayList<String> = arrayListOf(),
         // PAG叠加动画
         var pagOverlayPath: String = "",
-        var pagOverlayEnabled: Boolean = false
+        var pagOverlayEnabled: Boolean = false,
+        // URL 图层自动刷新（默认 1 天 = 86400000ms）
+        var urlRefreshIntervalMs: Long = 86400000L,
+        var lastUrlRefreshTime: Long = 0L
     ) {
 
         @Transient

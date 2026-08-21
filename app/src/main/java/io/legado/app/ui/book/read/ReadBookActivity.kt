@@ -756,7 +756,38 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         startWallpaperRotation()
         wallpaperHost?.onActivityStart()
+        // URL 图层自动刷新：进入阅读页检查距上次刷新是否超过间隔
+        checkAndRefreshUrlLayers()
     }
+
+    /** 检查 URL 图层是否超时，超时则自动刷新所有 URL 类型条目 */
+    private fun checkAndRefreshUrlLayers() {
+        val config = ReadBookConfig.durConfig
+        val now = System.currentTimeMillis()
+        if (config.urlRefreshIntervalMs <= 0) return
+        if (config.lastUrlRefreshTime > 0 && (now - config.lastUrlRefreshTime) < config.urlRefreshIntervalMs) return
+        // 超时：刷新所有 URL 类型条目
+        val urls = mutableListOf<String>()
+        // 轮换列表中的 URL 条目
+        config.wallpaperRotationImageList.filter { it.startsWith("http") }.forEach { urls.add(it) }
+        // 壁纸图层中的 URL 条目
+        config.wallpaperLayerItems.filter {
+            val item = io.legado.app.ui.book.read.page.WallpaperItem.fromJson(it)
+            item?.type == io.legado.app.ui.book.read.page.WallpaperLayerType.URL_IMAGE ||
+                item?.type == io.legado.app.ui.book.read.page.WallpaperLayerType.URL_RESOLVE
+        }.forEach { urls.add(it) }
+        if (urls.isEmpty()) return
+        config.lastUrlRefreshTime = now
+        // 后台清 Glide 缓存（不阻塞 UI）
+        lifecycleScope.launch {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.bumptech.glide.Glide.get(applicationContext).clearDiskCache()
+            }
+            // 重新渲染轮换/图层
+            startWallpaperRotation()
+            applyWallpaperLayers()
+            toastOnUi("URL 壁纸已自动刷新")
+        }
 
     override fun onPause() {
         super.onPause()
