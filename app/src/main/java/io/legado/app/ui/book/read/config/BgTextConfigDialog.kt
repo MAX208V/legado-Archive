@@ -1499,15 +1499,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val prefs = ctx.defaultSharedPreferences
+                var visCount = 0
                 Text(
                     text = "图层顺序：列表底部=最底层，顶部=最上层（↑ ↓ 调整，✕ 删除；背景/轮换为预置项）",
                     color = style.secondaryText,
                     fontSize = 11.sp,
                     modifier = Modifier.padding(start = 6.dp, top = 4.dp)
                 )
-            val ctx = androidx.compose.ui.platform.LocalContext.current
-            val prefs = ctx.defaultSharedPreferences
-            var visCount = 0
                 items.forEachIndexed { index, entry ->
                     if (!entry.isWallpaperPrefab() &&
                         !ReadBookConfig.layerSourceEnabled(entry, prefs)
@@ -1752,7 +1752,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                             .clip(RoundedCornerShape(6.dp))
                             .clickable(enabled = !refreshing) {
                                 refreshing = true
-                                refreshUrlLayer(LocalContext.current, entry)
+                                // ctx 已在 itemsForEach 顶部通过 LocalContext.current 获取
+                                refreshUrlLayer(ctx, entry)
                             },
                         contentAlignment = Alignment.Center
                     ) {
