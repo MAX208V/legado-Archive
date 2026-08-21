@@ -141,6 +141,7 @@ class WallpaperHost @JvmOverloads constructor(
             firstLayoutDone = true
             topBgLayer?.load()
             bottomBgLayer?.load()
+            syncTopBgAlpha()
             refreshRotationLayer()
         }
     }
@@ -154,8 +155,15 @@ class WallpaperHost @JvmOverloads constructor(
         val l = BgPrefabLayer(context)
         topBgLayer = l
         addView(l.view) // 最后 add = 最顶层：原有背景镜像，图片/视频不覆盖它
-        l.load() // load 幂等（同尺寸同背景跳过）→ 立即加载，保证顶层镜像必然显示
+        l.load() // load 幂等（同尺寸同背景跳过）→ 立即加载，保证底层镜像必然显示；
+        // alpha 由 syncTopBgAlpha() 根据 wallpaperLayersEnabled 状态统一管理
         return l
+    }
+
+    /** 同步 topBgLayer 透明度：壁纸图层启用时完全透明（让内容层透出），否则不透明 */
+    private fun syncTopBgAlpha() {
+        val on = ReadBookConfig.durConfig.wallpaperLayersEnabled
+        topBgLayer?.view?.alpha = if (on) 0f else 1f
     }
 
     /** 底层兜底背景：index 0 = 最底层，删光/清空图片时兜底显示，防闪 */
@@ -187,6 +195,7 @@ class WallpaperHost @JvmOverloads constructor(
         ensureBottomBg()
         ensureContainer()
         ensureTopBg()
+        syncTopBgAlpha()
         // 背景兜底层独立常驻 → 剩余内容层参与差异
         val contentItems = items.filter { it != WallpaperLayerType.PREFAB_BG }
         if (contentItems.isEmpty()) {
@@ -347,7 +356,7 @@ class WallpaperHost @JvmOverloads constructor(
                 )
             }.getOrNull()
             view.setImageDrawable(d)
-            view.alpha = 1f // 原有背景清晰不透明，渲染最上层
+            // alpha 由 syncTopBgAlpha() 统一管理，不在这里硬设
         }
         private var loadedKey: String? = null
 
