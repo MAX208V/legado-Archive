@@ -788,6 +788,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             applyWallpaperLayers()
             toastOnUi("URL 壁纸已自动刷新")
         }
+    }
 
     override fun onPause() {
         super.onPause()
