@@ -160,7 +160,15 @@ class WallpaperHost @JvmOverloads constructor(
         return l
     }
 
-    /** 同步 topBgLayer 透明度：壁纸图层启用时完全透明（让内容层透出），否则不透明 */
+    /**
+     * 同步 topBgLayer 透明度：
+     * 壁纸图层启用时 → alpha=0（透明，让 RotationPrefabLayer / 自定义图层透出）；
+     * 壁纸图层禁用时 → alpha=1（兜底显示原有背景，防闪烁）。
+     *
+     * 设计理念：壁纸轮换 = 新壁纸覆盖旧壁纸，壁纸图层 = 只加 z-order。
+     * BgPrefabLayer 是"Legado 原有背景复制品"，不直接参与壁纸渲染——
+     * 真正的壁纸由 RotationPrefabLayer（轮换条目）和自定义图层绘制。
+     */
     private fun syncTopBgAlpha() {
         val on = ReadBookConfig.durConfig.wallpaperLayersEnabled
         topBgLayer?.view?.alpha = if (on) 0f else 1f
