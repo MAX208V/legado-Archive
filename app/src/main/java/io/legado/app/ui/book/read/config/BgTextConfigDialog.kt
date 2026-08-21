@@ -2106,10 +2106,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun applyWallpaperLayers() {
         refreshTick++
         val act = activity as? ReadBookActivity ?: return
-        act.refreshWallpaperLayers()
-        // 重建图层后必须重启轮换 Job，否则新创建的 RotationPrefabLayer
-        // 读到 rotationCurrentEntry=null 导致轮换壁纸显示空白
+        // 先启动轮换（设置 rotationCurrentEntry），再重建图层，
+        // 这样新创建的 RotationPrefabLayer.load() 能读到正确的条目
         act.startWallpaperRotation()
+        act.refreshWallpaperLayers()
     }
 
     /** 规整图层列表：列表第 1 行(北)=顶, 末尾(南)=底。
