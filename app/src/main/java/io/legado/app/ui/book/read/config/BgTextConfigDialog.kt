@@ -157,6 +157,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private val importFormNet = "网络导入"
     private var presetBgImages by mutableStateOf<List<String>>(emptyList())
     private var refreshTick by mutableIntStateOf(0)
+    private val showRefreshIntervalDialog = mutableStateOf(false)
     private var pendingSelfConfigEvents = 0
 
     private val selectBgImage = registerForActivityResult(HandleFileContract()) {
@@ -355,7 +356,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         var entries by rememberSaveable(refreshTick) {
             mutableStateOf(ReadBookConfig.durConfig.wallpaperRotationImageList)
         }
-        val showRefreshIntervalDialog = remember { mutableStateOf(false) }
         val presetImages = remember { requireContext().assets.list("bg")?.toList().orEmpty() }
 
         ReaderSwitchRow(
@@ -1502,7 +1502,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             if (norm != raw) ReadBookConfig.durConfig.wallpaperLayerItems = norm
             mutableStateOf(norm)
         }
-        val showRefreshIntervalDialog = remember { mutableStateOf(false) }
         ReaderSwitchRow(
             title = "壁纸图层",
             checked = enabled,
@@ -1986,9 +1985,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
 
         AlertDialog(
             onDismissRequest = onDismiss,
-            containerColor = style.backgroundColor,
+            containerColor = style.surface,
             title = {
-                Text("URL 自动刷新间隔", color = style.textColor, fontSize = 18.sp)
+                Text("URL 自动刷新间隔", color = style.primaryText, fontSize = 18.sp)
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -2004,7 +2003,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(
-                                    if (selected == opt.ms) style.accentColor.copy(alpha = 0.15f)
+                                    if (selected == opt.ms) style.accent.copy(alpha = 0.15f)
                                     else Color.Transparent
                                 )
                                 .clickable { selected = opt.ms }
@@ -2017,7 +2016,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                     .clip(RoundedCornerShape(9.dp))
                                     .border(
                                         2.dp,
-                                        if (selected == opt.ms) style.accentColor else style.secondaryText.copy(alpha = 0.4f),
+                                        if (selected == opt.ms) style.accent else style.secondaryText.copy(alpha = 0.4f),
                                         RoundedCornerShape(9.dp)
                                     )
                                     .padding(3.dp)
@@ -2027,19 +2026,19 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                         modifier = Modifier
                                             .fillMaxSize()
                                             .clip(RoundedCornerShape(6.dp))
-                                            .background(style.accentColor)
+                                            .background(style.accent)
                                     )
                                 }
                             }
                             Spacer(Modifier.width(12.dp))
-                            Text(opt.label, color = style.textColor, fontSize = 15.sp)
+                            Text(opt.label, color = style.primaryText, fontSize = 15.sp)
                         }
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = { onConfirm(selected) }) {
-                    Text("确定", color = style.accentColor)
+                    Text("确定", color = style.accent)
                 }
             },
             dismissButton = {
