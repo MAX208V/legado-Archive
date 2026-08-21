@@ -138,6 +138,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.bumptech.glide.Glide
 
 class BgTextConfigDialog : BaseDialogFragment(0) {
 
