@@ -785,7 +785,7 @@ class ReadBookActivity : BaseReadBookActivity(),
             }
             // 重新渲染轮换/图层
             startWallpaperRotation()
-            applyWallpaperLayers()
+            refreshWallpaperLayers()
             toastOnUi("URL 壁纸已自动刷新")
         }
     }
