@@ -2571,6 +2571,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         if (needStyle) {
             readView.upStyle()
+            readView.upPageAnim()
             if (!needReload) {
                 readView.invalidateTextPage()
                 readView.submitRenderTask()
