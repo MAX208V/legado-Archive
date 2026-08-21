@@ -1922,17 +1922,17 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     }
 
 
-    /** 刷新轮换列表中 URL 条目：清 Glide 磁盘缓存 → 重新 applyRotationEntry → 重启轮换 Job */
+    /** 刷新轮换列表中 URL 条目：清 Glide 磁盘缓存 → 让轮换 Job 下轮切换时自动使用新内容 */
     private fun refreshUrlEntry(context: android.content.Context, entry: String) {
         val pureEntry = ReadBookConfig.parseRotationEntry(entry).first
         if (!pureEntry.startsWith("http")) return
-        // 清 Glide 磁盘+内存缓存（针对该 URL）
-        context.mainScope.launch {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
                 com.bumptech.glide.Glide.get(context).clearDiskCache()
             }
-            // 重启轮换 Job → 立即切换到下一张（含刚刷新的 URL）
-            startWallpaperRotation()
+            // 通知宿主 Activity 重启轮换 Job（含刚刷新的 URL）
+            (requireActivity() as? io.legado.app.ui.book.read.ReadBookActivity)
+                ?.startWallpaperRotation()
             context.toastOnUi("URL 壁纸已刷新")
         }
     }
@@ -1941,8 +1941,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private fun refreshUrlLayer(context: android.content.Context, entry: String) {
         val item = WallpaperItem.fromJson(entry) ?: return
         if (item.type != WallpaperLayerType.URL_IMAGE && item.type != WallpaperLayerType.URL_RESOLVE) return
-        context.mainScope.launch {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
                 com.bumptech.glide.Glide.get(context).clearDiskCache()
             }
             applyWallpaperLayers()

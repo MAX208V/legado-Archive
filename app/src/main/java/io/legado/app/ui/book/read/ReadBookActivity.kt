@@ -5412,7 +5412,7 @@ class ReadBookActivity : BaseReadBookActivity(),
 
     private var wallpaperRotationJob: Job? = null
 
-    private fun startWallpaperRotation() {
+    internal fun startWallpaperRotation() {
         stopWallpaperRotation()
         val config = ReadBookConfig.durConfig
         if (!config.wallpaperRotationEnabled || config.wallpaperRotationImageList.isEmpty()) {
