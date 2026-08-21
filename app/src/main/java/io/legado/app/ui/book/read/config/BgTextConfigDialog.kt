@@ -1664,6 +1664,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         style: AppDialogStyle,
         onDelete: () -> Unit
     ) {
+        val ctx = androidx.compose.ui.platform.LocalContext.current
         val isPrefab = entry.isWallpaperPrefab()
         val item = WallpaperItem.fromJson(entry)
         val label = when (entry) {
@@ -1753,7 +1754,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                             .clickable(enabled = !refreshing) {
                                 refreshing = true
                                 // ctx 已在 itemsForEach 顶部通过 LocalContext.current 获取
-                                refreshUrlLayer(androidx.compose.ui.platform.LocalContext.current, entry)
+                                refreshUrlLayer(ctx, entry)
                             },
                         contentAlignment = Alignment.Center
                     ) {
