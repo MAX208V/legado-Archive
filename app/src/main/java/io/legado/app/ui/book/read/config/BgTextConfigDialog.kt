@@ -1963,29 +1963,38 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         } else {
             WallpaperItem.fromJson(entry)?.margin ?: 0
         }
-        var value by mutableStateOf(cur)
-        // 用 Compose 渲染滑块
-        composeAlert("图片边距（上右下左统一）") {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(text = "${value}dp", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Slider(
-                    value = value.toFloat().coerceIn(0f, 100f),
-                    onValueChange = { value = it.roundToInt() },
-                    valueRange = 0f..100f,
-                    steps = 99
-                )
-            }
+        val context = requireContext()
+        val valueText = android.widget.TextView(context).apply {
+            text = "${cur}dp"
+            textSize = 16f
+            gravity = android.view.Gravity.CENTER
+        }
+        val seekBar = android.widget.SeekBar(context).apply {
+            max = 100
+            progress = cur
+            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(s: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
+                    valueText.text = "${p}dp"
+                }
+                override fun onStartTrackingTouch(s: android.widget.SeekBar?) {}
+                override fun onStopTrackingTouch(s: android.widget.SeekBar?) {}
+            })
+        }
+        val container = android.widget.LinearLayout(context).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(40, 24, 40, 24)
+            addView(valueText)
+            addView(seekBar)
+        }
+        alert("图片边距（上右下左统一）") {
+            customView { container }
             neutralButton("0") {
                 applyMargin(index, isBg, 0)
-                dismissDialog()
             }
-            positiveButton("确定") {
-                applyMargin(index, isBg, value)
-                dismissDialog()
+            okButton {
+                applyMargin(index, isBg, seekBar.progress)
             }
+            noButton()
         }
     }
 
