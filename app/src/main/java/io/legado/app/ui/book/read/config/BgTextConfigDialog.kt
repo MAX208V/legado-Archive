@@ -1586,7 +1586,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 )
                 var visCount = 0
                 items.forEachIndexed { index, entry ->
-                    if (entry.isWallpaperPrefab()) return@forEachIndexed // 预置项不显示在列表中
+                    // PREFAB_ROTATION 由轮换 Job 自动管理，不在列表中显示
+                    if (entry == WallpaperLayerType.PREFAB_ROTATION) return@forEachIndexed
                     if (!ReadBookConfig.layerSourceEnabled(entry, prefs)) {
                         return@forEachIndexed // 来源开关关闭：隐藏该图层项
                     }
@@ -2118,7 +2119,12 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         // 先启动轮换（设置 rotationCurrentEntry），再重建图层，
         // 这样新创建的 RotationPrefabLayer.load() 能读到正确的条目
         act.startWallpaperRotation()
-        act.refreshWallpaperLayers()
+        // 增量刷新：只更新列表项可见性，不销毁重建图层视图
+        act.wallpaperHost?.setLayers(
+            ReadBookConfig.durConfig.wallpaperLayerItems.filter {
+                ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
+            }
+        )
     }
 
     /** 规整图层列表：列表第 1 行(北)=顶, 末尾(南)=底。

@@ -4664,7 +4664,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         skipToSearch(searchResult)
     }
 
-    private var wallpaperHost: WallpaperHost? = null
+    internal var wallpaperHost: WallpaperHost? = null
     private var lastWallpaperOn: Boolean? = null // 壁纸开关状态缓存（页面背景透明化仅开关/主题变化时切换）
     private var lastNightTheme: Boolean? = null // 日夜主题缓存（主题切换时刷新原有背景层）
 

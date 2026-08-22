@@ -115,13 +115,23 @@ object ReadMenuButtonConfig {
     }
 
     private fun sanitizeRow(row: List<ButtonRef>): List<ButtonRef> {
-        return row.filter { ref ->
+        val filtered = row.filter { ref ->
             when (ref.type) {
                 TYPE_BUILTIN -> ref.id in Builtin.ids
                 TYPE_CUSTOM -> ref.id.toLongOrNull() != null
                 else -> false
             }
         }
+        // 确保 PADDING_CONFIG 在 NIGHT_THEME 左侧（兼容旧布局）
+        if (filtered.none { it.type == TYPE_BUILTIN && it.id == PADDING_CONFIG }) {
+            val nightIdx = filtered.indexOfFirst { it.type == TYPE_BUILTIN && it.id == NIGHT_THEME }
+            if (nightIdx >= 0) {
+                val mutable = filtered.toMutableList()
+                mutable.add(nightIdx, builtin(PADDING_CONFIG))
+                return mutable
+            }
+        }
+        return filtered
     }
 
     private fun ButtonLayout.isMisplacedAiDefault(): Boolean {
