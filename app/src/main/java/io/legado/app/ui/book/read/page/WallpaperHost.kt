@@ -40,19 +40,6 @@ object WallpaperLayerType {
     const val PREFAB_ROTATION = "__rotation__" // 轮换壁纸项（开启轮换时显示）
 }
 
-/**
- * 同步 topBgLayer 透明度：
- * - PREFAB_BG 在图层列表中 → alpha=1（显示 Legado 原有背景到最上层）
- * - 壁纸图层禁用 → alpha=1（兜底显示原有背景，防闪烁）
- * - 壁纸图层启用但无 PREFAB_BG → alpha=0（透出自定义图层）
- */
-private fun syncTopBgAlpha() {
-    val on = io.legado.app.help.config.ReadBookConfig.durConfig.wallpaperLayersEnabled
-    val hasBg = io.legado.app.help.config.ReadBookConfig.durConfig.wallpaperLayerItems
-        .contains(WallpaperLayerType.PREFAB_BG)
-    topBgLayer?.view?.alpha = if (!on || hasBg) 1f else 0f
-}
-
 fun String.isWallpaperPrefab(): Boolean =
     this == WallpaperLayerType.PREFAB_BG || this == WallpaperLayerType.PREFAB_ROTATION
 
@@ -181,7 +168,9 @@ class WallpaperHost @JvmOverloads constructor(
      */
     private fun syncTopBgAlpha() {
         val on = ReadBookConfig.durConfig.wallpaperLayersEnabled
-        topBgLayer?.view?.alpha = if (on) 0f else 1f
+        val hasBg = ReadBookConfig.durConfig.wallpaperLayerItems
+            .contains(WallpaperLayerType.PREFAB_BG)
+        topBgLayer?.view?.alpha = if (!on || hasBg) 1f else 0f
     }
 
     /** 底层兜底背景：index 0 = 最底层，删光/清空图片时兜底显示，防闪 */
