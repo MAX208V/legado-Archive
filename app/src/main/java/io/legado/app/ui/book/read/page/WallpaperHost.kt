@@ -55,7 +55,9 @@ data class WallpaperItem(
     /** 视频壁纸是否出声（默认静音） */
     val soundOn: Boolean = false,
     /** LivePhoto 伴生视频（本地文件路径）；普通图层为空字符串 */
-    val videoSrc: String = ""
+    val videoSrc: String = "",
+    /** 图片边距（dp，上右下左统一）；0 = 无边距铺满 */
+    val margin: Int = 0
 ) {
     fun toJson(): String = JSONObject()
         .put("type", type)
@@ -64,6 +66,7 @@ data class WallpaperItem(
         .put("mode", mode)
         .put("soundOn", soundOn)
         .put("videoSrc", videoSrc)
+        .put("margin", margin)
         .toString()
 
     /** 当前日夜模式是否显示该图层 */
@@ -92,7 +95,8 @@ data class WallpaperItem(
                 alpha = j.optInt("alpha", 255),
                 mode = j.optString("mode", ReadBookConfig.ROTATION_MODE_ALL),
                 soundOn = j.optBoolean("soundOn", false),
-                videoSrc = j.optString("videoSrc", "")
+                videoSrc = j.optString("videoSrc", ""),
+                margin = j.optInt("margin", 0)
             )
         }.getOrNull()
     }
@@ -282,7 +286,11 @@ class WallpaperHost @JvmOverloads constructor(
 
     private fun createLayer(entry: String): LayerView? {
         return when (entry) {
-            WallpaperLayerType.PREFAB_BG -> BgPrefabLayer(context)
+            WallpaperLayerType.PREFAB_BG -> {
+                val l = BgPrefabLayer(context)
+                l.applyMargin(ReadBookConfig.durConfig.wallpaperLayerBgMargin)
+                l
+            }
             WallpaperLayerType.PREFAB_ROTATION -> RotationPrefabLayer(context)
             else -> {
                 val item = WallpaperItem.fromJson(entry) ?: return null
@@ -314,6 +322,19 @@ class WallpaperHost @JvmOverloads constructor(
             scaleType = ImageView.ScaleType.CENTER_CROP
             isClickable = false
             isFocusable = false
+            // 初始化为 MATCH_PARENT + MarginLayoutParams，边距才能生效
+            layoutParams = android.view.ViewGroup.MarginLayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        /** 应用图片边距（上右下左统一） */
+        fun applyMargin(marginDp: Int) {
+            val px = (marginDp * context.resources.displayMetrics.density).toInt()
+            (view.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply {
+                setMargins(px, px, px, px)
+                view.layoutParams = this
+            }
         }
 
         override fun load() {
@@ -439,6 +460,14 @@ class WallpaperHost @JvmOverloads constructor(
             isClickable = false
             isFocusable = false
             alpha = item.alpha / 255f
+            // 初始化为 MATCH_PARENT + MarginLayoutParams，边距才能生效
+            layoutParams = android.view.ViewGroup.MarginLayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            // 图片边距（上右下左统一）
+            val px = (item.margin * context.resources.displayMetrics.density).toInt()
+            (layoutParams as android.view.ViewGroup.MarginLayoutParams).setMargins(px, px, px, px)
         }
 
         override fun load() {
@@ -516,6 +545,10 @@ class WallpaperHost @JvmOverloads constructor(
             isFocusable = false
             alpha = item.alpha / 255f
             surfaceTextureListener = this@VideoLayerView
+            layoutParams = android.view.ViewGroup.MarginLayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
 
         override fun load() {

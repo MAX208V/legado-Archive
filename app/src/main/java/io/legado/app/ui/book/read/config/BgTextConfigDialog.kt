@@ -1773,6 +1773,30 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         Text(soundIcon, fontSize = 13.sp)
                     }
                 }
+                // 图片边距按钮（仅图片类图层 + 默认背景显示；视频/LivePhoto 使用 alpha 控制）
+                val isImageType = isPrefab || item?.type == WallpaperLayerType.IMAGE ||
+                    item?.type == WallpaperLayerType.URL_IMAGE ||
+                    item?.type == WallpaperLayerType.URL_RESOLVE
+                if (isImageType) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { showWallpaperLayerMarginDialog(index) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val marginVal = if (isPrefab) {
+                            ReadBookConfig.durConfig.wallpaperLayerBgMargin
+                        } else {
+                            item?.margin ?: 0
+                        }
+                        Text(
+                            text = if (marginVal > 0) "📐${marginVal}" else "📐",
+                            fontSize = 13.sp,
+                            color = if (marginVal > 0) style.accent else style.secondaryText
+                        )
+                    }
+                }
                 // 白天/黑夜模式按钮（☀️→🌙→🌓 三态循环；预置项固定 🌓 不可改）
                 val mode = item?.mode ?: ReadBookConfig.ROTATION_MODE_ALL
                 val modeIcon = when (mode) {
@@ -1925,6 +1949,58 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
         val mutable = list.toMutableList()
         mutable[index] = item.copy(mode = next).toJson()
+        ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
+        applyWallpaperLayers()
+    }
+
+    /** 图片边距设置对话框（上右下左统一 margin，dp 单位） */
+    private fun showWallpaperLayerMarginDialog(index: Int) {
+        val list = ReadBookConfig.durConfig.wallpaperLayerItems
+        val entry = list.getOrNull(index) ?: return
+        val isBg = entry == WallpaperLayerType.PREFAB_BG
+        val cur = if (isBg) {
+            ReadBookConfig.durConfig.wallpaperLayerBgMargin
+        } else {
+            WallpaperItem.fromJson(entry)?.margin ?: 0
+        }
+        var value by mutableStateOf(cur)
+        // 用 Compose 渲染滑块
+        composeAlert("图片边距（上右下左统一）") {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(text = "${value}dp", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Slider(
+                    value = value.toFloat().coerceIn(0f, 100f),
+                    onValueChange = { value = it.roundToInt() },
+                    valueRange = 0f..100f,
+                    steps = 99
+                )
+            }
+            neutralButton("0") {
+                applyMargin(index, isBg, 0)
+                dismissDialog()
+            }
+            positiveButton("确定") {
+                applyMargin(index, isBg, value)
+                dismissDialog()
+            }
+        }
+    }
+
+    /** 应用边距值到图层 */
+    private fun applyMargin(index: Int, isBg: Boolean, margin: Int) {
+        if (isBg) {
+            ReadBookConfig.durConfig.wallpaperLayerBgMargin = margin
+            (activity as? ReadBookActivity)?.refreshWallpaperLayers()
+            return
+        }
+        val list = ReadBookConfig.durConfig.wallpaperLayerItems
+        val entry = list.getOrNull(index) ?: return
+        val item = WallpaperItem.fromJson(entry) ?: return
+        val mutable = list.toMutableList()
+        mutable[index] = item.copy(margin = margin).toJson()
         ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
         applyWallpaperLayers()
     }
@@ -2138,8 +2214,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         val bgEnabled = requireContext().defaultSharedPreferences
             .getBoolean(ReadBookConfig.PREF_LAYER_SOURCE_BG, false)
         if (bgEnabled) {
-            list.removeAll { it == WallpaperLayerType.PREFAB_BG }
-            list.add(0, WallpaperLayerType.PREFAB_BG)
+            // 仅在缺失时默认插入最顶层；已存在则保留用户拖动的当前位置（可拖动排序）
+            if (WallpaperLayerType.PREFAB_BG !in list) {
+                list.add(0, WallpaperLayerType.PREFAB_BG)
+            }
         } else {
             list.removeAll { it == WallpaperLayerType.PREFAB_BG }
         }
