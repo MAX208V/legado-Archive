@@ -850,6 +850,7 @@ class ReadMenu @JvmOverloads constructor(
         fun upSystemUiVisibility()
         fun onClickReadAloud()
         fun showHelp()
+        fun showPaddingConfig()
         fun showLogin()
         fun payAction()
         fun disableSource()

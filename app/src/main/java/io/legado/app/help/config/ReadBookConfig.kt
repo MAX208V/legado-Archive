@@ -182,6 +182,10 @@ object ReadBookConfig {
     /** 判断条目是否匹配当前模式（isNight：当前是否为黑夜模式） */
     /** 壁纸图层来源开关：关闭 → 该来源图层隐藏且不渲染（预置项恒显示） */
     fun layerSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
+        // PREFAB_BG / PREFAB_ROTATION 是纯字符串标记，非 JSON
+        if (entry == io.legado.app.ui.book.read.page.WallpaperLayerType.PREFAB_BG) {
+            return prefs.getBoolean(PREF_LAYER_SOURCE_BG, false)
+        }
         val item = io.legado.app.ui.book.read.page.WallpaperItem.fromJson(entry) ?: return true
         val key = when (item.type) {
             io.legado.app.ui.book.read.page.WallpaperLayerType.IMAGE,
@@ -189,7 +193,6 @@ object ReadBookConfig {
             io.legado.app.ui.book.read.page.WallpaperLayerType.VIDEO -> PREF_LAYER_SOURCE_VIDEO
             io.legado.app.ui.book.read.page.WallpaperLayerType.URL_IMAGE,
             io.legado.app.ui.book.read.page.WallpaperLayerType.URL_RESOLVE -> PREF_LAYER_SOURCE_URL
-            io.legado.app.ui.book.read.page.WallpaperLayerType.PREFAB_BG -> PREF_LAYER_SOURCE_BG
             else -> return true
         }
         return prefs.getBoolean(key, true)
