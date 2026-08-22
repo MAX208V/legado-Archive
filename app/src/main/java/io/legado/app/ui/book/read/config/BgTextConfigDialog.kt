@@ -1588,7 +1588,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 items.forEachIndexed { index, entry ->
                     // PREFAB_ROTATION 由轮换 Job 自动管理，不在列表中显示
                     if (entry == WallpaperLayerType.PREFAB_ROTATION) return@forEachIndexed
-                    if (!ReadBookConfig.layerSourceEnabled(entry, prefs)) {
+                    if (entry != WallpaperLayerType.PREFAB_BG &&
+                        !ReadBookConfig.layerSourceEnabled(entry, prefs)) {
                         return@forEachIndexed // 来源开关关闭：隐藏该图层项
                     }
                     val visIndex = visCount++
@@ -2119,11 +2120,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         // 先启动轮换（设置 rotationCurrentEntry），再重建图层，
         // 这样新创建的 RotationPrefabLayer.load() 能读到正确的条目
         act.startWallpaperRotation()
-        // 增量刷新：PREFAB_BG 直通到 setLayers（由 syncTopBgAlpha 控制显隐）
+        // PREFAB_BG 作为 content 层参与 setLayers，与其他图层一致
         act.wallpaperHost?.setLayers(
             ReadBookConfig.durConfig.wallpaperLayerItems.filter {
-                it == WallpaperLayerType.PREFAB_BG ||
-                    ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
+                ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
             }
         )
     }

@@ -110,8 +110,6 @@ class WallpaperHost @JvmOverloads constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val layers = mutableListOf<LayerView>()
     private val loadJobs = mutableListOf<Deferred<*>>()
-    /** 顶层：Legado 原有背景镜像（最上层，图片/视频不覆盖它） */
-    private var topBgLayer: BgPrefabLayer? = null
     /** 底层：兜底背景（最底层；删光/清空图片时兜底显示，防闪） */
     private var bottomBgLayer: BgPrefabLayer? = null
     /** 内容层容器：所有图片/视频/轮换层放这里——host 直接子节点固定为 3 个(底/容器/顶)，
@@ -136,9 +134,7 @@ class WallpaperHost @JvmOverloads constructor(
         super.onLayout(changed, left, top, right, bottom)
         if (changed && !firstLayoutDone && width > 0 && height > 0) {
             firstLayoutDone = true
-            topBgLayer?.load()
             bottomBgLayer?.load()
-            syncTopBgAlpha()
             refreshRotationLayer()
         }
     }
@@ -146,33 +142,6 @@ class WallpaperHost @JvmOverloads constructor(
     /** 差异更新图层：保留前缀未变化的层（不重启视频/不重载图片），只释放删除的、创建新增的。
      *  阅读页不再因单个图层增删而整页重建闪烁。
      *  列表第 1 行(北)=最顶层，末尾(南)=最底层；layers 与 items 同序（UI index ↔ setLayerSound 一致） */
-    /** 确保 Legado 原有背景兜底层存在（常驻最底，仅创建一次） */
-    private fun ensureTopBg(): BgPrefabLayer {
-        topBgLayer?.let { return it }
-        val l = BgPrefabLayer(context)
-        topBgLayer = l
-        addView(l.view) // 最后 add = 最顶层：原有背景镜像，图片/视频不覆盖它
-        l.load() // load 幂等（同尺寸同背景跳过）→ 立即加载，保证底层镜像必然显示；
-        // alpha 由 syncTopBgAlpha() 根据 wallpaperLayersEnabled 状态统一管理
-        return l
-    }
-
-    /**
-     * 同步 topBgLayer 透明度：
-     * 壁纸图层启用时 → alpha=0（透明，让 RotationPrefabLayer / 自定义图层透出）；
-     * 壁纸图层禁用时 → alpha=1（兜底显示原有背景，防闪烁）。
-     *
-     * 设计理念：壁纸轮换 = 新壁纸覆盖旧壁纸，壁纸图层 = 只加 z-order。
-     * BgPrefabLayer 是"Legado 原有背景复制品"，不直接参与壁纸渲染——
-     * 真正的壁纸由 RotationPrefabLayer（轮换条目）和自定义图层绘制。
-     */
-    private fun syncTopBgAlpha() {
-        val on = ReadBookConfig.durConfig.wallpaperLayersEnabled
-        val hasBg = ReadBookConfig.durConfig.wallpaperLayerItems
-            .contains(WallpaperLayerType.PREFAB_BG)
-        topBgLayer?.view?.alpha = if (!on || hasBg) 1f else 0f
-    }
-
     /** 底层兜底背景：index 0 = 最底层，删光/清空图片时兜底显示，防闪 */
     private fun ensureBottomBg(): BgPrefabLayer {
         bottomBgLayer?.let { return it }
@@ -201,21 +170,16 @@ class WallpaperHost @JvmOverloads constructor(
     fun setLayers(items: List<String>) {
         ensureBottomBg()
         ensureContainer()
-        // 背景兜底层独立常驻 → 剩余内容层参与差异
-        val contentItems = items.filter { it != WallpaperLayerType.PREFAB_BG }
-        if (contentItems.isEmpty()) {
+        if (items.isEmpty()) {
             while (layers.isNotEmpty()) {
                 val l = layers.removeAt(layers.size - 1)
                 contentContainer.removeView(l.view)
                 l.release()
             }
-            // PREFAB_BG 在列表中 → 在最上层显示 Legado 原有背景
-            ensureTopBg()
-            topBgLayer?.view?.alpha = if (WallpaperLayerType.PREFAB_BG in items) 1f else 0f
             return
         }
         if (layers.isEmpty()) {
-            contentItems.reversed().forEach { entry ->
+            items.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
                 addContentLayer(layer, layers.size - 1)
@@ -225,19 +189,19 @@ class WallpaperHost @JvmOverloads constructor(
         }
         // 尾部匹配（末尾增删常见 → 尾段保留）
         var suffix = 0
-        while (suffix < layers.size && suffix < contentItems.size &&
-            layers[layers.size - 1 - suffix].entry == contentItems[contentItems.size - 1 - suffix]
+        while (suffix < layers.size && suffix < items.size &&
+            layers[layers.size - 1 - suffix].entry == items[items.size - 1 - suffix]
         ) {
             suffix++
         }
         // 头部匹配
         var prefix = 0
-        while (prefix < layers.size - suffix && prefix < contentItems.size - suffix &&
-            layers[prefix].entry == contentItems[prefix]
+        while (prefix < layers.size - suffix && prefix < items.size - suffix &&
+            layers[prefix].entry == items[prefix]
         ) {
             prefix++
         }
-        val rebuildLen = (contentItems.size - suffix) - prefix
+        val rebuildLen = (items.size - suffix) - prefix
         // 前缀为空或中间段 ≥2：整建（增量插 Z 位不可靠）
         if (prefix == 0 || rebuildLen >= 2) {
             while (layers.isNotEmpty()) {
@@ -245,7 +209,7 @@ class WallpaperHost @JvmOverloads constructor(
                 contentContainer.removeView(l.view)
                 l.release()
             }
-            contentItems.reversed().forEach { entry ->
+            items.reversed().forEach { entry ->
                 val layer = createLayer(entry) ?: return@forEach
                 layers.add(0, layer)
                 addContentLayer(layer, layers.size - 1)
@@ -257,25 +221,24 @@ class WallpaperHost @JvmOverloads constructor(
         val mid = layers.subList(prefix, layers.size - suffix).toList()
         mid.forEach { contentContainer.removeView(it.view); it.release() }
         layers.removeAll(mid.toSet())
-        // 单层补齐；Z 位 = contentItems.size-1-idx（0 为最底），clamp 到当前 childCount 防越界
-        for (idx in prefix until contentItems.size - suffix) {
-            val layer = createLayer(contentItems[idx]) ?: continue
+        // 单层补齐；Z 位 = items.size-1-idx（0 为最底），clamp 到当前 childCount 防越界
+        for (idx in prefix until items.size - suffix) {
+            val layer = createLayer(items[idx]) ?: continue
             layers.add(idx, layer)
-            addContentLayer(layer, contentItems.size - 1 - idx)
+            addContentLayer(layer, items.size - 1 - idx)
             layer.load()
         }
-        // 同步 topBgLayer：PREFAB_BG 在列表中 → alpha=1 显示；不在 → alpha=0 透明
-        syncTopBgAlpha()
     }
 
     fun hasLayers(): Boolean = layers.isNotEmpty()
 
     fun isEmpty(): Boolean = layers.isEmpty()
 
-    /** 背景层刷新（顶层原有背景镜像 + 底层兜底；样式/日夜切换后调用） */
+    /** 背景层刷新（底层兜底 + 内容层中的 PREFAB_BG；样式/日夜切换后调用） */
     fun refreshBgLayer() {
-        topBgLayer?.load()
         bottomBgLayer?.load()
+        // 内容层中的 PREFAB_BG 需要重新加载（日夜切换/样式切换后）
+        layers.filter { it.entry == WallpaperLayerType.PREFAB_BG }.forEach { it.load() }
     }
 
     /** 图层视频声音开关（UI index 含 bg 占位 0 → layers 下标 index-1，即时生效） */
@@ -366,7 +329,7 @@ class WallpaperHost @JvmOverloads constructor(
                 )
             }.getOrNull()
             view.setImageDrawable(d)
-            // alpha 由 syncTopBgAlpha() 统一管理，不在这里硬设
+            // alpha 由 BgPrefabLayer 默认值管理（255 = 完全不透明）
         }
         private var loadedKey: String? = null
 
