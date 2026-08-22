@@ -1564,6 +1564,18 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     style = style,
                     onSourceToggled = { applyWallpaperLayers() }
                 ) { showAddWallpaperLayerUrlDialog() }
+                // --- 默认背景开关（开启时将 Legado 原有背景复制到最上层）---
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_LAYER_SOURCE_BG,
+                    icon = R.drawable.ic_cfg_theme,
+                    text = "添加默认背景（Legado 原有背景复制到最上层）",
+                    count = items.count {
+                        it == WallpaperLayerType.PREFAB_BG &&
+                            ReadBookConfig.layerSourceEnabled(it, prefs)
+                    },
+                    style = style,
+                    onSourceToggled = { applyWallpaperLayers() }
+                ) { /* 点击不动作，仅开关控制 */ }
                 Spacer(Modifier.height(4.dp))
                 // --- 图层列表（隐藏预置项，仅显示用户添加的图层）---
                 Text(
@@ -2058,7 +2070,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             // 通知宿主 Activity 重启轮换 Job（含刚刷新的 URL）
             (requireActivity() as? io.legado.app.ui.book.read.ReadBookActivity)
                 ?.startWallpaperRotation()
-            context.toastOnUi("URL 壁纸已刷新")
         }
     }
 
@@ -2073,7 +2084,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             applyWallpaperLayers()
             // 按条目记录刷新时间
             ReadBookConfig.durConfig.setEntryRefreshTime(entry, System.currentTimeMillis())
-            context.toastOnUi("URL 图层已刷新")
         }
     }
 
@@ -2117,8 +2127,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
      */
     private fun normalizeLayerItems(raw: ArrayList<String>): ArrayList<String> {
         val list = ArrayList(raw)
-        // PREFAB_BG 不再注入列表：Legado 原有背景由 WallpaperHost 始终渲染为透明兜底层
-        list.removeAll { it == WallpaperLayerType.PREFAB_BG }
+        // 默认背景：开关打开时注入 PREFAB_BG 到列表最上层（index 0），关闭时移除
+        val bgEnabled = requireContext().defaultSharedPreferences
+            .getBoolean(ReadBookConfig.PREF_LAYER_SOURCE_BG, false)
+        if (bgEnabled) {
+            list.removeAll { it == WallpaperLayerType.PREFAB_BG }
+            list.add(0, WallpaperLayerType.PREFAB_BG)
+        } else {
+            list.removeAll { it == WallpaperLayerType.PREFAB_BG }
+        }
         val rotationOn = ReadBookConfig.durConfig.wallpaperRotationEnabled
         if (rotationOn) {
             if (WallpaperLayerType.PREFAB_ROTATION !in list) {

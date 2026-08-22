@@ -143,6 +143,7 @@ object ReadBookConfig {
     const val PREF_LAYER_SOURCE_IMAGE = "pref_layer_source_image"
     const val PREF_LAYER_SOURCE_VIDEO = "pref_layer_source_video"
     const val PREF_LAYER_SOURCE_URL = "pref_layer_source_url"
+    const val PREF_LAYER_SOURCE_BG = "pref_layer_source_bg"
 
     /** 判断条目来源是否启用（来源开关） */
     fun rotationSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
@@ -188,6 +189,7 @@ object ReadBookConfig {
             io.legado.app.ui.book.read.page.WallpaperLayerType.VIDEO -> PREF_LAYER_SOURCE_VIDEO
             io.legado.app.ui.book.read.page.WallpaperLayerType.URL_IMAGE,
             io.legado.app.ui.book.read.page.WallpaperLayerType.URL_RESOLVE -> PREF_LAYER_SOURCE_URL
+            io.legado.app.ui.book.read.page.WallpaperLayerType.PREFAB_BG -> PREF_LAYER_SOURCE_BG
             else -> return true
         }
         return prefs.getBoolean(key, true)

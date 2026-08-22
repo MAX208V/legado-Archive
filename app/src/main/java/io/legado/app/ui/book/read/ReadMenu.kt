@@ -692,6 +692,7 @@ class ReadMenu @JvmOverloads constructor(
                 callBack.autoPage()
             }
             ReadMenuButtonConfig.Builtin.REPLACE_RULE -> callBack.openReplaceRule()
+            ReadMenuButtonConfig.Builtin.PADDING_CONFIG -> callBack.showPaddingConfig()
             ReadMenuButtonConfig.Builtin.NIGHT_THEME -> {
                 // 三态循环：日间(1) → 夜间(2) → 自动(0，跟随系统) → 日间
                 val mode = AppConfig.themeMode

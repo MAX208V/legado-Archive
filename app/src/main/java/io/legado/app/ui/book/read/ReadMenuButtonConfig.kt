@@ -25,6 +25,7 @@ object ReadMenuButtonConfig {
         const val PARAGRAPH_RULES = "paragraphRules"
         const val CHARACTERS = "characters"
         const val BUBBLE = "bubble"
+        const val PADDING_CONFIG = "paddingConfig"
 
         val ids = setOf(
             SEARCH,
@@ -39,7 +40,8 @@ object ReadMenuButtonConfig {
             AI_SUMMARY,
             PARAGRAPH_RULES,
             CHARACTERS,
-            BUBBLE
+            BUBBLE,
+            PADDING_CONFIG
         )
     }
 
@@ -83,6 +85,7 @@ object ReadMenuButtonConfig {
             builtin(Builtin.SEARCH),
             builtin(Builtin.AUTO_PAGE),
             builtin(Builtin.REPLACE_RULE),
+            builtin(Builtin.PADDING_CONFIG),
             builtin(Builtin.NIGHT_THEME),
             builtin(Builtin.CHARACTERS),
             builtin(Builtin.PARAGRAPH_RULES),
