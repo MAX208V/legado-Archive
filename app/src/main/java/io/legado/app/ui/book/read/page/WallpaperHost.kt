@@ -29,18 +29,16 @@ import okhttp3.Request
 import org.json.JSONObject
 
 /**
- * 壁纸图层类型
+ * 同步 topBgLayer 透明度：
+ * - PREFAB_BG 在图层列表中 → alpha=1（显示 Legado 原有背景到最上层）
+ * - 壁纸图层禁用 → alpha=1（兜底显示原有背景，防闪烁）
+ * - 壁纸图层启用但无 PREFAB_BG → alpha=0（透出自定义图层）
  */
-object WallpaperLayerType {
-    const val IMAGE = 0        // 本地图片文件（含 PNG 透明镂空）
-    const val VIDEO = 1        // 视频：本地文件路径或 http(s) 视频 URL
-    const val URL_IMAGE = 2    // URL 图片（直链加载）
-    const val URL_RESOLVE = 3  // URL 图片（解析：HTTP 请求后解码）
-    const val LIVE_PHOTO = 4    // LivePhoto：照片(src) + 伴生视频(videoSrc)，可开声音
-
-    // 预置图层标记（存储在图层列表字符串中，非 JSON）
-    const val PREFAB_BG = "__bg__"            // Legado 原有背景图片项
-    const val PREFAB_ROTATION = "__rotation__" // 轮换壁纸项（开启轮换时显示）
+private fun syncTopBgAlpha() {
+    val on = io.legado.app.help.config.ReadBookConfig.durConfig.wallpaperLayersEnabled
+    val hasBg = io.legado.app.help.config.ReadBookConfig.durConfig.wallpaperLayerItems
+        .contains(WallpaperLayerType.PREFAB_BG)
+    topBgLayer?.view?.alpha = if (!on || hasBg) 1f else 0f
 }
 
 fun String.isWallpaperPrefab(): Boolean =
@@ -202,8 +200,6 @@ class WallpaperHost @JvmOverloads constructor(
     fun setLayers(items: List<String>) {
         ensureBottomBg()
         ensureContainer()
-        ensureTopBg()
-        syncTopBgAlpha()
         // 背景兜底层独立常驻 → 剩余内容层参与差异
         val contentItems = items.filter { it != WallpaperLayerType.PREFAB_BG }
         if (contentItems.isEmpty()) {
@@ -212,6 +208,9 @@ class WallpaperHost @JvmOverloads constructor(
                 contentContainer.removeView(l.view)
                 l.release()
             }
+            // PREFAB_BG 在列表中 → 在最上层显示 Legado 原有背景
+            ensureTopBg()
+            topBgLayer?.view?.alpha = if (WallpaperLayerType.PREFAB_BG in items) 1f else 0f
             return
         }
         if (layers.isEmpty()) {
@@ -264,6 +263,8 @@ class WallpaperHost @JvmOverloads constructor(
             addContentLayer(layer, contentItems.size - 1 - idx)
             layer.load()
         }
+        // 同步 topBgLayer：PREFAB_BG 在列表中 → alpha=1 显示；不在 → alpha=0 透明
+        syncTopBgAlpha()
     }
 
     fun hasLayers(): Boolean = layers.isNotEmpty()

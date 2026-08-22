@@ -4696,12 +4696,11 @@ class ReadBookActivity : BaseReadBookActivity(),
             binding.readView.upBg()
             host.refreshBgLayer() // 原有背景随日/夜主题刷新
         }
-        val items = if (on) {
-            ReadBookConfig.durConfig.wallpaperLayerItems.filter {
+        val rawItems = ReadBookConfig.durConfig.wallpaperLayerItems
+        // PREFAB_BG 由 setLayers() → syncTopBgAlpha() 控制显隐，不过滤
+        val items = rawItems.filter {
+            it == WallpaperLayerType.PREFAB_BG ||
                 ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
-            }
-        } else {
-            emptyList()
         }
         host.setLayers(items)
     }

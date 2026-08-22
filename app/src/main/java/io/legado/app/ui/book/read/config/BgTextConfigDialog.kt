@@ -2119,10 +2119,11 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         // 先启动轮换（设置 rotationCurrentEntry），再重建图层，
         // 这样新创建的 RotationPrefabLayer.load() 能读到正确的条目
         act.startWallpaperRotation()
-        // 增量刷新：只更新列表项可见性，不销毁重建图层视图
+        // 增量刷新：PREFAB_BG 直通到 setLayers（由 syncTopBgAlpha 控制显隐）
         act.wallpaperHost?.setLayers(
             ReadBookConfig.durConfig.wallpaperLayerItems.filter {
-                ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
+                it == WallpaperLayerType.PREFAB_BG ||
+                    ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
             }
         )
     }
