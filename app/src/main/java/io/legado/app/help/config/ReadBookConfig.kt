@@ -18,6 +18,7 @@ import io.legado.app.utils.compress.ZipUtils
 import io.legado.app.utils.createFolderReplace
 import io.legado.app.utils.externalCache
 import io.legado.app.utils.externalFiles
+import io.legado.app.ui.book.read.page.WallpaperLayerType
 import io.legado.app.utils.fromJsonArray
 import io.legado.app.utils.fromJsonObject
 import io.legado.app.utils.getCompatColor
