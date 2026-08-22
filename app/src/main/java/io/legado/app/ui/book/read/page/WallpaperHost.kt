@@ -28,6 +28,18 @@ import kotlinx.coroutines.launch
 import okhttp3.Request
 import org.json.JSONObject
 
+object WallpaperLayerType {
+    const val IMAGE = 0        // 本地图片文件（含 PNG 透明镂空）
+    const val VIDEO = 1        // 视频：本地文件路径或 http(s) 视频 URL
+    const val URL_IMAGE = 2    // URL 图片（直链加载）
+    const val URL_RESOLVE = 3  // URL 图片（解析：HTTP 请求后解码）
+    const val LIVE_PHOTO = 4    // LivePhoto：照片(src) + 伴生视频(videoSrc)，可开声音
+
+    // 预置图层标记（存储在图层列表字符串中，非 JSON）
+    const val PREFAB_BG = "__bg__"            // Legado 原有背景图片项
+    const val PREFAB_ROTATION = "__rotation__" // 轮换壁纸项（开启轮换时显示）
+}
+
 /**
  * 同步 topBgLayer 透明度：
  * - PREFAB_BG 在图层列表中 → alpha=1（显示 Legado 原有背景到最上层）

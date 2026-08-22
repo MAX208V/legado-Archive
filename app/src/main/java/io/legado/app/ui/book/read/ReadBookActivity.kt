@@ -160,7 +160,6 @@ import io.legado.app.ui.book.read.page.ContentTextView
 import io.legado.app.ui.book.read.page.ReadView
 import io.legado.app.ui.book.read.page.LottieImageBitmapCache
 import io.legado.app.ui.book.read.page.WallpaperHost
-import io.legado.app.ui.book.read.page.WallpaperLayerType
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
 import io.legado.app.ui.book.read.page.entities.BookmarkMark
 import io.legado.app.ui.book.read.page.entities.buildBookmarkMarks
@@ -4700,7 +4699,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         val rawItems = ReadBookConfig.durConfig.wallpaperLayerItems
         // PREFAB_BG 由 setLayers() → syncTopBgAlpha() 控制显隐，不过滤
         val items = rawItems.filter {
-            it == WallpaperLayerType.PREFAB_BG ||
+            it == io.legado.app.ui.book.read.page.WallpaperLayerType.PREFAB_BG ||
                 ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
         }
         host.setLayers(items)
