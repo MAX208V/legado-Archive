@@ -4697,10 +4697,8 @@ class ReadBookActivity : BaseReadBookActivity(),
             host.refreshBgLayer() // 原有背景随日/夜主题刷新
         }
         val rawItems = ReadBookConfig.durConfig.wallpaperLayerItems
-        // PREFAB_BG 作为 content 层参与 setLayers，与其他图层一致
         val items = rawItems.filter {
-            it == io.legado.app.ui.book.read.page.WallpaperLayerType.PREFAB_BG ||
-                ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
+            ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
         }
         host.setLayers(items)
     }

@@ -202,6 +202,8 @@ class WallpaperHost @JvmOverloads constructor(
             prefix++
         }
         val rebuildLen = (items.size - suffix) - prefix
+        // 整列表已匹配（rebuildLen==0）→ 不重建，直接返回（避免单图层时 prefix==0 误触发整建闪烁）
+        if (rebuildLen == 0) return
         // 前缀为空或中间段 ≥2：整建（增量插 Z 位不可靠）
         if (prefix == 0 || rebuildLen >= 2) {
             while (layers.isNotEmpty()) {
