@@ -1515,7 +1515,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             summary = if (enabled) {
                 "多图层从下到上叠放，可调顺序（如：底层视频+上层镂空窗户）"
             } else {
-                "默认含原有背景图片；轮换开启时含轮换壁纸项"
+                "Legado 原有背景始终作为底层，轮换开启时叠加轮换壁纸"
             }
         ) {
             enabled = it
@@ -1529,39 +1529,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             ) {
                 val ctx = androidx.compose.ui.platform.LocalContext.current
                 val prefs = ctx.defaultSharedPreferences
-                var visCount = 0
-                Text(
-                    text = "图层顺序：列表底部=最底层，顶部=最上层（↑ ↓ 调整，✕ 删除；背景/轮换为预置项）",
-                    color = style.secondaryText,
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(start = 6.dp, top = 4.dp)
-                )
-                items.forEachIndexed { index, entry ->
-                    if (!entry.isWallpaperPrefab() &&
-                        !ReadBookConfig.layerSourceEnabled(entry, prefs)
-                    ) {
-                        return@forEachIndexed // 来源开关关闭：隐藏该图层项
-                    }
-                    val visIndex = visCount++
-                    WallpaperLayerRow(
-                        entry = entry,
-                        index = index,
-                        visIndex = visIndex,
-                        total = items.size,
-                        style = style,
-                        onDelete = { removeWallpaperLayer(index) }
-                    )
-                }
-                if (visCount < items.size) {
-                    Text(
-                        text = "（部分来源已关闭开关，对应图层已隐藏）",
-                        color = style.secondaryText.copy(alpha = 0.7f),
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(start = 6.dp)
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-                // 各来源带开关（与壁纸轮换一致）：关闭 → 该来源图层隐藏且不渲染
+                // --- 来源按钮（与壁纸轮换一致，放在列表上方）---
                 RotationSourceRow(
                     prefKey = ReadBookConfig.PREF_LAYER_SOURCE_IMAGE,
                     icon = R.drawable.ic_image,
@@ -1596,25 +1564,41 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     style = style,
                     onSourceToggled = { applyWallpaperLayers() }
                 ) { showAddWallpaperLayerUrlDialog() }
+                Spacer(Modifier.height(4.dp))
+                // --- 图层列表（隐藏预置项，仅显示用户添加的图层）---
+                Text(
+                    text = "图层顺序：列表底部=最底层，顶部=最上层（↑ ↓ 调整，✕ 删除）",
+                    color = style.secondaryText,
+                    fontSize = 11.sp,
+                    modifier = Modifier.padding(start = 6.dp)
+                )
+                var visCount = 0
+                items.forEachIndexed { index, entry ->
+                    if (entry.isWallpaperPrefab()) return@forEachIndexed // 预置项不显示在列表中
+                    if (!ReadBookConfig.layerSourceEnabled(entry, prefs)) {
+                        return@forEachIndexed // 来源开关关闭：隐藏该图层项
+                    }
+                    val visIndex = visCount++
+                    WallpaperLayerRow(
+                        entry = entry,
+                        index = index,
+                        visIndex = visIndex,
+                        total = items.size,
+                        style = style,
+                        onDelete = { removeWallpaperLayer(index) }
+                    )
+                }
+                if (visCount == 0) {
+                    Text(
+                        text = "暂无图层，请通过上方按钮添加",
+                        color = style.secondaryText.copy(alpha = 0.6f),
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(start = 6.dp)
+                    )
+                }
             }
         }
-
-        // 长按刷新按钮 → 设置自动刷新间隔（按条目独立存储）
-        if (showRefreshIntervalDialog.value) {
-            val entryKey = refreshIntervalEntryKey.value
-            RefreshIntervalPicker(
-                currentMs = ReadBookConfig.durConfig.getEntryRefreshInterval(entryKey),
-                entryKey = entryKey,
-                style = style,
-                onDismiss = { showRefreshIntervalDialog.value = false },
-                onConfirm = { newMs ->
-                    ReadBookConfig.durConfig.setEntryRefreshInterval(entryKey, newMs)
-                    showRefreshIntervalDialog.value = false
-                }
-            )
-        }
     }
-
     /** 图层项缩略图：预置项显示实际背景/轮换缩略，自定义项显示来源 */
     @Composable
     private fun WallpaperLayerThumb(entry: String, style: AppDialogStyle) {
@@ -2133,13 +2117,12 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
      */
     private fun normalizeLayerItems(raw: ArrayList<String>): ArrayList<String> {
         val list = ArrayList(raw)
-        if (WallpaperLayerType.PREFAB_BG !in list) {
-            list.add(0, WallpaperLayerType.PREFAB_BG)
-        }
+        // PREFAB_BG 不再注入列表：Legado 原有背景由 WallpaperHost 始终渲染为透明兜底层
+        list.removeAll { it == WallpaperLayerType.PREFAB_BG }
         val rotationOn = ReadBookConfig.durConfig.wallpaperRotationEnabled
         if (rotationOn) {
             if (WallpaperLayerType.PREFAB_ROTATION !in list) {
-                list.add(1, WallpaperLayerType.PREFAB_ROTATION)
+                list.add(0, WallpaperLayerType.PREFAB_ROTATION)
             }
         } else {
             list.remove(WallpaperLayerType.PREFAB_ROTATION)
