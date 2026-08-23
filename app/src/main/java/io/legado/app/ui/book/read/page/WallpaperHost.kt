@@ -56,8 +56,13 @@ data class WallpaperItem(
     val soundOn: Boolean = false,
     /** LivePhoto 伴生视频（本地文件路径）；普通图层为空字符串 */
     val videoSrc: String = "",
-    /** 图片边距（dp，上右下左统一）；0 = 无边距铺满 */
-    val margin: Int = 0
+    /** 图片边距（dp，分别控制上/右/下/左）；0 = 无边距铺满。
+     *  旧字段 margin 作为统一值兼容（写入时同步到四个方向） */
+    val margin: Int = 0,
+    val marginTop: Int = 0,
+    val marginRight: Int = 0,
+    val marginBottom: Int = 0,
+    val marginLeft: Int = 0
 ) {
     fun toJson(): String = JSONObject()
         .put("type", type)
@@ -67,6 +72,10 @@ data class WallpaperItem(
         .put("soundOn", soundOn)
         .put("videoSrc", videoSrc)
         .put("margin", margin)
+        .put("marginTop", marginTop)
+        .put("marginRight", marginRight)
+        .put("marginBottom", marginBottom)
+        .put("marginLeft", marginLeft)
         .toString()
 
     /** 当前日夜模式是否显示该图层 */
@@ -96,7 +105,11 @@ data class WallpaperItem(
                 mode = j.optString("mode", ReadBookConfig.ROTATION_MODE_ALL),
                 soundOn = j.optBoolean("soundOn", false),
                 videoSrc = j.optString("videoSrc", ""),
-                margin = j.optInt("margin", 0)
+                margin = j.optInt("margin", 0),
+                marginTop = j.optInt("marginTop", 0),
+                marginRight = j.optInt("marginRight", 0),
+                marginBottom = j.optInt("marginBottom", 0),
+                marginLeft = j.optInt("marginLeft", 0)
             )
         }.getOrNull()
     }
@@ -113,6 +126,8 @@ class WallpaperHost @JvmOverloads constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val layers = mutableListOf<LayerView>()
+    /** 预置：Legado 原有背景（常驻最顶层，仿轮换壁纸方式——只创建一次，绝不因 setLayers 差异逻辑销毁重建 → 不闪） */
+    private var bgPrefabLayer: BgPrefabLayer? = null
     private val loadJobs = mutableListOf<Deferred<*>>()
     /** 底层：兜底背景（最底层；删光/清空图片时兜底显示，防闪） */
     private var bottomBgLayer: BgPrefabLayer? = null
@@ -139,8 +154,44 @@ class WallpaperHost @JvmOverloads constructor(
         if (changed && !firstLayoutDone && width > 0 && height > 0) {
             firstLayoutDone = true
             bottomBgLayer?.load()
+            bgPrefabLayer?.load()
             refreshRotationLayer()
         }
+    }
+
+    /**
+     * 设置「默认背景」开关：仿轮换壁纸方式，常驻单例，绝不进 setLayers 差异逻辑。
+     * - 开启：创建一次（若已存在不重建），load 一次
+     * - 关闭：释放（与轮换一致，用户主动关闭时才销毁）
+     */
+    fun setBgPrefab(enabled: Boolean) {
+        if (enabled) {
+            if (bgPrefabLayer == null) {
+                val cfg = ReadBookConfig.durConfig
+                val l = BgPrefabLayer(context).apply {
+                    applyMargin(
+                        top = cfg.wallpaperLayerBgMarginTop,
+                        right = cfg.wallpaperLayerBgMarginRight,
+                        bottom = cfg.wallpaperLayerBgMarginBottom,
+                        left = cfg.wallpaperLayerBgMarginLeft
+                    )
+                }
+                bgPrefabLayer = l
+                addView(l.view) // 最后 add = 最顶层
+                if (firstLayoutDone) l.load() // 已布局则立即加载；未布局等 onLayout 首帧
+            }
+        } else {
+            bgPrefabLayer?.let {
+                removeView(it.view)
+                it.release()
+            }
+            bgPrefabLayer = null
+        }
+    }
+
+    /** 应用「默认背景」边距（四方向，即时生效，不重建图层） */
+    fun applyBgMargin(top: Int, right: Int, bottom: Int, left: Int) {
+        bgPrefabLayer?.applyMargin(top, right, bottom, left)
     }
 
     /** 差异更新图层：保留前缀未变化的层（不重启视频/不重载图片），只释放删除的、创建新增的。
@@ -243,8 +294,8 @@ class WallpaperHost @JvmOverloads constructor(
     /** 背景层刷新（底层兜底 + 内容层中的 PREFAB_BG；样式/日夜切换后调用） */
     fun refreshBgLayer() {
         bottomBgLayer?.load()
-        // 内容层中的 PREFAB_BG 需要重新加载（日夜切换/样式切换后）
-        layers.filter { it.entry == WallpaperLayerType.PREFAB_BG }.forEach { it.load() }
+        // 常驻默认背景层随日夜/样式切换重载（与轮换一致，只 reload 不重建）
+        bgPrefabLayer?.load()
     }
 
     /** 图层视频声音开关（UI index 含 bg 占位 0 → layers 下标 index-1，即时生效） */
@@ -286,11 +337,7 @@ class WallpaperHost @JvmOverloads constructor(
 
     private fun createLayer(entry: String): LayerView? {
         return when (entry) {
-            WallpaperLayerType.PREFAB_BG -> {
-                val l = BgPrefabLayer(context)
-                l.applyMargin(ReadBookConfig.durConfig.wallpaperLayerBgMargin)
-                l
-            }
+            // PREFAB_BG 由常驻 bgPrefabLayer 管理，不进差异逻辑（仿轮换壁纸）
             WallpaperLayerType.PREFAB_ROTATION -> RotationPrefabLayer(context)
             else -> {
                 val item = WallpaperItem.fromJson(entry) ?: return null
@@ -328,11 +375,20 @@ class WallpaperHost @JvmOverloads constructor(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
-        /** 应用图片边距（上右下左统一） */
-        fun applyMargin(marginDp: Int) {
-            val px = (marginDp * context.resources.displayMetrics.density).toInt()
+        /** 应用图片边距（上/右/下/左四方向，dp） */
+        fun applyMargin(
+            top: Int = 0,
+            right: Int = 0,
+            bottom: Int = 0,
+            left: Int = 0
+        ) {
+            val d = context.resources.displayMetrics.density
+            val pt = (top * d).toInt()
+            val pr = (right * d).toInt()
+            val pb = (bottom * d).toInt()
+            val pl = (left * d).toInt()
             (view.layoutParams as? android.view.ViewGroup.MarginLayoutParams)?.apply {
-                setMargins(px, px, px, px)
+                setMargins(pl, pt, pr, pb)
                 view.layoutParams = this
             }
         }
@@ -465,9 +521,16 @@ class WallpaperHost @JvmOverloads constructor(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT
             )
-            // 图片边距（上右下左统一）
-            val px = (item.margin * context.resources.displayMetrics.density).toInt()
-            (layoutParams as android.view.ViewGroup.MarginLayoutParams).setMargins(px, px, px, px)
+            // 图片边距（四方向独立；四方向均为0时回退旧统一 margin 值）
+            val d = context.resources.displayMetrics.density
+            val mt = if (item.marginTop == 0 && item.marginRight == 0 &&
+                item.marginBottom == 0 && item.marginLeft == 0) item.margin else 0
+            val pxT = ((if (item.marginTop > 0) item.marginTop else mt) * d).toInt()
+            val pxR = ((if (item.marginRight > 0) item.marginRight else mt) * d).toInt()
+            val pxB = ((if (item.marginBottom > 0) item.marginBottom else mt) * d).toInt()
+            val pxL = ((if (item.marginLeft > 0) item.marginLeft else mt) * d).toInt()
+            (layoutParams as android.view.ViewGroup.MarginLayoutParams)
+                .setMargins(pxL, pxT, pxR, pxB)
         }
 
         override fun load() {

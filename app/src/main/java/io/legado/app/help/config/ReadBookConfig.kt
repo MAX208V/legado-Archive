@@ -821,8 +821,12 @@ object ReadBookConfig {
         // 壁纸图层（有序叠放，index 0 为最底层）
         var wallpaperLayersEnabled: Boolean = false,
         var wallpaperLayerItems: ArrayList<String> = arrayListOf(),
-        /** 默认背景图片边距（dp，上右下左统一） */
+        /** 默认背景图片边距（dp，四方向独立；旧 wallpaperLayerBgMargin 统一值兼容保留） */
         var wallpaperLayerBgMargin: Int = 0,
+        var wallpaperLayerBgMarginTop: Int = 0,
+        var wallpaperLayerBgMarginRight: Int = 0,
+        var wallpaperLayerBgMarginBottom: Int = 0,
+        var wallpaperLayerBgMarginLeft: Int = 0,
         // PAG叠加动画
         var pagOverlayPath: String = "",
         var pagOverlayEnabled: Boolean = false,
@@ -1174,6 +1178,10 @@ object ReadBookConfig {
             "wallpaperLayersEnabled" to wallpaperLayersEnabled,
             "wallpaperLayerItems" to wallpaperLayerItems,
             "wallpaperLayerBgMargin" to wallpaperLayerBgMargin,
+            "wallpaperLayerBgMarginTop" to wallpaperLayerBgMarginTop,
+            "wallpaperLayerBgMarginRight" to wallpaperLayerBgMarginRight,
+            "wallpaperLayerBgMarginBottom" to wallpaperLayerBgMarginBottom,
+            "wallpaperLayerBgMarginLeft" to wallpaperLayerBgMarginLeft,
             "pagOverlayPath" to pagOverlayPath,
             "pagOverlayEnabled" to pagOverlayEnabled
         )

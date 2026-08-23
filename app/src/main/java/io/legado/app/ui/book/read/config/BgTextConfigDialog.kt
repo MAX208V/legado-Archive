@@ -1785,15 +1785,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                             .clickable { showWallpaperLayerMarginDialog(index) },
                         contentAlignment = Alignment.Center
                     ) {
-                        val marginVal = if (isPrefab) {
-                            ReadBookConfig.durConfig.wallpaperLayerBgMargin
-                        } else {
-                            item?.margin ?: 0
-                        }
                         Text(
-                            text = if (marginVal > 0) "📐${marginVal}" else "📐",
-                            fontSize = 13.sp,
-                            color = if (marginVal > 0) style.accent else style.secondaryText
+                            text = "📐",
+                            fontSize = 13.sp
                         )
                     }
                 }
@@ -1953,63 +1947,93 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         applyWallpaperLayers()
     }
 
-    /** 图片边距设置对话框（上右下左统一 margin，dp 单位） */
+    /** 图片边距设置对话框（上/右/下/左四方向独立滑条，单位为图片图标不打数字） */
     private fun showWallpaperLayerMarginDialog(index: Int) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
         val entry = list.getOrNull(index) ?: return
         val isBg = entry == WallpaperLayerType.PREFAB_BG
+        val cfg = ReadBookConfig.durConfig
+        // 当前四方向值
         val cur = if (isBg) {
-            ReadBookConfig.durConfig.wallpaperLayerBgMargin
+            intArrayOf(
+                cfg.wallpaperLayerBgMarginTop,
+                cfg.wallpaperLayerBgMarginRight,
+                cfg.wallpaperLayerBgMarginBottom,
+                cfg.wallpaperLayerBgMarginLeft
+            )
         } else {
-            WallpaperItem.fromJson(entry)?.margin ?: 0
+            val it = WallpaperItem.fromJson(entry)
+            intArrayOf(it?.marginTop ?: 0, it?.marginRight ?: 0, it?.marginBottom ?: 0, it?.marginLeft ?: 0)
         }
         val context = requireContext()
-        val valueText = android.widget.TextView(context).apply {
-            text = "${cur}dp"
-            textSize = 16f
-            gravity = android.view.Gravity.CENTER
-        }
-        val seekBar = android.widget.SeekBar(context).apply {
-            max = 100
-            progress = cur
-            setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(s: android.widget.SeekBar?, p: Int, fromUser: Boolean) {
-                    valueText.text = "${p}dp"
-                }
-                override fun onStartTrackingTouch(s: android.widget.SeekBar?) {}
-                override fun onStopTrackingTouch(s: android.widget.SeekBar?) {}
-            })
+        // 四个方向：图标 + 滑条（不显示数字，图标即「图片」呈现）
+        val dirs = arrayOf("↑", "→", "↓", "←")
+        val seekBars = Array(4) { i ->
+            android.widget.SeekBar(context).apply {
+                max = 100
+                progress = cur[i]
+            }
         }
         val container = android.widget.LinearLayout(context).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding(40, 24, 40, 24)
-            addView(valueText)
-            addView(seekBar)
+            for (i in 0..3) {
+                val row = android.widget.LinearLayout(context).apply {
+                    orientation = android.widget.LinearLayout.HORIZONTAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                }
+                val icon = android.widget.TextView(context).apply {
+                    text = dirs[i]
+                    textSize = 20f
+                    setPadding(0, 0, 16, 0)
+                }
+                row.addView(icon)
+                row.addView(seekBars[i], android.widget.LinearLayout.LayoutParams(
+                    0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                addView(row)
+            }
         }
-        alert("图片边距（上右下左统一）") {
+        alert("图片边距（上 右 下 左）") {
             customView { container }
-            neutralButton("0") {
-                applyMargin(index, isBg, 0)
+            neutralButton("归零") {
+                applyMargin(index, isBg, 0, 0, 0, 0)
             }
             okButton {
-                applyMargin(index, isBg, seekBar.progress)
+                applyMargin(
+                    index, isBg,
+                    seekBars[0].progress,
+                    seekBars[1].progress,
+                    seekBars[2].progress,
+                    seekBars[3].progress
+                )
             }
             noButton()
         }
     }
 
     /** 应用边距值到图层 */
-    private fun applyMargin(index: Int, isBg: Boolean, margin: Int) {
+    private fun applyMargin(
+        index: Int, isBg: Boolean,
+        top: Int, right: Int, bottom: Int, left: Int
+    ) {
         if (isBg) {
-            ReadBookConfig.durConfig.wallpaperLayerBgMargin = margin
-            (activity as? ReadBookActivity)?.refreshWallpaperLayers()
+            val cfg = ReadBookConfig.durConfig
+            cfg.wallpaperLayerBgMarginTop = top
+            cfg.wallpaperLayerBgMarginRight = right
+            cfg.wallpaperLayerBgMarginBottom = bottom
+            cfg.wallpaperLayerBgMarginLeft = left
+            // 即时应用到常驻背景层（不重建）
+            (activity as? ReadBookActivity)?.wallpaperHost?.applyBgMargin(top, right, bottom, left)
             return
         }
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
         val entry = list.getOrNull(index) ?: return
         val item = WallpaperItem.fromJson(entry) ?: return
         val mutable = list.toMutableList()
-        mutable[index] = item.copy(margin = margin).toJson()
+        mutable[index] = item.copy(
+            marginTop = top, marginRight = right,
+            marginBottom = bottom, marginLeft = left
+        ).toJson()
         ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
         applyWallpaperLayers()
     }
@@ -2205,10 +2229,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         // 先启动轮换（设置 rotationCurrentEntry），再重建图层，
         // 这样新创建的 RotationPrefabLayer.load() 能读到正确的条目
         act.startWallpaperRotation()
-        // PREFAB_BG 作为 content 层参与 setLayers，与其他图层一致
+        // 「默认背景」仿轮换壁纸：常驻单例，独立于 setLayers 差异逻辑
+        val bgOn = requireContext().defaultSharedPreferences
+            .getBoolean(ReadBookConfig.PREF_LAYER_SOURCE_BG, false)
+        act.wallpaperHost?.setBgPrefab(bgOn)
+        // 用户图层（图片/视频/URL 等）走 setLayers 差异逻辑；PREFAB_BG 不进此列表
         act.wallpaperHost?.setLayers(
             ReadBookConfig.durConfig.wallpaperLayerItems.filter {
-                ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
+                it != WallpaperLayerType.PREFAB_BG &&
+                    ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
             }
         )
     }
@@ -2219,17 +2248,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
      */
     private fun normalizeLayerItems(raw: ArrayList<String>): ArrayList<String> {
         val list = ArrayList(raw)
-        // 默认背景：开关打开时注入 PREFAB_BG 到列表最上层（index 0），关闭时移除
-        val bgEnabled = requireContext().defaultSharedPreferences
-            .getBoolean(ReadBookConfig.PREF_LAYER_SOURCE_BG, false)
-        if (bgEnabled) {
-            // 仅在缺失时默认插入最顶层；已存在则保留用户拖动的当前位置（可拖动排序）
-            if (WallpaperLayerType.PREFAB_BG !in list) {
-                list.add(0, WallpaperLayerType.PREFAB_BG)
-            }
-        } else {
-            list.removeAll { it == WallpaperLayerType.PREFAB_BG }
-        }
+        // 注意：PREFAB_BG 不进 wallpaperLayerItems 列表（由 PREF_LAYER_SOURCE_BG 单独控制，
+        // WallpaperHost 内部常驻管理，与轮换壁纸一致），此处只规整 PREFAB_ROTATION
+        list.removeAll { it == WallpaperLayerType.PREFAB_BG }
         val rotationOn = ReadBookConfig.durConfig.wallpaperRotationEnabled
         if (rotationOn) {
             if (WallpaperLayerType.PREFAB_ROTATION !in list) {
