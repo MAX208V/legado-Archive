@@ -126,8 +126,6 @@ class WallpaperHost @JvmOverloads constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val layers = mutableListOf<LayerView>()
-    /** 预置：Legado 原有背景（常驻最顶层，仿轮换壁纸方式——只创建一次，绝不因 setLayers 差异逻辑销毁重建 → 不闪） */
-    private var bgPrefabLayer: BgPrefabLayer? = null
     private val loadJobs = mutableListOf<Deferred<*>>()
     /** 底层：兜底背景（最底层；删光/清空图片时兜底显示，防闪） */
     private var bottomBgLayer: BgPrefabLayer? = null
@@ -154,45 +152,16 @@ class WallpaperHost @JvmOverloads constructor(
         if (changed && !firstLayoutDone && width > 0 && height > 0) {
             firstLayoutDone = true
             bottomBgLayer?.load()
-            bgPrefabLayer?.load()
+            // PREFAB_BG 现为普通图层项，由 setLayers 差异逻辑创建并 load（不在此单独处理）
             refreshRotationLayer()
         }
     }
 
     /**
-     * 设置「默认背景」开关：仿轮换壁纸方式，常驻单例，绝不进 setLayers 差异逻辑。
-     * - 开启：创建一次（若已存在不重建），load 一次
-     * - 关闭：释放（与轮换一致，用户主动关闭时才销毁）
+     * PREFAB_BG 现为「默认背景」普通图层项：随 wallpaperLayerItems 进入 setLayers 差异逻辑，
+     * 列表不变即不重建 → 不闪、不抖；可拖动/删除/设边距，与图片/视频图层行为一致。
+     * （早期版本曾用常驻单例，现统一为普通图层项。）
      */
-    fun setBgPrefab(enabled: Boolean) {
-        if (enabled) {
-            if (bgPrefabLayer == null) {
-                val cfg = ReadBookConfig.durConfig
-                val l = BgPrefabLayer(context).apply {
-                    applyMargin(
-                        top = cfg.wallpaperLayerBgMarginTop,
-                        right = cfg.wallpaperLayerBgMarginRight,
-                        bottom = cfg.wallpaperLayerBgMarginBottom,
-                        left = cfg.wallpaperLayerBgMarginLeft
-                    )
-                }
-                bgPrefabLayer = l
-                addView(l.view) // 最后 add = 最顶层
-                if (firstLayoutDone) l.load() // 已布局则立即加载；未布局等 onLayout 首帧
-            }
-        } else {
-            bgPrefabLayer?.let {
-                removeView(it.view)
-                it.release()
-            }
-            bgPrefabLayer = null
-        }
-    }
-
-    /** 应用「默认背景」边距（四方向，即时生效，不重建图层） */
-    fun applyBgMargin(top: Int, right: Int, bottom: Int, left: Int) {
-        bgPrefabLayer?.applyMargin(top, right, bottom, left)
-    }
 
     /** 差异更新图层：保留前缀未变化的层（不重启视频/不重载图片），只释放删除的、创建新增的。
      *  阅读页不再因单个图层增删而整页重建闪烁。
@@ -291,17 +260,23 @@ class WallpaperHost @JvmOverloads constructor(
 
     fun isEmpty(): Boolean = layers.isEmpty()
 
+    /** 应用「默认背景」边距（四方向，即时生效，不重建图层）：作用于 layers 中的 BgPrefabLayer 实例 */
+    fun applyBgMargin(top: Int, right: Int, bottom: Int, left: Int) {
+        layers.filterIsInstance<BgPrefabLayer>().firstOrNull()?.applyMargin(top, right, bottom, left)
+    }
+
     /** 背景层刷新（底层兜底 + 内容层中的 PREFAB_BG；样式/日夜切换后调用） */
     fun refreshBgLayer() {
         bottomBgLayer?.load()
-        // 常驻默认背景层随日夜/样式切换重载（与轮换一致，只 reload 不重建）
-        bgPrefabLayer?.load()
+        // PREFAB_BG 作为普通图层项，随 setLayers 差异逻辑重载
+        layers.filterIsInstance<BgPrefabLayer>().forEach { it.load() }
     }
 
-    /** 图层视频声音开关（UI index 含 bg 占位 0 → layers 下标 index-1，即时生效） */
-    fun setLayerSound(index: Int, soundOn: Boolean) {
-        val layer = layers.getOrNull(index - 1)
-        if (layer is VideoLayerView) layer.setSound(soundOn)
+    /** 图层视频声音开关（按 entry 定位，即时生效；PREFAB_BG 现为普通图层项） */
+    fun setLayerSound(entry: String, soundOn: Boolean) {
+        layers.firstOrNull { it.entry == entry }?.let { layer ->
+            if (layer is VideoLayerView) layer.setSound(soundOn)
+        }
     }
 
     /** 轮换壁纸预置层刷新（轮换切换后调用） */
@@ -337,7 +312,7 @@ class WallpaperHost @JvmOverloads constructor(
 
     private fun createLayer(entry: String): LayerView? {
         return when (entry) {
-            // PREFAB_BG 由常驻 bgPrefabLayer 管理，不进差异逻辑（仿轮换壁纸）
+            WallpaperLayerType.PREFAB_BG -> BgPrefabLayer(context)
             WallpaperLayerType.PREFAB_ROTATION -> RotationPrefabLayer(context)
             else -> {
                 val item = WallpaperItem.fromJson(entry) ?: return null

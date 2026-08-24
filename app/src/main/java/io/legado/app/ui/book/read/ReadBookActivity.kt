@@ -4698,21 +4698,17 @@ class ReadBookActivity : BaseReadBookActivity(),
             host.refreshBgLayer() // 原有背景随日/夜主题刷新
         }
         val rawItems = ReadBookConfig.durConfig.wallpaperLayerItems
-        // 「默认背景」常驻单例，独立于 setLayers 差异逻辑（仿轮换壁纸）
-        val bgOn = application.defaultSharedPreferences
-            .getBoolean(ReadBookConfig.PREF_LAYER_SOURCE_BG, false)
-        host.setBgPrefab(bgOn)
-        // 用户图层：过滤掉 PREFAB_BG，只传图片/视频/URL/轮换等
+        // 「默认背景」现为普通图层项：来源开关开启时，以其条目加入列表（由 normalizeLayerItems 保证已插入）；
+        // 走 setLayers 统一差异逻辑，列表不变即不重建 → 不闪。仅按来源开关过滤。
         val items = rawItems.filter {
-            it != WallpaperLayerType.PREFAB_BG &&
-                ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
+            ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
         }
         host.setLayers(items)
     }
 
-    /** 图层视频声音开关（即时生效，不重建图层） */
-    internal fun setLayerSound(index: Int, soundOn: Boolean) {
-        wallpaperHost?.setLayerSound(index, soundOn)
+    /** 图层视频声音开关（按 entry 定位，即时生效，不重建图层） */
+    internal fun setLayerSound(entry: String, soundOn: Boolean) {
+        wallpaperHost?.setLayerSound(entry, soundOn)
     }
 
     private fun initTomato() {

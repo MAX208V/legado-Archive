@@ -129,6 +129,7 @@ import io.legado.app.utils.postEvent
 import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.readBytes
 import io.legado.app.utils.readUri
+import io.legado.app.utils.showDialogFragment
 import io.legado.app.utils.stackTraceStr
 import io.legado.app.utils.toastOnUi
 import java.io.File
@@ -1564,11 +1565,11 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     style = style,
                     onSourceToggled = { applyWallpaperLayers() }
                 ) { showAddWallpaperLayerUrlDialog() }
-                // --- 默认背景开关（开启时将 Legado 原有背景复制到最上层）---
+                // --- 默认背景开关（开启后作为普通图层项出现在下方列表，可拖动/删/设边距）---
                 RotationSourceRow(
                     prefKey = ReadBookConfig.PREF_LAYER_SOURCE_BG,
                     icon = R.drawable.ic_cfg_theme,
-                    text = "添加默认背景（Legado 原有背景复制到最上层）",
+                    text = "添加默认背景（Legado 原有背景，作为图层可调位置/边距）",
                     count = items.count {
                         it == WallpaperLayerType.PREFAB_BG &&
                             ReadBookConfig.layerSourceEnabled(it, prefs)
@@ -1588,8 +1589,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 items.forEachIndexed { index, entry ->
                     // PREFAB_ROTATION 由轮换 Job 自动管理，不在列表中显示
                     if (entry == WallpaperLayerType.PREFAB_ROTATION) return@forEachIndexed
-                    if (entry != WallpaperLayerType.PREFAB_BG &&
-                        !ReadBookConfig.layerSourceEnabled(entry, prefs)) {
+                    // PREFAB_BG（默认背景）现作为普通图层项显示在列表中，可拖动/删除/设边距
+                    if (!ReadBookConfig.layerSourceEnabled(entry, prefs)) {
                         return@forEachIndexed // 来源开关关闭：隐藏该图层项
                     }
                     val visIndex = visCount++
@@ -1947,68 +1948,22 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         applyWallpaperLayers()
     }
 
-    /** 图片边距设置对话框（上/右/下/左四方向独立滑条，单位为图片图标不打数字） */
+    /** 图片边距设置对话框（与字号/字距一致的滑条卡片样式，四方向独立，可手动输入更大值） */
     private fun showWallpaperLayerMarginDialog(index: Int) {
         val list = ReadBookConfig.durConfig.wallpaperLayerItems
         val entry = list.getOrNull(index) ?: return
         val isBg = entry == WallpaperLayerType.PREFAB_BG
-        val cfg = ReadBookConfig.durConfig
-        // 当前四方向值
-        val cur = if (isBg) {
-            intArrayOf(
-                cfg.wallpaperLayerBgMarginTop,
-                cfg.wallpaperLayerBgMarginRight,
-                cfg.wallpaperLayerBgMarginBottom,
-                cfg.wallpaperLayerBgMarginLeft
-            )
-        } else {
-            val it = WallpaperItem.fromJson(entry)
-            intArrayOf(it?.marginTop ?: 0, it?.marginRight ?: 0, it?.marginBottom ?: 0, it?.marginLeft ?: 0)
-        }
-        val context = requireContext()
-        // 四个方向：图标 + 滑条（不显示数字，图标即「图片」呈现）
-        val dirs = arrayOf("↑", "→", "↓", "←")
-        val seekBars = Array(4) { i ->
-            android.widget.SeekBar(context).apply {
-                max = 100
-                progress = cur[i]
-            }
-        }
-        val container = android.widget.LinearLayout(context).apply {
-            orientation = android.widget.LinearLayout.VERTICAL
-            setPadding(40, 24, 40, 24)
-            for (i in 0..3) {
-                val row = android.widget.LinearLayout(context).apply {
-                    orientation = android.widget.LinearLayout.HORIZONTAL
-                    gravity = android.view.Gravity.CENTER_VERTICAL
-                }
-                val icon = android.widget.TextView(context).apply {
-                    text = dirs[i]
-                    textSize = 20f
-                    setPadding(0, 0, 16, 0)
-                }
-                row.addView(icon)
-                row.addView(seekBars[i], android.widget.LinearLayout.LayoutParams(
-                    0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-                addView(row)
-            }
-        }
-        alert("图片边距（上 右 下 左）") {
-            customView { container }
-            neutralButton("归零") {
+        val dlg = WallpaperLayerMarginDialog.create(
+            index = index,
+            isBg = isBg,
+            onApply = { top, right, bottom, left ->
+                applyMargin(index, isBg, top, right, bottom, left)
+            },
+            onReset = {
                 applyMargin(index, isBg, 0, 0, 0, 0)
             }
-            okButton {
-                applyMargin(
-                    index, isBg,
-                    seekBars[0].progress,
-                    seekBars[1].progress,
-                    seekBars[2].progress,
-                    seekBars[3].progress
-                )
-            }
-            noButton()
-        }
+        )
+        showDialogFragment(dlg)
     }
 
     /** 应用边距值到图层 */
@@ -2049,7 +2004,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         val mutable = list.toMutableList()
         mutable[index] = item.copy(soundOn = next).toJson()
         ReadBookConfig.durConfig.wallpaperLayerItems = normalizeLayerItems(ArrayList(mutable))
-        (activity as? ReadBookActivity)?.setLayerSound(index, next)
+        (activity as? ReadBookActivity)?.setLayerSound(entry, next)
         refreshTick++
     }
 
@@ -2229,28 +2184,35 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         // 先启动轮换（设置 rotationCurrentEntry），再重建图层，
         // 这样新创建的 RotationPrefabLayer.load() 能读到正确的条目
         act.startWallpaperRotation()
-        // 「默认背景」仿轮换壁纸：常驻单例，独立于 setLayers 差异逻辑
-        val bgOn = requireContext().defaultSharedPreferences
-            .getBoolean(ReadBookConfig.PREF_LAYER_SOURCE_BG, false)
-        act.wallpaperHost?.setBgPrefab(bgOn)
-        // 用户图层（图片/视频/URL 等）走 setLayers 差异逻辑；PREFAB_BG 不进此列表
+        // 规整列表（按来源开关插入/移除 PREFAB_BG、PREFAB_ROTATION），再统一走 setLayers 差异逻辑；
+        // 列表不变即不重建 → 不闪。仅按来源开关过滤。
+        val normalized = normalizeLayerItems(ArrayList(ReadBookConfig.durConfig.wallpaperLayerItems))
+        ReadBookConfig.durConfig.wallpaperLayerItems = normalized
         act.wallpaperHost?.setLayers(
-            ReadBookConfig.durConfig.wallpaperLayerItems.filter {
-                it != WallpaperLayerType.PREFAB_BG &&
-                    ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
+            normalized.filter {
+                ReadBookConfig.layerSourceEnabled(it, act.application.defaultSharedPreferences)
             }
         )
     }
 
     /** 规整图层列表：列表第 1 行(北)=顶, 末尾(南)=底。
-     *  背景图片 __bg__ 默认在第 1 行(最顶层), 轮换 __rotation__ 紧随其后；
-     *  仅在缺失时补默认位置, 已有则保持用户拖动的当前位置。
+     *  __bg__(默认背景) 来源开关开启时插入到第 1 行(最顶层); 关闭时移除。
+     *  __rotation__(轮换) 开启轮换时插入、关闭时移除。
+     *  已有位置则保持不变（尊重用户拖动顺序）。
      */
     private fun normalizeLayerItems(raw: ArrayList<String>): ArrayList<String> {
         val list = ArrayList(raw)
-        // 注意：PREFAB_BG 不进 wallpaperLayerItems 列表（由 PREF_LAYER_SOURCE_BG 单独控制，
-        // WallpaperHost 内部常驻管理，与轮换壁纸一致），此处只规整 PREFAB_ROTATION
-        list.removeAll { it == WallpaperLayerType.PREFAB_BG }
+        // 默认背景来源开关
+        val bgOn = requireContext().defaultSharedPreferences
+            .getBoolean(ReadBookConfig.PREF_LAYER_SOURCE_BG, false)
+        if (bgOn) {
+            if (WallpaperLayerType.PREFAB_BG !in list) {
+                list.add(0, WallpaperLayerType.PREFAB_BG)
+            }
+        } else {
+            list.remove(WallpaperLayerType.PREFAB_BG)
+        }
+        // 轮换来源开关
         val rotationOn = ReadBookConfig.durConfig.wallpaperRotationEnabled
         if (rotationOn) {
             if (WallpaperLayerType.PREFAB_ROTATION !in list) {
