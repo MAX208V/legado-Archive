@@ -203,7 +203,7 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         val webView = binding.wvDict ?: return
         webView.stopLoading()
         // 与正文长按条「搜索」共用同一套浏览器级别 WebView 配置
-        webView.applyBrowserSettings()
+        WebRenderExtensions.applyBrowserSettings(webView)
         webView.webChromeClient = WebChromeClient()
         binding.rotateLoading.visible()
         viewLifecycleOwner.lifecycleScope.launch {
@@ -245,7 +245,7 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     // 页面加载完成后再注入一次（兜底；并处理 JS 类型注入）
-                    (view as? WebView)?.injectRenderContent(dictRule.showRule)
+                    (view as? WebView)?.let { WebRenderExtensions.injectRenderContent(it, dictRule.showRule) }
                 }
             }
             webView.loadUrl(url)

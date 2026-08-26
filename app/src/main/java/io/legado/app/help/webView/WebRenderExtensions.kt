@@ -24,7 +24,7 @@ object WebRenderExtensions {
      * 注入一段内容（CSS 或 JS）到当前 WebView，供正文搜索与字典 HTML 模式共用。
      */
     @JvmStatic
-    fun WebView.injectRenderContent(content: String?) {
+    fun injectRenderContent(webView: WebView, content: String?) {
         if (content.isNullOrBlank()) return
         val trimmed = content.trim()
         when {
@@ -36,7 +36,7 @@ object WebRenderExtensions {
                     .removePrefix(">")
                     .replace("</style>", "", ignoreCase = true)
                     .trim()
-                if (inner.isNotBlank()) injectStyle(inner)
+                if (inner.isNotBlank()) injectStyle(webView, inner)
             }
             // <script> 包裹：当作 JS 执行
             trimmed.startsWith("<script", ignoreCase = true) -> {
@@ -46,18 +46,18 @@ object WebRenderExtensions {
                     .removePrefix(">")
                     .replace("</script>", "", ignoreCase = true)
                     .trim()
-                injectScript(inner)
+                injectScript(webView, inner)
             }
             // 看起来像 JS → 执行
-            looksLikeJs(trimmed) -> injectScript(trimmed)
+            looksLikeJs(trimmed) -> injectScript(webView, trimmed)
             // 纯 CSS 文本 → 注入
-            else -> injectStyle(trimmed)
+            else -> injectStyle(webView, trimmed)
         }
     }
 
     /** 注入 CSS：写入/更新页面 <head> 中的固定 id <style> 节点 */
     @JvmStatic
-    fun WebView.injectStyle(css: String) {
+    fun injectStyle(webView: WebView, css: String) {
         if (css.isBlank()) return
         val safe = css.replace("</style", "<\\/style")
         val js = """
@@ -75,14 +75,14 @@ object WebRenderExtensions {
                 } catch (e) {}
             })();
         """.trimIndent()
-        evaluateJavascript(js, null)
+        webView.evaluateJavascript(js, null)
     }
 
     /** 执行一段 JS 内容 */
     @JvmStatic
-    fun WebView.injectScript(js: String) {
+    fun injectScript(webView: WebView, js: String) {
         if (js.isBlank()) return
-        evaluateJavascript(js) { result ->
+        webView.evaluateJavascript(js) { result ->
             if (result == null) {
                 AppLog.putDebug("WebRender injectScript evaluateJavascript returned null")
             }
@@ -115,21 +115,21 @@ object WebRenderExtensions {
      */
     @SuppressLint("SetJavaScriptEnabled")
     @JvmStatic
-    fun WebView.applyBrowserSettings() {
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.databaseEnabled = true
-        settings.loadsImagesAutomatically = true
-        settings.javaScriptCanOpenWindowsAutomatically = true
-        settings.mediaPlaybackRequiresUserGesture = false
-        settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        settings.allowFileAccess = true
-        settings.allowContentAccess = true
-        settings.useWideViewPort = true
-        settings.loadWithOverviewMode = true
-        settings.textZoom = 100
-        settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
-        settings.setSupportMultipleWindows(false)
+    fun applyBrowserSettings(webView: WebView) {
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.settings.databaseEnabled = true
+        webView.settings.loadsImagesAutomatically = true
+        webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        webView.settings.mediaPlaybackRequiresUserGesture = false
+        webView.settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        webView.settings.allowFileAccess = true
+        webView.settings.allowContentAccess = true
+        webView.settings.useWideViewPort = true
+        webView.settings.loadWithOverviewMode = true
+        webView.settings.textZoom = 100
+        webView.settings.cacheMode = android.webkit.WebSettings.LOAD_DEFAULT
+        webView.settings.setSupportMultipleWindows(false)
     }
 
     /**
