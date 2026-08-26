@@ -458,6 +458,12 @@ class SelectionWebSearchDialog() : BottomSheetDialogFragment(R.layout.dialog_sel
             ?.hideCss
             ?: ContentSelectConfig.searchEngines(requireContext())
                 .firstOrNull { it.id == currentEngineId }
+                ?.hideCss
+            ?.takeIf { it.isNotBlank() }
+            ?: return
+        // 复用与字典 HTML 模式相同的渲染注入逻辑
+        WebRenderExtensions.injectStyle(webView, css)
+    }
 
     private fun matchesCurrentSearchHost(url: String): Boolean {
         val expectedRoot = currentSearchRootHost ?: return false
