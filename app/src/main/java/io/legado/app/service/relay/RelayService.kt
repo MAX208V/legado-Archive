@@ -11,6 +11,7 @@ import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import android.content.pm.ServiceInfo
 import androidx.lifecycle.lifecycleScope
 import io.legado.app.R
 import io.legado.app.base.BaseService
@@ -176,7 +177,7 @@ class RelayService : BaseService() {
             this,
             NotificationId.PublicWebRelayService,
             notification,
-            ServiceCompat.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         )
     }
 

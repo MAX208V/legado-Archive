@@ -2,6 +2,7 @@ package io.legado.app.web.mcp
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import androidx.core.app.ServiceCompat
 import io.legado.app.R
 import io.legado.app.base.BaseService
@@ -84,7 +85,7 @@ class McpServerService : BaseService() {
             this,
             McpServerNotification.NOTIFICATION_ID,
             McpServerNotification.buildServiceNotification(this),
-            ServiceCompat.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         )
     }
 }
