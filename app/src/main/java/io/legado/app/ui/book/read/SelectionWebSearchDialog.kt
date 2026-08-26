@@ -448,7 +448,7 @@ class SelectionWebSearchDialog() : BottomSheetDialogFragment(R.layout.dialog_sel
             ?.takeIf { it.isNotBlank() }
             ?: return
         // 复用与字典 HTML 模式相同的渲染注入逻辑
-        webView.injectStyle(css)
+        WebRenderExtensions.injectStyle(webView, css)
     }
 
     private fun interceptSearchDocument(request: WebResourceRequest?): WebResourceResponse? {

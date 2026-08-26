@@ -137,7 +137,6 @@ class WallpaperLayerMarginDialog : ComposeDialogFragment() {
                                 onPositive = { v ->
                                     val n = v.toIntOrNull()?.coerceIn(0, 2000) ?: return@showComposeTextInputDialog
                                     top = n
-                                    values[0].value = n
                                     onApply?.invoke(top, right, bottom, left)
                                 }
                             )

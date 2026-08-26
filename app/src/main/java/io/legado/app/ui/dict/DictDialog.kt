@@ -24,6 +24,7 @@ import io.legado.app.data.entities.DictRule
 import io.legado.app.databinding.DialogDictBinding
 import io.legado.app.help.GlideImageGetter
 import io.legado.app.help.TextViewTagHandler
+import io.legado.app.help.webView.WebRenderExtensions
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.secondaryTextColor
