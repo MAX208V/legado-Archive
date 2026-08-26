@@ -178,23 +178,23 @@ class SelectionWebSearchDialog() : BottomSheetDialogFragment(R.layout.dialog_sel
                 view: WebView?,
                 request: WebResourceRequest?
             ): WebResourceResponse? {
-                val req = request ?: return super.shouldInterceptRequest(view, request)
-                if (!req.isForMainFrame) return super.shouldInterceptRequest(view, request)
+                val req = request ?: return null
+                if (!req.isForMainFrame) return null
                 if (!req.method.equals("GET", ignoreCase = true)) {
-                    return super.shouldInterceptRequest(view, request)
+                    return null
                 }
-                val engine = currentSearchEngine ?: return super.shouldInterceptRequest(view, request)
+                val engine = currentSearchEngine ?: return null
                 val css = engine.hideCss?.takeIf { it.isNotBlank() }
-                    ?: return super.shouldInterceptRequest(view, request)
+                    ?: return null
                 val url = req.url?.toString().orEmpty()
                 if (!url.startsWith("http://", true) && !url.startsWith("https://", true)) {
-                    return super.shouldInterceptRequest(view, request)
+                    return null
                 }
                 if (!matchesCurrentSearchHost(url)) {
-                    return super.shouldInterceptRequest(view, request)
+                    return null
                 }
                 return WebRenderExtensions.interceptAndInjectHtml(webView, req, css, null)
-                    ?: super.shouldInterceptRequest(view, request)
+                    ?: null
             }
         }
         webView.webChromeClient = object : WebChromeClient() {
