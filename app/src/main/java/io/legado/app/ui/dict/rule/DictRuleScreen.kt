@@ -22,6 +22,7 @@ import io.legado.app.R
 import io.legado.app.data.entities.DictRule
 import io.legado.app.ui.widget.compose.AppManagementLazyColumn
 import io.legado.app.ui.widget.compose.AppManagementListRow
+import io.legado.app.ui.widget.compose.AppManagementMenuAction
 import io.legado.app.ui.widget.compose.AppManagementPalette
 import io.legado.app.ui.widget.compose.rememberAppManagementPalette
 import sh.calvin.reorderable.ReorderableItem
@@ -37,7 +38,8 @@ internal fun DictRuleScreen(
     onToggleSelection: (DictRule) -> Unit,
     onToggleEnabled: (DictRule, Boolean) -> Unit,
     onEdit: (DictRule) -> Unit,
-    onDelete: (DictRule) -> Unit
+    onDelete: (DictRule) -> Unit,
+    onTest: (DictRule) -> Unit
 ) {
     val palette = rememberAppManagementPalette()
     val lazyListState = rememberLazyListState()
@@ -67,6 +69,7 @@ internal fun DictRuleScreen(
             onToggleEnabled = { enabled -> onToggleEnabled(rule, enabled) },
             onEdit = { onEdit(rule) },
             onDelete = { onDelete(rule) },
+            onTest = { onTest(rule) },
             dragHandle = dragHandle
         )
     }
@@ -93,7 +96,7 @@ internal fun DictRuleScreen(
                             modifier = Modifier
                                 .padding(end = 6.dp)
                                 .size(22.dp)
-                                .draggableHandle(onDragStopped = { onReorder(orderedRules) })
+                                .longPressDraggableHandle(onDragStopped = { onReorder(orderedRules) })
                         )
                     }
                 }
@@ -115,6 +118,7 @@ private fun DictRuleItemRow(
     onToggleEnabled: (Boolean) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onTest: () -> Unit,
     dragHandle: (@Composable () -> Unit)? = null
 ) {
     AppManagementListRow(
@@ -136,6 +140,12 @@ private fun DictRuleItemRow(
         onLongClick = onToggleSelection,
         onEdit = onEdit,
         onDelete = onDelete,
+        moreActions = listOf(
+            AppManagementMenuAction(
+                text = stringResource(R.string.test_dict_rule),
+                onClick = onTest
+            )
+        ),
         leadingContent = dragHandle
     )
 }

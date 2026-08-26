@@ -317,6 +317,7 @@
     <string name="bookmark_added">Bookmark added</string>
     <string name="bookmark_delete_confirm">确定删除这个书签吗？</string>
     <string name="dict_rule_html_mode">HTML 模式（直接以浏览器方式打开网页）</string>
+    <string name="show_rule_html_hint">显示规则(showRule)·HTML模式：留空直接显示网页；填入 CSS 隐藏/修改元素，或 &lt;style&gt;…&lt;/style&gt;、&lt;script&gt;…&lt;/script&gt; 注入样式与脚本</string>
     <string name="action_del">Delete</string>
     <string name="load_over_time">Loading timeout</string>
     <string name="join_group">Follow:%s</string>
@@ -1652,6 +1653,12 @@ function login() {
     <string name="source_tab_list">List</string>
     <string name="dict_rule">Dict rule</string>
     <string name="config_dict_rule">Config dict rule</string>
+    <string name="search_rule">Search rule (search engine)</string>
+    <string name="search_rule_desc">Manage search engines for text selection search</string>
+    <string name="test_dict_rule">Test dict rule</string>
+    <string name="test_dict_rule_desc">Enter a word to preview this dict rule</string>
+    <string name="test_word">Test word</string>
+    <string name="test_dict_rule_default">test</string>
     <string name="create">Create</string>
     <string name="url_rule">url规则(urlRule)</string>
     <string name="show_rule">显示规则(showRule)</string>

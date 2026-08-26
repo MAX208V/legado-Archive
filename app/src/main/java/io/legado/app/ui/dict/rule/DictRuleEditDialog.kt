@@ -29,6 +29,7 @@ import io.legado.app.base.BaseViewModel
 import io.legado.app.data.appDb
 import io.legado.app.data.entities.DictRule
 import io.legado.app.ui.code.CodeEditActivity
+import io.legado.app.ui.dict.DictDialog
 import io.legado.app.ui.widget.compose.AppDialogFrame
 import io.legado.app.ui.widget.compose.AppDialogSwitchRow
 import io.legado.app.ui.widget.compose.AppRuleFieldSpacer
@@ -40,6 +41,8 @@ import io.legado.app.ui.widget.compose.LegadoMiuixActionButton
 import io.legado.app.ui.widget.compose.rememberAppDialogStyle
 import io.legado.app.ui.widget.compose.toMiuixPalette
 import io.legado.app.utils.*
+import io.legado.app.ui.widget.compose.showComposeTextInputDialog
+import io.legado.app.utils.showDialogFragment
 
 class DictRuleEditDialog() : ComposeDialogFragment() {
 
@@ -102,6 +105,7 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
                                 upRuleView(it)
                             }
                         },
+                        onTest = { testRule() },
                         onDismiss = { dismiss() }
                     )
                 }
@@ -138,6 +142,28 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
         } else {
             toastOnUi(R.string.please_focus_cursor_on_textbox)
         }
+    }
+
+    private fun testRule() {
+        showComposeTextInputDialog(
+            title = getString(R.string.test_dict_rule),
+            hint = getString(R.string.test_word),
+            initialValue = getString(R.string.test_dict_rule_default),
+            positiveText = getString(R.string.ok),
+            negativeText = getString(R.string.cancel),
+            onPositive = { word ->
+                if (word.isNotBlank()) {
+                    val dictRule = getDictRule()
+                    if (dictRule.name.isNotBlank()) {
+                        viewModel.save(dictRule) {
+                            showDialogFragment(DictDialog(word.trim()))
+                        }
+                    } else {
+                        toastOnUi(R.string.name)
+                    }
+                }
+            }
+        )
     }
 
     private fun getFieldValue(field: EditField): TextFieldValue {
@@ -275,6 +301,7 @@ private fun DictRuleEditContent(
     onSave: () -> Unit,
     onCopyRule: () -> Unit,
     onPasteRule: () -> Unit,
+    onTest: () -> Unit,
     onDismiss: () -> Unit
 ) {
     val style = rememberAppDialogStyle()
@@ -304,7 +331,11 @@ private fun DictRuleEditContent(
                 AppRuleTextField(
                     value = showRule,
                     onValueChange = onShowRuleChange,
-                    label = stringResource(R.string.show_rule),
+                    label = if (htmlMode) {
+                        stringResource(R.string.show_rule_html_hint)
+                    } else {
+                        stringResource(R.string.show_rule)
+                    },
                     minLines = 5,
                     maxLines = 12,
                     style = style,
@@ -319,6 +350,13 @@ private fun DictRuleEditContent(
             }
         },
         actions = {
+            LegadoMiuixActionButton(
+                text = stringResource(R.string.test_dict_rule),
+                palette = palette,
+                onClick = onTest,
+                cornerRadius = style.actionRadius
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             LegadoMiuixActionButton(
                 text = stringResource(R.string.edit_content),
                 palette = palette,

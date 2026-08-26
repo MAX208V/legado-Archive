@@ -22,7 +22,11 @@ data class DictRule(
     @ColumnInfo(defaultValue = "0")
     var sortNumber: Int = 0,
     @ColumnInfo(defaultValue = "0")
-    var htmlMode: Boolean = false
+    var htmlMode: Boolean = false,
+    @ColumnInfo(defaultValue = "")
+    var cssRule: String = "",
+    @ColumnInfo(defaultValue = "")
+    var jsRule: String = ""
 ) {
 
     override fun hashCode(): Int {

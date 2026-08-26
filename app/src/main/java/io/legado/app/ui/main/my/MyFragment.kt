@@ -32,6 +32,7 @@ import io.legado.app.ui.config.ConfigTag
 import io.legado.app.ui.config.AppearanceKitActivity
 import io.legado.app.ui.config.RelaySettingsActivity
 import io.legado.app.ui.dict.rule.DictRuleActivity
+import io.legado.app.ui.book.read.SelectionSearchEngineManageDialog
 import io.legado.app.ui.file.FileManageActivity
 import io.legado.app.ui.main.MainFragmentInterface
 import io.legado.app.ui.replace.ReplaceRuleActivity
@@ -285,6 +286,7 @@ class MyFragment() : BaseFragment(R.layout.fragment_my_config),
             "rssSourceManage" -> startActivity<RssSourceActivity>()
             "replaceManage" -> startActivity<ReplaceRuleActivity>()
             "dictRuleManage" -> startActivity<DictRuleActivity>()
+            "searchEngineManage" -> showDialogFragment(SelectionSearchEngineManageDialog())
             "txtTocRuleManage" -> startActivity<TxtTocRuleActivity>()
             "bookmark" -> startActivity<AllBookmarkActivity>()
             "setting" -> startActivity<ConfigActivity> {
@@ -324,7 +326,8 @@ class MyFragment() : BaseFragment(R.layout.fragment_my_config),
                     actionRow("rssSourceManage", R.string.rss_source_manage, R.string.rss_source_manage_summary),
                     actionRow("txtTocRuleManage", R.string.txt_toc_rule, R.string.config_txt_toc_rule),
                     actionRow("replaceManage", R.string.replace_purify, R.string.replace_purify_desc),
-                    actionRow("dictRuleManage", R.string.dict_rule, R.string.config_dict_rule)
+                    actionRow("dictRuleManage", R.string.dict_rule, R.string.config_dict_rule),
+                    actionRow("searchEngineManage", R.string.search_rule, R.string.search_rule_desc)
                 )
             ),
             MySettingsSectionModel(

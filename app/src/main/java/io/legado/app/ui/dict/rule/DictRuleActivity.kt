@@ -20,6 +20,7 @@ import io.legado.app.databinding.ActivityDictRuleBinding
 import io.legado.app.help.DirectLinkUpload
 import io.legado.app.ui.association.ImportDictRuleDialog
 import io.legado.app.ui.association.showShibbolethDialog
+import io.legado.app.ui.dict.DictDialog
 import io.legado.app.ui.file.HandleFileContract
 import io.legado.app.ui.qrcode.QrCodeResult
 import io.legado.app.ui.widget.SelectActionBar
@@ -150,7 +151,8 @@ class DictRuleActivity : VMBaseActivity<ActivityDictRuleBinding, DictRuleViewMod
                         onToggleSelection = ::toggleSelection,
                         onToggleEnabled = ::toggleEnabled,
                         onEdit = ::editRule,
-                        onDelete = ::deleteRule
+                        onDelete = ::deleteRule,
+                        onTest = ::testRule
                     )
                 }
             }
@@ -299,6 +301,21 @@ class DictRuleActivity : VMBaseActivity<ActivityDictRuleBinding, DictRuleViewMod
 
     private fun editRule(rule: DictRule) {
         showDialogFragment(DictRuleEditDialog(rule.name))
+    }
+
+    private fun testRule(rule: DictRule) {
+        showComposeTextInputDialog(
+            title = getString(R.string.test_dict_rule),
+            hint = getString(R.string.test_word),
+            initialValue = getString(R.string.test_dict_rule_default),
+            positiveText = getString(R.string.ok),
+            negativeText = getString(R.string.cancel),
+            onPositive = { word ->
+                if (word.isNotBlank()) {
+                    showDialogFragment(DictDialog(word.trim()))
+                }
+            }
+        )
     }
 
     private fun deleteRule(rule: DictRule) {

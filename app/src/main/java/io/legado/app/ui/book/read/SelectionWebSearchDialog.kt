@@ -36,6 +36,7 @@ import io.legado.app.databinding.DialogSelectionWebSearchBinding
 import io.legado.app.help.http.okHttpClient
 import io.legado.app.help.http.text
 import io.legado.app.help.webView.PooledWebView
+import io.legado.app.help.webView.WebRenderExtensions
 import io.legado.app.help.webView.WebViewPool
 import io.legado.app.lib.theme.UiCorner
 import io.legado.app.lib.theme.applyUiBodyTypefaceDeep
@@ -48,7 +49,6 @@ import io.legado.app.utils.toastOnUi
 import io.legado.app.utils.viewbindingdelegate.viewBinding
 import io.legado.app.utils.visible
 import okhttp3.Request
-import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.net.URL
 
@@ -447,26 +447,8 @@ class SelectionWebSearchDialog() : BottomSheetDialogFragment(R.layout.dialog_sel
                 ?.hideCss
             ?.takeIf { it.isNotBlank() }
             ?: return
-        val js = """
-            (function() {
-                try {
-                    var css = ${JSONObject.quote(css)};
-                    var id = 'legado-selection-search-hide-css';
-                    var style = document.getElementById(id);
-                    if (!style) {
-                        style = document.createElement('style');
-                        style.id = id;
-                        (document.head || document.documentElement).appendChild(style);
-                    }
-                    style.textContent = css;
-                } catch (e) {}
-            })();
-        """.trimIndent()
-        webView.evaluateJavascript(js) { result ->
-            if (result == null) {
-                AppLog.putDebug("Selection web search hideCss evaluateJavascript returned null")
-            }
-        }
+        // 复用与字典 HTML 模式相同的渲染注入逻辑
+        webView.injectStyle(css)
     }
 
     private fun interceptSearchDocument(request: WebResourceRequest?): WebResourceResponse? {
@@ -500,7 +482,7 @@ class SelectionWebSearchDialog() : BottomSheetDialogFragment(R.layout.dialog_sel
                     return null
                 }
                 val html = body.text()
-                val injectedHtml = injectCssIntoHtml(html, css)
+                val injectedHtml = WebRenderExtensions.injectCssIntoHtml(html, css)
                 val bytes = injectedHtml.toByteArray(contentType?.charset() ?: Charsets.UTF_8)
                 val headers = res.headers.toMultimap()
                     .mapValues { it.value.joinToString(",") }
@@ -546,23 +528,6 @@ class SelectionWebSearchDialog() : BottomSheetDialogFragment(R.layout.dialog_sel
             }
             .get()
             .build()
-    }
-
-    private fun injectCssIntoHtml(html: String, css: String): String {
-        val style = """<style id="legado-selection-search-hide-css">${css.forHtmlStyle()}</style>"""
-        val headOpen = Regex("<head(\\s[^>]*)?>", RegexOption.IGNORE_CASE)
-        headOpen.find(html)?.let { match ->
-            return html.replaceRange(match.range, "${match.value}$style")
-        }
-        val htmlOpen = Regex("<html(\\s[^>]*)?>", RegexOption.IGNORE_CASE)
-        htmlOpen.find(html)?.let { match ->
-            return html.replaceRange(match.range, "${match.value}<head>$style</head>")
-        }
-        return "$style$html"
-    }
-
-    private fun String.forHtmlStyle(): String {
-        return replace(Regex("</style", RegexOption.IGNORE_CASE), "<\\/style")
     }
 
     private fun matchesCurrentSearchHost(url: String): Boolean {

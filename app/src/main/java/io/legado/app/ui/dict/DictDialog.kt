@@ -8,7 +8,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.textclassifier.TextClassifier
 import android.webkit.WebChromeClient
-import android.webkit.WebSettings
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.TextView
@@ -200,8 +201,9 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         binding.wvDict?.visible()
         val webView = binding.wvDict ?: return
         webView.stopLoading()
-        initWebView(webView)
-        webView.webViewClient = WebViewClient()
+        // 与正文长按条「搜索」共用同一套浏览器级别 WebView 配置
+        webView.applyBrowserSettings()
+        webView.webChromeClient = WebChromeClient()
         binding.rotateLoading.visible()
         viewLifecycleOwner.lifecycleScope.launch {
             val url = withContext(IO) {
@@ -221,30 +223,32 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 binding.tvDict.text = "URL 解析失败"
                 return@launch
             }
+            webView.webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): WebResourceResponse? {
+                    // 主框架响应：直接把继承自搜索的渲染 CSS 注入到 HTML，避免首帧闪烁
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
+                        && request?.isForMainFrame == true
+                    ) {
+                        WebRenderExtensions.injectCssIntoHtmlResponse(
+                            view,
+                            request,
+                            dictRule.showRule
+                        )?.let { return it }
+                    }
+                    return null
+                }
+
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    // 页面加载完成后再注入一次（兜底；并处理 JS 类型注入）
+                    (view as? WebView)?.injectRenderContent(dictRule.showRule)
+                }
+            }
             webView.loadUrl(url)
         }
-    }
-
-    /**
-     * WebView 基础配置（浏览器级别）
-     */
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun initWebView(webView: WebView) {
-        webView.settings.javaScriptEnabled = true
-        webView.settings.domStorageEnabled = true
-        webView.settings.databaseEnabled = true
-        webView.settings.loadsImagesAutomatically = true
-        webView.settings.javaScriptCanOpenWindowsAutomatically = true
-        webView.settings.mediaPlaybackRequiresUserGesture = false
-        webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-        webView.settings.allowFileAccess = true
-        webView.settings.allowContentAccess = true
-        webView.settings.useWideViewPort = true
-        webView.settings.loadWithOverviewMode = true
-        webView.settings.textZoom = 100
-        webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
-        webView.settings.setSupportMultipleWindows(false)
-        webView.webChromeClient = WebChromeClient()
     }
 
     //根据已启用词典数动态选取布局
