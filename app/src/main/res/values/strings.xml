@@ -1653,12 +1653,12 @@ function login() {
     <string name="source_tab_list">List</string>
     <string name="dict_rule">Dict rule</string>
     <string name="config_dict_rule">Config dict rule</string>
-    <string name="search_rule">Search rule (search engine)</string>
-    <string name="search_rule_desc">Manage search engines for text selection search</string>
-    <string name="test_dict_rule">Test dict rule</string>
-    <string name="test_dict_rule_desc">Enter a word to preview this dict rule</string>
+    <string name="search_rule">搜索规则</string>
+    <string name="search_rule_desc">管理正文长按搜索使用的搜索引擎</string>
+    <string name="test_dict_rule">测试字典规则</string>
+    <string name="test_dict_rule_desc">输入一个词以预览该字典规则</string>
     <string name="test_word">Test word</string>
-    <string name="test_dict_rule_default">test</string>
+    <string name="test_dict_rule_default">测试</string>
     <string name="create">Create</string>
     <string name="url_rule">url规则(urlRule)</string>
     <string name="show_rule">显示规则(showRule)</string>

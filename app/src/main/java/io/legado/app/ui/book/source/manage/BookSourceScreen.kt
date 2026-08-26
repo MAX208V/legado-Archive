@@ -127,7 +127,7 @@ internal fun BookSourceScreen(
                             modifier = Modifier
                                 .padding(end = 6.dp)
                                 .size(22.dp)
-                                .longPressDraggableHandle(
+                                .draggableHandle(
                                     onDragStopped = { onReorder(orderedSources) }
                                 )
                         )
