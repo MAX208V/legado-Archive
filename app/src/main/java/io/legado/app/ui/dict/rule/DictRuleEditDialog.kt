@@ -90,7 +90,19 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
                         showRule = showRuleValue,
                         onShowRuleChange = { showRuleValue = it },
                         htmlMode = htmlModeValue,
-                        onHtmlModeChange = { htmlModeValue = it },
+                        onHtmlModeChange = { newMode ->
+                            // 切换前：当前输入框内容写回旧模式字段
+                            viewModel.dictRule?.let { rule ->
+                                if (htmlModeValue) rule.htmlShowRule = showRuleValue.text
+                                else rule.showRule = showRuleValue.text
+                            }
+                            htmlModeValue = newMode
+                            // 切换后：从新模式字段载入显示规则输入框
+                            showRuleValue = TextFieldValue(
+                                if (newMode) viewModel.dictRule?.htmlShowRule.orEmpty()
+                                else viewModel.dictRule?.showRule.orEmpty()
+                            )
+                        },
                         onFieldFocused = { focusedField = it },
                         onFullEdit = ::onFullEditClicked,
                         onSave = {
@@ -193,16 +205,25 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
     private fun upRuleView(dictRule: DictRule?) {
         nameValue = TextFieldValue(dictRule?.name.orEmpty())
         urlRuleValue = TextFieldValue(dictRule?.urlRule.orEmpty())
-        showRuleValue = TextFieldValue(dictRule?.showRule.orEmpty())
         htmlModeValue = dictRule?.htmlMode ?: false
+        // HTML 模式显示规则单独存储：按当前模式从对应字段载入
+        showRuleValue = TextFieldValue(
+            if (htmlModeValue) dictRule?.htmlShowRule.orEmpty()
+            else dictRule?.showRule.orEmpty()
+        )
     }
 
     private fun getDictRule(): DictRule {
         val dictRule = viewModel.dictRule?.copy() ?: DictRule()
         dictRule.name = nameValue.text
         dictRule.urlRule = urlRuleValue.text
-        dictRule.showRule = showRuleValue.text
         dictRule.htmlMode = htmlModeValue
+        // HTML 模式显示规则单独存储：按当前模式写回对应字段
+        if (htmlModeValue) {
+            dictRule.htmlShowRule = showRuleValue.text
+        } else {
+            dictRule.showRule = showRuleValue.text
+        }
         return dictRule
     }
 
@@ -210,8 +231,9 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
         val dictRule = viewModel.dictRule ?: return nameValue.text.isEmpty()
         return dictRule.name == nameValue.text &&
             dictRule.urlRule == urlRuleValue.text &&
-            dictRule.showRule == showRuleValue.text &&
-            dictRule.htmlMode == htmlModeValue
+            dictRule.htmlMode == htmlModeValue &&
+            ((htmlModeValue && dictRule.htmlShowRule == showRuleValue.text) ||
+                (!htmlModeValue && dictRule.showRule == showRuleValue.text))
     }
 
     override fun dismiss() {

@@ -26,7 +26,9 @@ data class DictRule(
     @ColumnInfo(defaultValue = "")
     var cssRule: String = "",
     @ColumnInfo(defaultValue = "")
-    var jsRule: String = ""
+    var jsRule: String = "",
+    @ColumnInfo(defaultValue = "")
+    var htmlShowRule: String = ""
 ) {
 
     override fun hashCode(): Int {

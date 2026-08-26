@@ -10,6 +10,7 @@ import android.net.NetworkRequest
 import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import androidx.lifecycle.lifecycleScope
 import io.legado.app.R
 import io.legado.app.base.BaseService
@@ -170,7 +171,13 @@ class RelayService : BaseService() {
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .addAction(R.drawable.ic_stop_black_24dp, getString(R.string.cancel), stopIntent)
             .build()
-        startForeground(NotificationId.PublicWebRelayService, notification)
+        // targetSdk 34+ 显式指定 specialUse 类型，避免 Android 16 上因权限无法关联而抛 SecurityException
+        ServiceCompat.startForeground(
+            this,
+            NotificationId.PublicWebRelayService,
+            notification,
+            ServiceCompat.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        )
     }
 
     private fun startRelay() {

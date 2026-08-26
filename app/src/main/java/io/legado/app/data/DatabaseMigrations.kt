@@ -26,8 +26,8 @@ object DatabaseMigrations {
             migration_103_104, migration_104_105, migration_105_106,
             migration_106_107, migration_107_108, migration_108_109,
             migration_109_110, migration_110_111, migration_111_112,
-            migration_112_113, migration_113_114, migration_114_115, migration_114_115,
-            migration_115_116,
+            migration_112_113, migration_113_114, migration_114_115,
+            migration_115_116, migration_116_117,
         )
     }
 
@@ -285,6 +285,13 @@ object DatabaseMigrations {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE `dictRules` ADD COLUMN `cssRule` TEXT NOT NULL DEFAULT ''")
             db.execSQL("ALTER TABLE `dictRules` ADD COLUMN `jsRule` TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    private val migration_116_117 = object : Migration(116, 117) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 字典规则 HTML 模式显示规则独立存储（与非 HTML 模式的 showRule 分离）
+            db.execSQL("ALTER TABLE `dictRules` ADD COLUMN `htmlShowRule` TEXT NOT NULL DEFAULT ''")
         }
     }
 

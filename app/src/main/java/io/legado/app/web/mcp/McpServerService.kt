@@ -78,9 +78,13 @@ class McpServerService : BaseService() {
 
     /** 前台服务通知：显示可访问地址 + 「关闭」按钮 */
     override fun startForegroundNotification() {
-        startForeground(
+        // targetSdk 34+ 必须在 startForeground 显式指定前台服务类型，
+        // 否则 specialUse 类型无法与 FOREGROUND_SERVICE_SPECIAL_USE 权限正确关联（Android 16 直接抛 SecurityException）
+        ServiceCompat.startForeground(
+            this,
             McpServerNotification.NOTIFICATION_ID,
-            McpServerNotification.buildServiceNotification(this)
+            McpServerNotification.buildServiceNotification(this),
+            ServiceCompat.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
         )
     }
 }
