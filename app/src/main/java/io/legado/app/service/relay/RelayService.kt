@@ -177,7 +177,7 @@ class RelayService : BaseService() {
             this,
             NotificationId.PublicWebRelayService,
             notification,
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         )
     }
 

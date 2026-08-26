@@ -18,10 +18,11 @@ import io.legado.app.utils.toastOnUi
  * 由本前台服务持有并保活：后台/熄屏时进程不会被 Doze/厂商省电随意杀，
  * 进程被系统回收后 START_STICKY 自动重启恢复。
  *
- * 前台服务类型 specialUse（与 RelayService 一致）：
- * - 无 dataSync 在 Android 15 上的 6 小时时限，适合长时间对外服务；
- * - Android 14+ 需在 Manifest 声明 FOREGROUND_SERVICE_SPECIAL_USE 与
- *   PROPERTY_SPECIAL_USE_FGS_SUBTYPE（已添加）。
+ * 前台服务类型 dataSync（与 RelayService 一致）：
+ * - Android 14+ 需在 Manifest 声明 FOREGROUND_SERVICE_DATA_SYNC 权限（已添加）；
+ * - 注：dataSync 在 Android 15+ 有 6 小时运行上限，超时后系统停止服务，
+ *   用户重新打开「对外 MCP 服务」开关即可恢复（specialUse 在非 Play 渠道
+ *   Android 16 上被系统拒绝授予权限，故改用 dataSync）。
  *
  * 启停入口：
  * - 打开「对外 MCP 服务」开关 → startForeground()（AiConfigFragment）
@@ -85,7 +86,7 @@ class McpServerService : BaseService() {
             this,
             McpServerNotification.NOTIFICATION_ID,
             McpServerNotification.buildServiceNotification(this),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
         )
     }
 }
