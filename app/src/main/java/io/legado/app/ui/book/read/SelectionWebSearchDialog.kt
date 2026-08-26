@@ -33,7 +33,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import io.legado.app.R
 import io.legado.app.constant.AppLog
 import io.legado.app.databinding.DialogSelectionWebSearchBinding
-import io.legado.app.help.http.okHttpClient
 import io.legado.app.help.http.text
 import io.legado.app.help.webView.PooledWebView
 import io.legado.app.help.webView.WebRenderExtensions
@@ -179,7 +178,22 @@ class SelectionWebSearchDialog() : BottomSheetDialogFragment(R.layout.dialog_sel
                 view: WebView?,
                 request: WebResourceRequest?
             ): WebResourceResponse? {
-                return interceptSearchDocument(request)
+                val req = request ?: return super.shouldInterceptRequest(view, request)
+                if (!req.isForMainFrame) return super.shouldInterceptRequest(view, request)
+                if (!req.method.equals("GET", ignoreCase = true)) {
+                    return super.shouldInterceptRequest(view, request)
+                }
+                val engine = currentSearchEngine ?: return super.shouldInterceptRequest(view, request)
+                val css = engine.hideCss?.takeIf { it.isNotBlank() }
+                    ?: return super.shouldInterceptRequest(view, request)
+                val url = req.url?.toString().orEmpty()
+                if (!url.startsWith("http://", true) && !url.startsWith("https://", true)) {
+                    return super.shouldInterceptRequest(view, request)
+                }
+                if (!matchesCurrentSearchHost(url)) {
+                    return super.shouldInterceptRequest(view, request)
+                }
+                return WebRenderExtensions.interceptAndInjectHtml(webView, req, css, null)
                     ?: super.shouldInterceptRequest(view, request)
             }
         }
@@ -444,91 +458,6 @@ class SelectionWebSearchDialog() : BottomSheetDialogFragment(R.layout.dialog_sel
             ?.hideCss
             ?: ContentSelectConfig.searchEngines(requireContext())
                 .firstOrNull { it.id == currentEngineId }
-                ?.hideCss
-            ?.takeIf { it.isNotBlank() }
-            ?: return
-        // 复用与字典 HTML 模式相同的渲染注入逻辑
-        WebRenderExtensions.injectStyle(webView, css)
-    }
-
-    private fun interceptSearchDocument(request: WebResourceRequest?): WebResourceResponse? {
-        request ?: return null
-        if (!request.isForMainFrame) return null
-        if (!request.method.equals("GET", ignoreCase = true)) return null
-        val engine = currentSearchEngine ?: return null
-        val css = engine.hideCss?.takeIf { it.isNotBlank() } ?: return null
-        val url = request.url?.toString().orEmpty()
-        if (!url.startsWith("http://", true) && !url.startsWith("https://", true)) {
-            return null
-        }
-        if (!matchesCurrentSearchHost(url)) {
-            return null
-        }
-        return runCatching {
-            val response = okHttpClient.newBuilder()
-                .followRedirects(false)
-                .followSslRedirects(false)
-                .build()
-                .newCall(buildInterceptRequest(url, request))
-                .execute()
-            response.use { res ->
-                if (!res.isSuccessful || res.code == 204 || res.code == 205 || res.code == 304) {
-                    return null
-                }
-                val body = res.body
-                val contentType = body.contentType()
-                val mimeType = contentType?.toString()?.substringBefore(";") ?: "text/html"
-                if (!mimeType.contains("html", ignoreCase = true)) {
-                    return null
-                }
-                val html = body.text()
-                val injectedHtml = WebRenderExtensions.injectCssIntoHtml(html, css)
-                val bytes = injectedHtml.toByteArray(contentType?.charset() ?: Charsets.UTF_8)
-                val headers = res.headers.toMultimap()
-                    .mapValues { it.value.joinToString(",") }
-                    .toMutableMap()
-                    .apply {
-                        remove("content-length")
-                        remove("Content-Length")
-                        remove("content-encoding")
-                        remove("Content-Encoding")
-                    }
-                WebResourceResponse(
-                    mimeType,
-                    contentType?.charset()?.name() ?: "UTF-8",
-                    res.code,
-                    res.message.ifBlank { "OK" },
-                    headers,
-                    ByteArrayInputStream(bytes)
-                )
-            }
-        }.onFailure {
-            AppLog.putDebug("Selection web search intercept failed url=$url error=${it.localizedMessage}")
-        }.getOrNull()
-    }
-
-    private fun buildInterceptRequest(url: String, request: WebResourceRequest): Request {
-        return Request.Builder()
-            .url(url)
-            .apply {
-                request.requestHeaders.forEach { (key, value) ->
-                    if (!key.equals("accept-encoding", true) &&
-                        !key.equals("content-length", true) &&
-                        value.isNotBlank()
-                    ) {
-                        header(key, value)
-                    }
-                }
-                CookieManager.getInstance().getCookie(url)
-                    ?.takeIf { it.isNotBlank() }
-                    ?.let { header("Cookie", it) }
-                header("Accept-Encoding", "identity")
-                webViewUserAgent.takeIf { it.isNotBlank() }
-                    ?.let { header("User-Agent", it) }
-            }
-            .get()
-            .build()
-    }
 
     private fun matchesCurrentSearchHost(url: String): Boolean {
         val expectedRoot = currentSearchRootHost ?: return false

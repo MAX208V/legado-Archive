@@ -229,22 +229,24 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                     view: WebView?,
                     request: WebResourceRequest?
                 ): WebResourceResponse? {
-                    // 主框架响应：直接把继承自搜索的渲染 CSS 注入到 HTML，避免首帧闪烁
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP
-                        && request?.isForMainFrame == true
-                    ) {
-                        WebRenderExtensions.injectCssIntoHtmlResponse(
-                            view,
-                            request,
-                            dictRule.showRule
-                        )?.let { return it }
-                    }
+                    // 与「正文长按搜索」同一套 html 加载渲染逻辑：拦截主框架响应，
+                    // 用统一的 okHttpClient 重请求并把 showRule/cssRule 注入 CSS、jsRule 注入 JS
+                    val css = buildString {
+                        if (dictRule.showRule.isNotBlank()) appendLine(dictRule.showRule)
+                        if (dictRule.cssRule.isNotBlank()) appendLine(dictRule.cssRule)
+                    }.takeIf { it.isNotBlank() }
+                    WebRenderExtensions.interceptAndInjectHtml(
+                        view,
+                        request,
+                        css,
+                        dictRule.jsRule
+                    )?.let { return it }
                     return null
                 }
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
-                    // 页面加载完成后再注入一次（兜底；并处理 JS 类型注入）
+                    // 页面加载完成后再兜底注入一次（处理 JS 类型注入）
                     (view as? WebView)?.let { WebRenderExtensions.injectRenderContent(it, dictRule.showRule) }
                 }
             }

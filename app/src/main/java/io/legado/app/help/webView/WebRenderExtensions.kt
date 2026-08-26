@@ -1,10 +1,15 @@
 package io.legado.app.help.webView
 
 import android.annotation.SuppressLint
+import android.webkit.CookieManager
+import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import io.legado.app.constant.AppLog
-import org.json.JSONObject
+import io.legado.app.help.http.okHttpClient
+import okhttp3.Request
+import java.io.ByteArrayInputStream
+import java.nio.charset.StandardCharsets
 
 /**
  * 统一管理 WebView 渲染逻辑的扩展函数。
@@ -160,40 +165,116 @@ object WebRenderExtensions {
         }
     }
 
+    /**
+     * 拦截主框架 GET 请求，用应用统一的 okHttpClient 重新拉取文档，
+     * 并把 CSS / JS 直接注入到 HTML（避免首帧闪烁）。
+     *
+     * 这是「正文长按搜索」与「字典 HTML 模式」共用的同一套 html 加载渲染逻辑：
+     * 两者只是传入的 css / js 内容不同（搜索注入搜索引擎 hideCss，字典注入 showRule/cssRule/jsRule）。
+     *
+     * @param view   触发拦截的 WebView（用于取 UA）
+     * @param request 资源请求
+     * @param css    要注入到 <head> 的 CSS（可为 showRule / cssRule 等组合；内部按 injectRenderContent 语法判定）
+     * @param js     要注入到 <body> 末尾的 JS（可为 jsRule；为空则不注入 JS）
+     */
     @JvmStatic
-    fun injectCssIntoHtmlResponse(
+    fun interceptAndInjectHtml(
         view: WebView?,
-        request: android.webkit.WebResourceRequest,
-        renderContent: String?
+        request: WebResourceRequest?,
+        css: String?,
+        js: String? = null
     ): WebResourceResponse? {
-        val css = toCss(renderContent) ?: return null
-        if (css.isBlank()) return null
-        val url = request.url.toString()
-        return try {
-            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-            conn.requestMethod = "GET"
-            conn.connectTimeout = 15000
-            conn.readTimeout = 15000
-            conn.setRequestProperty("User-Agent", view?.settings?.userAgentString ?: "")
-            conn.instanceFollowRedirects = true
-            conn.connect()
-            val rawBytes = conn.inputStream.use { it.readBytes() }
-            conn.disconnect()
-            val charset = conn.contentType?.substringAfter("charset=", "utf-8")
-                ?.substringBefore(";")?.trim() ?: "utf-8"
-            val rawHtml = rawBytes.toString(Charsets.UTF_8)
-            val modified = injectCssIntoHtml(rawHtml, css)
-            val bytes = modified.toByteArray(charset(charset))
-            val mime = when {
-                url.endsWith(".html", true) || url.endsWith(".htm", true) -> "text/html"
-                else -> "text/html"
+        request ?: return null
+        if (!request.isForMainFrame) return null
+        if (!request.method.equals("GET", ignoreCase = true)) return null
+        val url = request.url?.toString().orEmpty()
+        if (!url.startsWith("http://", true) && !url.startsWith("https://", true)) return null
+        val cssContent = toCss(css)
+        val jsContent = js?.takeIf { it.isNotBlank() && looksLikeJs(it.trim()) }
+        if (cssContent.isNullOrBlank() && jsContent == null) return null
+        return runCatching {
+            val response = okHttpClient.newBuilder()
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .build()
+                .newCall(buildInterceptRequest(view, request, url))
+                .execute()
+            response.use { res ->
+                if (!res.isSuccessful || res.code == 204 || res.code == 205 || res.code == 304) {
+                    return null
+                }
+                val body = res.body ?: return null
+                val contentType = body.contentType()
+                val mimeType = contentType?.toString()?.substringBefore(";") ?: "text/html"
+                if (!mimeType.contains("html", ignoreCase = true)) return null
+                val charset = contentType?.charset() ?: StandardCharsets.UTF_8
+                val html = body.string()
+                val modified = injectAllIntoHtml(html, cssContent, jsContent)
+                val bytes = modified.toByteArray(charset)
+                val headers = res.headers.toMultimap()
+                    .mapValues { it.value.joinToString(",") }
+                    .toMutableMap()
+                    .apply {
+                        // 注入后内容长度变化，移除长度/编码相关头，避免浏览器按旧长度截断
+                        remove("content-length")
+                        remove("Content-Length")
+                        remove("content-encoding")
+                        remove("Content-Encoding")
+                        remove("transfer-encoding")
+                        remove("Transfer-Encoding")
+                    }
+                @Suppress("DEPRECATION")
+                WebResourceResponse(mimeType, charset.name(), ByteArrayInputStream(bytes)).apply {
+                    responseHeaders = headers
+                }
             }
-            @Suppress("DEPRECATION")
-            WebResourceResponse(mime, charset, java.io.ByteArrayInputStream(bytes))
-        } catch (e: Exception) {
-            // 任何读取失败都回退到 WebView 默认加载，不要阻断页面
-            null
+        }.getOrNull()
+    }
+
+    /** 在 HTML 文档的 <head> 注入 CSS，并在 <body> 末尾注入 JS（与 injectCssIntoHtml 同源）。 */
+    @JvmStatic
+    fun injectAllIntoHtml(html: String, css: String?, js: String?): String {
+        var result = if (css.isNullOrBlank()) html else injectCssIntoHtml(html, css)
+        if (!js.isNullOrBlank()) {
+            val script = "<script id=\"legado-render-injected-script\">${js.replace("</script", "<\\/script")}</script>"
+            val bodyClose = Regex("</body(\\s[^>]*)?>", RegexOption.IGNORE_CASE)
+            result = bodyClose.find(result)?.let { match ->
+                result.replaceRange(match.range, "$script${match.value}")
+            } ?: "$result$script"
         }
+        return result
+    }
+
+    /**
+     * 构造「拦截重请求」：转发原始请求头、附带 Cookie 与应用 UA，
+     * 避免丢失登录态（正文搜索与字典 HTML 模式共用）。
+     */
+    @JvmStatic
+    fun buildInterceptRequest(
+        view: WebView?,
+        request: WebResourceRequest,
+        url: String
+    ): Request {
+        val ua = view?.settings?.userAgentString
+        return Request.Builder()
+            .url(url)
+            .apply {
+                request.requestHeaders.forEach { (key, value) ->
+                    if (!key.equals("accept-encoding", true) &&
+                        !key.equals("content-length", true) &&
+                        value.isNotBlank()
+                    ) {
+                        header(key, value)
+                    }
+                }
+                CookieManager.getInstance().getCookie(url)
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { header("Cookie", it) }
+                header("Accept-Encoding", "identity")
+                ua?.takeIf { it.isNotBlank() }?.let { header("User-Agent", it) }
+            }
+            .get()
+            .build()
     }
 
     private fun looksLikeJs(text: String): Boolean {
