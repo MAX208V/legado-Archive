@@ -27,6 +27,7 @@ object DatabaseMigrations {
             migration_106_107, migration_107_108, migration_108_109,
             migration_109_110, migration_110_111, migration_111_112,
             migration_112_113, migration_113_114, migration_114_115, migration_114_115,
+            migration_115_116,
         )
     }
 
@@ -273,6 +274,17 @@ object DatabaseMigrations {
     private val migration_114_115 = object : Migration(114, 115) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE `bookmarks` ADD COLUMN `color` INTEGER NOT NULL DEFAULT -2506100")
+        }
+    }
+
+    /**
+     * v115 → v116：字典规则新增 cssRule / jsRule 两列，承载 HTML 模式的内嵌样式与脚本。
+     * 默认空字符串，向后兼容既有字典规则（原始模式不受影响）。
+     */
+    private val migration_115_116 = object : Migration(115, 116) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE `dictRules` ADD COLUMN `cssRule` TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE `dictRules` ADD COLUMN `jsRule` TEXT NOT NULL DEFAULT ''")
         }
     }
 
