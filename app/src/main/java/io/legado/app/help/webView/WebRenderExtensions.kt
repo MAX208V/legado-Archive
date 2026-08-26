@@ -1,6 +1,7 @@
 package io.legado.app.help.webView
 
 import android.annotation.SuppressLint
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import io.legado.app.constant.AppLog
 import org.json.JSONObject
@@ -139,6 +140,26 @@ object WebRenderExtensions {
      * 仅当内容能解析为 CSS（非 JS）时才拦截注入，JS 类型交给 onPageFinished 处理。
      * 返回包装后的 WebResourceResponse，无法处理时返回 null 让 WebView 正常加载。
      */
+    @JvmStatic
+    fun toCss(content: String?): String? {
+        if (content.isNullOrBlank()) return null
+        val trimmed = content.trim()
+        return when {
+            trimmed.startsWith("<style", ignoreCase = true) -> {
+                val inner = trimmed
+                    .removePrefix("<style")
+                    .dropWhile { it != '>' }
+                    .removePrefix(">")
+                    .replace("</style>", "", ignoreCase = true)
+                    .trim()
+                inner.ifBlank { null }
+            }
+            trimmed.startsWith("<script", ignoreCase = true) -> null
+            looksLikeJs(trimmed) -> null
+            else -> trimmed
+        }
+    }
+
     @JvmStatic
     fun injectCssIntoHtmlResponse(
         view: WebView?,
