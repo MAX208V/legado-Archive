@@ -7,19 +7,25 @@ import android.net.Uri
 import android.net.http.SslError
 import android.os.Build
 import android.os.Bundle
+import android.os.Message
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import androidx.activity.addCallback
 import androidx.activity.viewModels
 import androidx.core.view.size
+import io.legado.app.utils.printOnDebug
 import io.legado.app.R
 import io.legado.app.base.VMBaseActivity
 import io.legado.app.constant.AppConst
@@ -256,6 +262,17 @@ class WebViewActivity : VMBaseActivity<ActivityWebViewBinding, WebViewModel>() {
                 userAgentString = it
             }
         }
+        // 启用 WebView 通行密钥(WebAuthn/Passkey)支持：让网页内 FIDO/Passkey 流程
+        // 能调起系统凭据选择器。使用 FOR_BROWSER 模式（浏览器自身凭据处理），
+        // 无需 app 集成 CredentialManager。低版本 WebView 不支持时安全降级。
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) {
+            kotlin.runCatching {
+                WebSettingsCompat.setWebAuthenticationSupport(
+                    currentWebView.settings,
+                    WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER
+                )
+            }.onFailure { it.printOnDebug() }
+        }
         AppCookieManager.applyToWebView(url)
         currentWebView.setOnLongClickListener {
             val hitTestResult = currentWebView.hitTestResult
@@ -451,8 +468,58 @@ class WebViewActivity : VMBaseActivity<ActivityWebViewBinding, WebViewModel>() {
             toggleSystemBar(true)
         }
 
+        /* 支持 window.open / target=_blank 弹窗（部分网站的 Passkey/认证流程会用到） */
+        override fun onCreateWindow(
+            view: WebView?,
+            isDialog: Boolean,
+            isUserGesture: Boolean,
+            resultMsg: Message?
+        ): Boolean {
+            val ctx = this@WebViewActivity
+            val popup = WebView(ctx).apply {
+                // 对齐主 WebView 的关键设置，确保弹窗与主页共享 UA/Cookie/混合内容，
+                // 避免依赖弹窗的 Passkey/认证流程因 UA 不符或 Cookie 缺失而失败
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                // 继承主 WebView 的 UA，保持与源站请求一致
+                currentWebView.settings.userAgentString?.takeIf { it.isNotBlank() }
+                    ?.let { ua -> settings.userAgentString = ua }
+                webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: WebResourceRequest?
+                    ): Boolean = false
+                }
+                webChromeClient = CustomWebChromeClient()
+            }
+            // 将主 WebView 当前站点的 Cookie flush 到 CookieManager，
+            // 使弹窗（同源 Passkey 回跳）能复用登录态
+            currentWebView.url?.let { AppCookieManager.applyToWebView(it) }
+            binding.webViewContainer.addView(
+                popup,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+            (resultMsg?.obj as? WebView.WebViewTransport)?.let { transport ->
+                transport.webView = popup
+                resultMsg.sendToTarget()
+            }
+            return true
+        }
+
         /* 覆盖window.close() */
         override fun onCloseWindow(window: WebView?) {
+            // 移除通过 onCreateWindow 打开的弹窗 WebView
+            (window as? WebView)?.let {
+                if (it.parent === binding.webViewContainer) {
+                    binding.webViewContainer.removeView(it)
+                    it.destroy()
+                    return
+                }
+            }
             close()
         }
 
