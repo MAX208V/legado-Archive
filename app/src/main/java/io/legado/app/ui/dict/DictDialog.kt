@@ -261,6 +261,11 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
             )
         )
         webView.stopLoading()
+        // 与正文长按「搜索」一致：恢复 WebView 的渲染/JS 定时器调度。
+        // 否则 Fragment 内 WebView 处于未 resume 状态，百度等重前端 JS 的 SPA
+        // 渲染被挂起 -> 白屏且 onPageFinished 不回调。
+        webView.resumeTimers()
+        webView.onResume()
         // 与正文长按条「搜索」共用同一套浏览器级别 WebView 配置
         WebRenderExtensions.applyBrowserSettings(webView)
         webView.webChromeClient = WebChromeClient()
@@ -284,6 +289,26 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 return@launch
             }
             webView.webViewClient = object : WebViewClient() {
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                    super.onPageStarted(view, url, favicon)
+                    Log.d("DictDebug", "[onPageStarted #$renderHtmlCount] url=[$url]")
+                }
+
+                override fun onReceivedError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    error: WebResourceError?
+                ) {
+                    super.onReceivedError(view, request, error)
+                    if (request?.isForMainFrame == true) {
+                        Log.d(
+                            "DictDebug",
+                            "[onReceivedError #$renderHtmlCount] url=[${request.url}] " +
+                                "code=${error?.errorCode} desc=${error?.description}"
+                        )
+                    }
+                }
+
                 override fun shouldInterceptRequest(
                     view: WebView?,
                     request: WebResourceRequest?
