@@ -59,6 +59,17 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         }
     }
 
+    /**
+     * @param word     待查询词
+     * @param ruleName 预选的字典规则名（测试某条规则时传入），为空则默认选中排序第一的规则
+     */
+    constructor(word: String, ruleName: String?) : this() {
+        arguments = Bundle().apply {
+            putString("word", word)
+            putString("ruleName", ruleName)
+        }
+    }
+
     private val viewModel by viewModels<DictViewModel>()
     private val binding by viewBinding(DialogDictBinding::bind)
     private var word: String? = null
@@ -89,6 +100,8 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
             dismiss()
             return
         }
+        // 测试某条规则时传入的预选规则名；为空则默认选中排序第一的规则
+        val presetRuleName = arguments?.getString("ruleName")
         binding.tabLayout.setBackgroundColor(backgroundColor)
         binding.tabLayout.setSelectedTabIndicatorColor(accentColor)
         binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
@@ -123,7 +136,20 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 })
             }
             setupTabLayoutMode(it.size)
-            updateDictTabs()
+            // 选中预选规则（测试时传入）；未指定则默认选中排序第一的规则。
+            // select() 会触发 onTabSelected，从而加载首屏字典内容（修复排序第一规则不加载的问题）。
+            val presetIndex = if (!presetRuleName.isNullOrBlank()) {
+                it.indexOfFirst { d -> d.name == presetRuleName }.let { idx -> if (idx < 0) 0 else idx }
+            } else {
+                0
+            }
+            val initialTab = binding.tabLayout.getTabAt(presetIndex)
+            if (initialTab != null) {
+                updateDictTabs()
+                binding.tabLayout.selectTab(initialTab)
+            } else {
+                updateDictTabs()
+            }
         }
     }
 

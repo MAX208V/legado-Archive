@@ -312,7 +312,7 @@ class DictRuleActivity : VMBaseActivity<ActivityDictRuleBinding, DictRuleViewMod
             negativeText = getString(R.string.cancel),
             onPositive = { word ->
                 if (word.isNotBlank()) {
-                    showDialogFragment(DictDialog(word.trim()))
+                    showDialogFragment(DictDialog(word.trim(), rule.name))
                 }
             }
         )

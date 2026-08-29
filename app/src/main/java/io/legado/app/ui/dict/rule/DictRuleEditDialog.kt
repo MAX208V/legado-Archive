@@ -168,7 +168,7 @@ class DictRuleEditDialog() : ComposeDialogFragment() {
                     val dictRule = getDictRule()
                     if (dictRule.name.isNotBlank()) {
                         viewModel.save(dictRule) {
-                            showDialogFragment(DictDialog(word.trim()))
+                            showDialogFragment(DictDialog(word.trim(), dictRule.name))
                         }
                     } else {
                         toastOnUi(R.string.name)
