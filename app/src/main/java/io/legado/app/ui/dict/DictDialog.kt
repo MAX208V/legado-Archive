@@ -12,6 +12,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.util.Log
 import android.widget.TextView
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
@@ -25,7 +26,6 @@ import io.legado.app.databinding.DialogDictBinding
 import io.legado.app.help.GlideImageGetter
 import io.legado.app.help.TextViewTagHandler
 import io.legado.app.help.webView.WebRenderExtensions
-import io.legado.app.constant.AppLog
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.secondaryTextColor
@@ -227,13 +227,13 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
      */
     @SuppressLint("SetJavaScriptEnabled")
     private fun renderHtml(dictRule: DictRule) {
-        // [DEBUG-dict] 临时调试日志：定位首屏空白是否因 key/url 解析异常
+        // [DEBUG-dict] 临时调试日志(Log.d, 用 adb logcat -s DictDebug 抓取)
         renderHtmlCount++
-        AppLog.put(
-            "[DictDialog.renderHtml #$renderHtmlCount] name=${dictRule.name} " +
+        Log.d(
+            "DictDebug",
+            "[renderHtml #$renderHtmlCount] name=${dictRule.name} " +
                 "htmlMode=${dictRule.htmlMode} word=[$word] " +
-                "urlRule=[${dictRule.urlRule}]",
-            Throwable("dict-debug")
+                "urlRule=[${dictRule.urlRule}]"
         )
         binding.tvDict?.invisible()
         binding.wvDict?.visible()
@@ -288,10 +288,9 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 }
             }
             // [DEBUG-dict] 打印最终解析出的真实 url，判断 key 是否丢失
-            AppLog.put(
-                "[DictDialog.renderHtml #$renderHtmlCount] FINAL url=[$url] " +
-                    "rotateLoading gone=${binding.rotateLoading.visibility == View.GONE}",
-                Throwable("dict-debug")
+            Log.d(
+                "DictDebug",
+                "[renderHtml #$renderHtmlCount] FINAL url=[$url]"
             )
             webView.loadUrl(url)
         }
