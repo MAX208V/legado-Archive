@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.textclassifier.TextClassifier
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
