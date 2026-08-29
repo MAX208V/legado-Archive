@@ -25,6 +25,7 @@ import io.legado.app.databinding.DialogDictBinding
 import io.legado.app.help.GlideImageGetter
 import io.legado.app.help.TextViewTagHandler
 import io.legado.app.help.webView.WebRenderExtensions
+import io.legado.app.constant.AppLog
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.secondaryTextColor
@@ -73,6 +74,8 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     private val viewModel by viewModels<DictViewModel>()
     private val binding by viewBinding(DialogDictBinding::bind)
     private var word: String? = null
+    // 调试用：统计 renderHtml 被调用次数，便于区分首屏(第1次)与手动切换(后续)
+    private var renderHtmlCount = 0
     private val imgAvailableWidth by lazy {
         val textView = binding.tvDict
         textView.width - textView.paddingLeft - textView.paddingRight
@@ -224,6 +227,14 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
      */
     @SuppressLint("SetJavaScriptEnabled")
     private fun renderHtml(dictRule: DictRule) {
+        // [DEBUG-dict] 临时调试日志：定位首屏空白是否因 key/url 解析异常
+        renderHtmlCount++
+        AppLog.put(
+            "[DictDialog.renderHtml #$renderHtmlCount] name=${dictRule.name} " +
+                "htmlMode=${dictRule.htmlMode} word=[$word] " +
+                "urlRule=[${dictRule.urlRule}]",
+            Throwable("dict-debug")
+        )
         binding.tvDict?.invisible()
         binding.wvDict?.visible()
         val webView = binding.wvDict ?: return
@@ -276,6 +287,12 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                     (view as? WebView)?.let { WebRenderExtensions.injectRenderContent(it, dictRule.htmlShowRule) }
                 }
             }
+            // [DEBUG-dict] 打印最终解析出的真实 url，判断 key 是否丢失
+            AppLog.put(
+                "[DictDialog.renderHtml #$renderHtmlCount] FINAL url=[$url] " +
+                    "rotateLoading gone=${binding.rotateLoading.visibility == View.GONE}",
+                Throwable("dict-debug")
+            )
             webView.loadUrl(url)
         }
     }
