@@ -283,6 +283,12 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
 
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
+                    // [DEBUG-dict] 确认首屏是否触发 onPageFinished 及最终 url
+                    Log.d(
+                        "DictDebug",
+                        "[onPageFinished #$renderHtmlCount] url=[$url] " +
+                            "contentHeight=${(view as? WebView)?.contentHeight}"
+                    )
                     // 页面加载完成后再兜底注入一次（处理 JS 类型注入）
                     (view as? WebView)?.let { WebRenderExtensions.injectRenderContent(it, dictRule.htmlShowRule) }
                 }
@@ -292,7 +298,14 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                 "DictDebug",
                 "[renderHtml #$renderHtmlCount] FINAL url=[$url]"
             )
-            webView.loadUrl(url)
+            // 百度汉语等重前端 JS 的 SPA 站点：WebView 冷启动(首屏)时 JS 引擎未就绪，
+            // 直接 loadUrl 会白屏；用户手动切换 tab 时 WebView 已热则正常。
+            // 首屏(#1)延迟一小段时间再加载，对齐"二次加载才正常"的时序，规避冷启动白屏。
+            if (renderHtmlCount == 1) {
+                webView.postDelayed({ webView.loadUrl(url) }, 300)
+            } else {
+                webView.loadUrl(url)
+            }
         }
     }
 
