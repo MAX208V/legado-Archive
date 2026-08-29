@@ -26,6 +26,8 @@ import io.legado.app.databinding.DialogDictBinding
 import io.legado.app.help.GlideImageGetter
 import io.legado.app.help.TextViewTagHandler
 import io.legado.app.help.webView.WebRenderExtensions
+import io.legado.app.help.webView.PooledWebView
+import io.legado.app.help.webView.WebViewPool
 import io.legado.app.lib.theme.accentColor
 import io.legado.app.lib.theme.backgroundColor
 import io.legado.app.lib.theme.secondaryTextColor
@@ -76,6 +78,8 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     private var word: String? = null
     // 调试用：统计 renderHtml 被调用次数，便于区分首屏(第1次)与手动切换(后续)
     private var renderHtmlCount = 0
+    // 当前 HTML 模式使用的池化 WebView（用于 dismiss 时释放回池）
+    private var currentPooledWebView: PooledWebView? = null
     private val imgAvailableWidth by lazy {
         val textView = binding.tvDict
         textView.width - textView.paddingLeft - textView.paddingRight
@@ -237,7 +241,25 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
         )
         binding.tvDict?.invisible()
         binding.wvDict?.visible()
-        val webView = binding.wvDict ?: return
+        val container = binding.wvDict ?: return
+        // 复用「正文长按搜索」同一套 WebViewPool 预热实例：百度汉语等重前端 JS 的 SPA
+        // 在冷 WebView 上首屏白屏，池化(已 resumeTimers/JS引擎热)实例可正常渲染。
+        // 先释放上一次使用的池化实例，再取新的放入容器。
+        currentPooledWebView?.let { old ->
+            container.removeView(old.realWebView)
+            WebViewPool.release(old)
+            currentPooledWebView = null
+        }
+        val pooled = WebViewPool.acquire(requireContext())
+        currentPooledWebView = pooled
+        val webView = pooled.realWebView
+        container.addView(
+            webView,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
         webView.stopLoading()
         // 与正文长按条「搜索」共用同一套浏览器级别 WebView 配置
         WebRenderExtensions.applyBrowserSettings(webView)
@@ -302,7 +324,11 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
             // 直接 loadUrl 会白屏；用户手动切换 tab 时 WebView 已热则正常。
             // 首屏(#1)延迟一小段时间再加载，对齐"二次加载才正常"的时序，规避冷启动白屏。
             if (renderHtmlCount == 1) {
-                webView.postDelayed({ webView.loadUrl(url) }, 300)
+                // 首屏延迟一小段，对齐 WebView 已 attached 的稳定时序
+                val target = pooled
+                webView.postDelayed({
+                    if (currentPooledWebView == target) webView.loadUrl(url)
+                }, 300)
             } else {
                 webView.loadUrl(url)
             }
@@ -346,10 +372,13 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
     }
 
     override fun onDestroyView() {
-        binding.wvDict?.removeJavascriptInterface("Android")
-        binding.wvDict?.stopLoading()
+        // 释放 HTML 模式使用的池化 WebView 回池（不可 destroy 容器本身）
+        currentPooledWebView?.let { pooled ->
+            binding.wvDict?.removeView(pooled.realWebView)
+            WebViewPool.release(pooled)
+            currentPooledWebView = null
+        }
         binding.wvDict?.removeAllViews()
-        binding.wvDict?.destroy()
         super.onDestroyView()
     }
 }
