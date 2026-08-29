@@ -101,7 +101,7 @@ internal fun RssSourceScreen(
                             modifier = Modifier
                                 .padding(end = 6.dp)
                                 .size(22.dp)
-                                .draggableHandle(
+                                .longPressDraggableHandle(
                                     onDragStopped = { onReorder(orderedSources) }
                                 )
                         )

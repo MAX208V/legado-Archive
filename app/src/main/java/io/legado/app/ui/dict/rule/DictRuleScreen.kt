@@ -96,7 +96,7 @@ internal fun DictRuleScreen(
                             modifier = Modifier
                                 .padding(end = 6.dp)
                                 .size(22.dp)
-                                .draggableHandle(onDragStopped = { onReorder(orderedRules) })
+                                .longPressDraggableHandle(onDragStopped = { onReorder(orderedRules) })
                         )
                     }
                 }
