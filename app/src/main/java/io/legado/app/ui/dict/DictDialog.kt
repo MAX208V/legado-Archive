@@ -337,8 +337,9 @@ class DictDialog() : BaseDialogFragment(R.layout.dialog_dict) {
                         "[onPageFinished #$renderHtmlCount] url=[$url] " +
                             "contentHeight=${(view as? WebView)?.contentHeight}"
                     )
-                    // 页面加载完成后再兜底注入一次（处理 JS 类型注入）
-                    (view as? WebView)?.let { WebRenderExtensions.injectRenderContent(it, dictRule.htmlShowRule) }
+                    // 显示规则(htmlShowRule/cssRule)已在 shouldInterceptRequest 随主框架 HTML 静态注入 <head>，首帧即生效（与正文搜索一致）。
+                    // 此处不再 evaluateJavascript 兜底，避免「先原样显示、加载完再覆盖」的延迟闪烁。
+                    // jsRule 已一并静态注入 </body> 前，无需在此二次注入。
                 }
             }
             // [DEBUG-dict] 打印最终解析出的真实 url，判断 key 是否丢失
