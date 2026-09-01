@@ -37,8 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.viewinterop.AndroidView
-import android.widget.CheckBox
-import androidx.appcompat.widget.SwitchCompat
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -48,7 +47,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,7 +67,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import io.legado.app.R
 import io.legado.app.help.config.AppConfig
 import io.legado.app.lib.theme.UiCorner
@@ -387,20 +384,10 @@ fun AppManagementListRow(
             }
             trailingBeforeSwitch?.invoke(this)
             if (switchChecked != null && onSwitchChange != null) {
-                val latestChecked by rememberUpdatedState(switchChecked)
-                val latestOnSwitchChange by rememberUpdatedState(onSwitchChange)
-                // 系统原生 SwitchCompat（完全跟随系统主题渲染）
-                AndroidView(
-                    factory = { ctx ->
-                        SwitchCompat(ctx).apply {
-                            setOnCheckedChangeListener { _, isChecked ->
-                                latestOnSwitchChange(isChecked)
-                            }
-                        }
-                    },
-                    update = { view ->
-                        if (view.isChecked != latestChecked) view.isChecked = latestChecked
-                    }
+                LegadoMiuixSwitch(
+                    checked = switchChecked,
+                    onCheckedChange = onSwitchChange,
+                    palette = palette.miuix
                 )
             }
             onEdit?.let {
@@ -514,21 +501,10 @@ private fun AppManagementCheckbox(
     onToggleSelection: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    // 系统原生 CheckBox（完全跟随系统主题渲染）
-    val latestSelected by rememberUpdatedState(selected)
-    val latestOnToggleSelection by rememberUpdatedState(onToggleSelection)
-    AndroidView(
-        factory = { ctx ->
-            CheckBox(ctx).apply {
-                setOnCheckedChangeListener { _, _ ->
-                    latestOnToggleSelection?.invoke()
-                }
-            }
-        },
-        update = { view ->
-            view.isEnabled = latestOnToggleSelection != null
-            if (view.isChecked != latestSelected) view.isChecked = latestSelected
-        },
+    Checkbox(
+        checked = selected,
+        onCheckedChange = { onToggleSelection?.invoke() },
+        enabled = onToggleSelection != null,
         modifier = modifier
     )
 }
