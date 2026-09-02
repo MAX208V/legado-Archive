@@ -83,9 +83,6 @@ import java.util.logging.Level
 
 class App : Application() {
 
-    private val MAX_THEME_RETRY = 3
-    private val THEME_RETRY_INTERVAL_MS = 500L
-    private lateinit var oldConfig: Configuration
     private val themeConfigurationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var themeConfigurationJob: Job? = null
     private val themeConfigurationMutex = Mutex()
@@ -202,28 +199,12 @@ class App : Application() {
 
     /**
      * 应用日夜主题（跟随系统）。
-     * currentNight 读 resources.configuration，可能滞后于系统推送的 newConfig：
-     * 一旦不一致就延迟重试（最多 3 次），避免一次切换静默失败（表现为界面停在旧主题、需杀进程重进才恢复）。
+     * expectedNight 已从 onConfigurationChanged 的 newConfig 中正确提取，
+     * 直接应用即可，无需等待 resources.configuration 更新（可能滞后）。
      */
     private fun tryApplyDayNight(expectedNight: Boolean, generation: Long, attempt: Int = 0) {
         if (generation != themeConfigurationGeneration.get() || AppConfig.themeMode != "0") return
-        val currentNight = resources.configuration.uiMode and
-            Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        if (currentNight == expectedNight) {
-            applyDayNight(this, expectedNight)
-        } else if (attempt < MAX_THEME_RETRY) {
-            themeConfigurationJob = themeConfigurationScope.launch {
-                delay(THEME_RETRY_INTERVAL_MS)
-                withContext(Dispatchers.Main.immediate) {
-                    tryApplyDayNight(expectedNight, generation, attempt + 1)
-                }
-            }
-        } else {
-            AppLog.put(
-                "apply system theme skipped: config not aligned after retries\n" +
-                    "expectedNight=$expectedNight currentNight=$currentNight"
-            )
-        }
+        applyDayNight(this, expectedNight)
     }
 
     /**
