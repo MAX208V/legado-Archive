@@ -178,6 +178,7 @@ abstract class BaseActivity<VB : ViewBinding>(
             ?.onMultiWindowModeChanged(isInMultiWindow, fullScreen)
         setupSystemBar()
         if (nightModeChanged) {
+            ThemeConfig.applyTheme(this, isNightMode)
             applyRootBackgroundPolicy()
             upBackgroundImage()
         }
