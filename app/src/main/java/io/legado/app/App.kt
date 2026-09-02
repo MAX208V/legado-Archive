@@ -87,6 +87,7 @@ class App : Application() {
     private var themeConfigurationJob: Job? = null
     private val themeConfigurationMutex = Mutex()
     private val themeConfigurationGeneration = AtomicLong()
+    private lateinit var oldConfig: Configuration
 
     override fun onCreate() {
         super.onCreate()
