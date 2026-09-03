@@ -196,8 +196,8 @@ class PaddingConfigDialog : ComposeDialogFragment() {
                 left = left,
                 right = right,
                 topRange = 0..200,
-                bottomRange = 0..100,
-                sideRange = 0..100,
+                bottomRange = 0..200,
+                sideRange = 0..200,
                 onTopChange = {
                     top = it
                     ReadBookConfig.paddingTop = it
@@ -246,9 +246,9 @@ class PaddingConfigDialog : ComposeDialogFragment() {
                 bottom = bottom,
                 left = left,
                 right = right,
-                topRange = 0..100,
-                bottomRange = 0..100,
-                sideRange = 0..100,
+                topRange = 0..200,
+                bottomRange = 0..200,
+                sideRange = 0..200,
                 onTopChange = {
                     top = it
                     ReadBookConfig.footerPaddingTop = it
