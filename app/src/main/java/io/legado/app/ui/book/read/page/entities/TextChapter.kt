@@ -154,7 +154,7 @@ data class TextChapter(
      */
     fun getContent(): String {
         val stringBuilder = StringBuilder()
-        pages.forEach {
+        pages.toList().forEach {
             stringBuilder.append(it.text)
         }
         return stringBuilder.toString()

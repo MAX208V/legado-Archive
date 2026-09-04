@@ -54,8 +54,10 @@ import io.legado.app.ui.widget.compose.AppThemedStepperSlider
 import io.legado.app.ui.widget.compose.ComposeDialogFragment
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
 import io.legado.app.ui.widget.compose.rememberAppDialogStyle
+import io.legado.app.ui.widget.compose.showComposeTextInputDialog
 import io.legado.app.ui.widget.compose.toMiuixPalette
 import io.legado.app.utils.postEvent
+import io.legado.app.utils.showDialogFragment
 
 private data class PaddingItem(
     val label: String,
@@ -457,6 +459,9 @@ class PaddingConfigDialog : ComposeDialogFragment() {
                     )
                     Text(
                         text = item.value.toString(),
+                        modifier = Modifier.clickable {
+                            showCustomValueInput(item)
+                        },
                         color = style.accent,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -484,6 +489,25 @@ class PaddingConfigDialog : ComposeDialogFragment() {
             trackHeight = 34.dp,
             thumbSize = 26.dp,
             endpointWidth = 30.dp
+        )
+    }
+
+    private fun showCustomValueInput(item: PaddingItem) {
+        showComposeTextInputDialog(
+            title = "${item.label}（0~999）",
+            hint = "输入数值",
+            initialValue = item.value.toString(),
+            positiveText = getString(android.R.string.ok),
+            negativeText = getString(android.R.string.cancel),
+            validateInput = { text ->
+                text.toIntOrNull()?.let { it in 0..999 } == true
+            },
+            onPositive = { text ->
+                val value = text.toIntOrNull()?.coerceIn(0, 999) ?: return@showComposeTextInputDialog
+                if (value != item.value) {
+                    item.onValueChange(value)
+                }
+            }
         )
     }
 
