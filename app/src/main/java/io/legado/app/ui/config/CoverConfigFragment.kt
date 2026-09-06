@@ -111,6 +111,8 @@ class CoverConfigFragment : ComposeSettingFragment() {
                 refreshSettings()
             }
 
+            PreferKey.useDefaultCover -> refreshCoverCollection()
+
             PreferKey.coverShowAuthor,
             PreferKey.coverShowAuthorN,
             PreferKey.coverCollectionModeDay,
