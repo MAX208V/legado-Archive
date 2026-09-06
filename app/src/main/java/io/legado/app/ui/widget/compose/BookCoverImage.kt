@@ -319,7 +319,7 @@ fun BookCoverImage(
 
     val currentOnBoundsChanged by rememberUpdatedState(onBoundsChanged)
     val themeSignature = rememberThemeUiPalette().signature
-    val coverStyleType = remember(themeSignature) {
+    val coverStyleType = remember(themeSignature, AppConfig.coverStyle) {
         when (AppConfig.coverStyle) {
             "none" -> CoverStyleType.NONE
             "simple" -> CoverStyleType.SIMPLE
