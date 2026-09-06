@@ -323,6 +323,9 @@ object CoverCollectionManager {
     }
 
     private fun selectedCollectionCover(bookKey: String, hasOriginalCover: Boolean): String? {
+        if (!AppConfig.useDefaultCover && hasOriginalCover) {
+            return null
+        }
         val isNight = AppConfig.isNightTheme
         val collectionId = appCtx.getPrefString(
             if (isNight) PreferKey.coverCollectionNight else PreferKey.coverCollectionDay

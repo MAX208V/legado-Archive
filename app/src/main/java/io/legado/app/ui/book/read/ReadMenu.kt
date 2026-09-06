@@ -39,7 +39,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -613,7 +612,7 @@ class ReadMenu @JvmOverloads constructor(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(end = 26.dp)
-                    .offset(y = if (tomatoState.running) (-102).dp else (-80).dp)
+                    .offset(y = if (tomatoState.running) (-97).dp else (-75).dp)
             ) {
                 if (tomatoState.running) {
                     Text(
@@ -633,7 +632,7 @@ class ReadMenu @JvmOverloads constructor(
                 Surface(
                     onClick = { callBack.showTomatoPanel() },
                     modifier = Modifier.size(46.dp),
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(10.dp),
                     color = style.surface,
                     border = BorderStroke(1.dp, style.stroke),
                     shadowElevation = 8.dp
