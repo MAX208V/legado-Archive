@@ -71,7 +71,8 @@ private val themeUiShapeKeys = listOf(
     PreferKey.themeCardShadowN,
     PreferKey.themeCardBackgroundBlur,
     PreferKey.themeCardBackgroundBlurN,
-    PreferKey.bookCoverShadow
+    PreferKey.bookCoverShadow,
+    PreferKey.coverStyle
 )
 private val themeUiTypographyKeys = listOf(
     PreferKey.fontScale,
@@ -164,6 +165,7 @@ fun Context.themeUiSignature(): String {
         "cardShadow=${getPrefInt(ThemeRuntimeKeys.themeCardShadow(), -1)}",
         "cardBackgroundBlur=${getPrefInt(ThemeRuntimeKeys.themeCardBackgroundBlur(), -1)}",
         "bookCoverShadow=${AppConfig.bookCoverShadow}",
+        "coverStyle=${AppConfig.coverStyle}",
         "fontScale=${getPrefInt(ThemeRuntimeKeys.fontScale(), 0)}",
         "uiFont=${getPrefString(ThemeRuntimeKeys.uiFontPath()).orEmpty()}",
         "titleFont=${getPrefString(ThemeRuntimeKeys.titleFontPath()).orEmpty()}",

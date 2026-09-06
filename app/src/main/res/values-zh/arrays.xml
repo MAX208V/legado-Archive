@@ -122,4 +122,18 @@
         <item>自定义</item>
     </string-array>
 
+    <string-array name="cover_style_entries">
+        <item>无样式</item>
+        <item>简约</item>
+        <item>拟真</item>
+        <item>立体</item>
+    </string-array>
+
+    <string-array name="cover_style_values">
+        <item>none</item>
+        <item>simple</item>
+        <item>realistic</item>
+        <item>3d</item>
+    </string-array>
+
 </resources>

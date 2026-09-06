@@ -294,4 +294,18 @@
         <item>core</item>
     </string-array>
 
+    <string-array name="cover_style_entries">
+        <item>None</item>
+        <item>Simple</item>
+        <item>Realistic</item>
+        <item>3D</item>
+    </string-array>
+
+    <string-array name="cover_style_values">
+        <item>none</item>
+        <item>simple</item>
+        <item>realistic</item>
+        <item>3d</item>
+    </string-array>
+
 </resources>

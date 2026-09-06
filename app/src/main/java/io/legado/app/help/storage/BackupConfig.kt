@@ -151,6 +151,7 @@ object BackupConfig {
         PreferKey.loadCoverOnlyWifi,
         PreferKey.loadCoverHighQuality,
         PreferKey.bookCoverShadow,
+        PreferKey.coverStyle,
         PreferKey.coverShowName,
         PreferKey.coverShowAuthor,
         PreferKey.coverShowNameN,

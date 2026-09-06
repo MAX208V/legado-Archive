@@ -836,6 +836,7 @@ object Restore {
             PreferKey.themeShelfColorN,
             PreferKey.uiCornerEffectMode,
             PreferKey.bookCoverShadow,
+            PreferKey.coverStyle,
             PreferKey.defaultCover,
             PreferKey.defaultCoverDark,
             PreferKey.screenOrientation,

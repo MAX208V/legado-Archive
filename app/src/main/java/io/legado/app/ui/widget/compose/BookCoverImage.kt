@@ -74,6 +74,13 @@ private const val COVER_THUMB_HEIGHT = 320
 private var cachedDefaultDrawable: Drawable? = null
 private var cachedDefaultBitmap: Bitmap? = null
 
+enum class CoverStyleType {
+    NONE,      // 无样式
+    SIMPLE,    // 简约：轻微的外部阴影
+    REALISTIC, // 拟真：书脊+3D阴影+书页边缘
+    THREE_D    // 立体：更明显的3D效果
+}
+
 @Composable
 fun BookCoverImage(
     book: Book,
@@ -312,7 +319,15 @@ fun BookCoverImage(
 
     val currentOnBoundsChanged by rememberUpdatedState(onBoundsChanged)
     val themeSignature = rememberThemeUiPalette().signature
-    val coverShadowEnabled = remember(themeSignature) { AppConfig.bookCoverShadow }
+    val coverStyleType = remember(themeSignature) {
+        when (AppConfig.coverStyle) {
+            "none" -> CoverStyleType.NONE
+            "simple" -> CoverStyleType.SIMPLE
+            "realistic" -> CoverStyleType.REALISTIC
+            "3d" -> CoverStyleType.THREE_D
+            else -> CoverStyleType.SIMPLE
+        }
+    }
     val shape = RoundedCornerShape(style.radiusDp.dp)
     val frameModifier = modifier
         .then(if (fillBounds) Modifier else Modifier.aspectRatio(BOOK_COVER_ASPECT_RATIO))
@@ -325,7 +340,7 @@ fun BookCoverImage(
                 Modifier
             }
         )
-        .coverOuterShadow(style, coverShadowEnabled)
+        .coverOuterShadow(style, coverStyleType)
         .clip(shape)
 
     Box(modifier = frameModifier) {
@@ -347,29 +362,189 @@ fun BookCoverImage(
 
 private fun Modifier.coverOuterShadow(
     style: CoverImageView.CoverStyle,
-    enabled: Boolean
+    coverStyleType: CoverStyleType
 ): Modifier {
-    if (!enabled || style.elevationDp <= 0f) return this
-    return drawWithCache {
-        val radius = style.radiusDp.dp.toPx()
-        val blurRadius = maxOf(1f, style.elevationDp.dp.toPx() * 1.35f)
-        val spread = blurRadius * 2.5f
-        val shadowAlpha = (0.10f + style.elevationDp * 0.018f).coerceIn(0.12f, 0.22f)
-        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = android.graphics.Color.argb((shadowAlpha * 255).roundToInt(), 0, 0, 0)
-            maskFilter = BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
+    when (coverStyleType) {
+        CoverStyleType.NONE -> return this
+        CoverStyleType.SIMPLE -> {
+            // 简约样式：轻微的外部阴影
+            if (style.elevationDp <= 0f) return this
+            return drawWithCache {
+                val radius = style.radiusDp.dp.toPx()
+                val blurRadius = maxOf(1f, style.elevationDp.dp.toPx() * 1.35f)
+                val spread = blurRadius * 2.5f
+                val shadowAlpha = (0.10f + style.elevationDp * 0.018f).coerceIn(0.12f, 0.22f)
+                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb((shadowAlpha * 255).roundToInt(), 0, 0, 0)
+                    maskFilter = BlurMaskFilter(blurRadius, BlurMaskFilter.Blur.NORMAL)
+                }
+                val clearPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+                }
+                val coverRect = AndroidRectF(0f, 0f, size.width, size.height)
+                val layerRect = AndroidRectF(-spread, -spread, size.width + spread, size.height + spread)
+                onDrawBehind {
+                    drawContext.canvas.nativeCanvas.apply {
+                        val saveCount = saveLayer(layerRect, null)
+                        drawRoundRect(coverRect, radius, radius, shadowPaint)
+                        drawRoundRect(coverRect, radius, radius, clearPaint)
+                        restoreToCount(saveCount)
+                    }
+                }
+            }
         }
-        val clearPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+        CoverStyleType.REALISTIC -> {
+            // 拟真样式：书脊+3D阴影+书页边缘
+            return drawWithCache {
+                val radius = style.radiusDp.dp.toPx()
+                val spineWidth = size.width * 0.04f // 书脊宽度
+                val pageEdgeHeight = size.height * 0.02f // 书页边缘高度
+                
+                // 书脊阴影（左侧）
+                val spineShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(40, 0, 0, 0)
+                    maskFilter = BlurMaskFilter(spineWidth * 0.8f, BlurMaskFilter.Blur.NORMAL)
+                }
+                
+                // 3D阴影（底部和右侧）
+                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(50, 0, 0, 0)
+                    maskFilter = BlurMaskFilter(size.height * 0.08f, BlurMaskFilter.Blur.NORMAL)
+                }
+                
+                // 书脊效果（左侧渐变）
+                val spinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(20, 0, 0, 0)
+                }
+                
+                // 书页边缘效果（底部）
+                val pageEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(30, 255, 255, 255)
+                }
+                
+                onDrawBehind {
+                    drawContext.canvas.nativeCanvas.apply {
+                        // 绘制3D阴影（底部和右侧）
+                        val shadowRect = AndroidRectF(
+                            spineWidth,
+                            pageEdgeHeight,
+                            size.width + spineWidth,
+                            size.height + pageEdgeHeight
+                        )
+                        drawRoundRect(shadowRect, radius, radius, shadowPaint)
+                        
+                        // 绘制书脊阴影（左侧）
+                        val spineShadowRect = AndroidRectF(
+                            0f,
+                            0f,
+                            spineWidth * 2,
+                            size.height
+                        )
+                        drawRoundRect(spineShadowRect, radius, radius, spineShadowPaint)
+                        
+                        // 绘制书脊效果（左侧渐变）
+                        val spineRect = AndroidRectF(
+                            0f,
+                            0f,
+                            spineWidth,
+                            size.height
+                        )
+                        drawRect(spineRect, spinePaint)
+                        
+                        // 绘制书页边缘效果（底部）
+                        val pageEdgeRect = AndroidRectF(
+                            spineWidth,
+                            size.height - pageEdgeHeight,
+                            size.width,
+                            size.height
+                        )
+                        drawRect(pageEdgeRect, pageEdgePaint)
+                    }
+                }
+            }
         }
-        val coverRect = AndroidRectF(0f, 0f, size.width, size.height)
-        val layerRect = AndroidRectF(-spread, -spread, size.width + spread, size.height + spread)
-        onDrawBehind {
-            drawContext.canvas.nativeCanvas.apply {
-                val saveCount = saveLayer(layerRect, null)
-                drawRoundRect(coverRect, radius, radius, shadowPaint)
-                drawRoundRect(coverRect, radius, radius, clearPaint)
-                restoreToCount(saveCount)
+        CoverStyleType.THREE_D -> {
+            // 立体样式：更明显的3D效果
+            return drawWithCache {
+                val radius = style.radiusDp.dp.toPx()
+                val spineWidth = size.width * 0.05f // 书脊宽度
+                val pageEdgeHeight = size.height * 0.03f // 书页边缘高度
+                
+                // 书脊阴影（左侧）
+                val spineShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(60, 0, 0, 0)
+                    maskFilter = BlurMaskFilter(spineWidth, BlurMaskFilter.Blur.NORMAL)
+                }
+                
+                // 3D阴影（底部和右侧）
+                val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(80, 0, 0, 0)
+                    maskFilter = BlurMaskFilter(size.height * 0.12f, BlurMaskFilter.Blur.NORMAL)
+                }
+                
+                // 书脊效果（左侧渐变）
+                val spinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(40, 0, 0, 0)
+                }
+                
+                // 书页边缘效果（底部）
+                val pageEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(50, 255, 255, 255)
+                }
+                
+                // 高光效果（顶部）
+                val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.argb(30, 255, 255, 255)
+                }
+                
+                onDrawBehind {
+                    drawContext.canvas.nativeCanvas.apply {
+                        // 绘制3D阴影（底部和右侧）
+                        val shadowRect = AndroidRectF(
+                            spineWidth,
+                            pageEdgeHeight,
+                            size.width + spineWidth * 2,
+                            size.height + pageEdgeHeight * 2
+                        )
+                        drawRoundRect(shadowRect, radius, radius, shadowPaint)
+                        
+                        // 绘制书脊阴影（左侧）
+                        val spineShadowRect = AndroidRectF(
+                            0f,
+                            0f,
+                            spineWidth * 2,
+                            size.height
+                        )
+                        drawRoundRect(spineShadowRect, radius, radius, spineShadowPaint)
+                        
+                        // 绘制书脊效果（左侧渐变）
+                        val spineRect = AndroidRectF(
+                            0f,
+                            0f,
+                            spineWidth,
+                            size.height
+                        )
+                        drawRect(spineRect, spinePaint)
+                        
+                        // 绘制书页边缘效果（底部）
+                        val pageEdgeRect = AndroidRectF(
+                            spineWidth,
+                            size.height - pageEdgeHeight,
+                            size.width,
+                            size.height
+                        )
+                        drawRect(pageEdgeRect, pageEdgePaint)
+                        
+                        // 绘制高光效果（顶部）
+                        val highlightRect = AndroidRectF(
+                            spineWidth,
+                            0f,
+                            size.width,
+                            pageEdgeHeight
+                        )
+                        drawRect(highlightRect, highlightPaint)
+                    }
+                }
             }
         }
     }

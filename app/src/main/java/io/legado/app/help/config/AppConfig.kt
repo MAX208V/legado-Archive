@@ -2184,6 +2184,12 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefBoolean(PreferKey.bookCoverShadow, value)
         }
 
+    var coverStyle: String
+        get() = appCtx.getPrefString(PreferKey.coverStyle, "simple")
+        set(value) {
+            appCtx.putPrefString(PreferKey.coverStyle, value)
+        }
+
     var elevation: Int
         get() = if (isEInkMode) 0 else appCtx.getPrefInt(
             PreferKey.barElevation,

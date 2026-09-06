@@ -1351,8 +1351,8 @@
     <string name="book_info_background_image_summary">Replace the detail cover-blur background. Uses theme background color when unset.</string>
     <string name="load_cover_high_quality">Load high quality covers</string>
     <string name="load_cover_high_quality_summary">Use original cover images instead of cached thumbnails</string>
-    <string name="book_cover_shadow">Show cover shadow</string>
-    <string name="book_cover_shadow_summary">Draw an outer shadow for book covers</string>
+    <string name="book_cover_shadow">Cover style</string>
+    <string name="book_cover_shadow_summary">Select the display style for book covers</string>
     <string name="cover_show_name">show name</string>
     <string name="cover_show_name_summary">Book title shown on cover</string>
     <string name="cover_show_author">show author</string>

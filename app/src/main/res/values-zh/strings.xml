@@ -1093,8 +1093,8 @@
     <string name="book_info_background_image_summary">替代详情页封面模糊背景，未设置时使用主题背景色</string>
     <string name="load_cover_high_quality">加载高清封面</string>
     <string name="load_cover_high_quality_summary">开启后使用封面原图，关闭时优先加载缩略图</string>
-    <string name="book_cover_shadow">显示封面阴影</string>
-    <string name="book_cover_shadow_summary">开启后为书籍封面绘制外部阴影</string>
+    <string name="book_cover_shadow">封面样式</string>
+    <string name="book_cover_shadow_summary">选择书籍封面的显示样式</string>
     <string name="cover_show_name">显示书名</string>
     <string name="cover_show_name_summary">封面上显示书名</string>
     <string name="cover_show_author">显示作者</string>

@@ -68,6 +68,13 @@ class CoverImageView @JvmOverloads constructor(
         private val needNameBitmap by lazy { LruCache<String, Boolean>(99) }
     }
 
+    enum class CoverStyleType {
+        NONE,      // 无样式
+        SIMPLE,    // 简约：轻微的外部阴影
+        REALISTIC, // 拟真：书脊+3D阴影+书页边缘
+        THREE_D    // 立体：更明显的3D效果
+    }
+
     enum class CoverStyle(
         val radiusDp: Float,
         val elevationDp: Float,
@@ -112,7 +119,21 @@ class CoverImageView @JvmOverloads constructor(
     }
 
     fun setCoverStyle(style: CoverStyle) {
-        val shadowElevation = if (AppConfig.bookCoverShadow) style.elevationDp.dpToPx() else 0f
+        val coverStyleType = when (AppConfig.coverStyle) {
+            "none" -> CoverStyleType.NONE
+            "simple" -> CoverStyleType.SIMPLE
+            "realistic" -> CoverStyleType.REALISTIC
+            "3d" -> CoverStyleType.THREE_D
+            else -> CoverStyleType.SIMPLE
+        }
+        
+        val shadowElevation = when (coverStyleType) {
+            CoverStyleType.NONE -> 0f
+            CoverStyleType.SIMPLE -> style.elevationDp.dpToPx()
+            CoverStyleType.REALISTIC -> style.elevationDp.dpToPx() * 1.5f
+            CoverStyleType.THREE_D -> style.elevationDp.dpToPx() * 2f
+        }
+        
         if (coverStyle == style && elevation == shadowElevation) return
         coverStyle = style
         coverRadiusPx = style.radiusDp.dpToPx()
@@ -163,6 +184,33 @@ class CoverImageView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        
+        // 根据封面样式绘制不同的效果
+        val coverStyleType = when (AppConfig.coverStyle) {
+            "none" -> CoverStyleType.NONE
+            "simple" -> CoverStyleType.SIMPLE
+            "realistic" -> CoverStyleType.REALISTIC
+            "3d" -> CoverStyleType.THREE_D
+            else -> CoverStyleType.SIMPLE
+        }
+        
+        when (coverStyleType) {
+            CoverStyleType.NONE -> {
+                // 无样式：不绘制任何额外效果
+            }
+            CoverStyleType.SIMPLE -> {
+                // 简约样式：轻微的外部阴影（由elevation属性处理）
+            }
+            CoverStyleType.REALISTIC -> {
+                // 拟真样式：书脊+3D阴影+书页边缘
+                drawRealisticEffect(canvas)
+            }
+            CoverStyleType.THREE_D -> {
+                // 立体样式：更明显的3D效果
+                draw3dEffect(canvas)
+            }
+        }
+        
         val currentName = this.name
         if (drawBookName && currentName != null && drawNameOverlayForCurrentCover) {
             val currentAuthor = this.author
@@ -180,6 +228,150 @@ class CoverImageView @JvmOverloads constructor(
             }
         }
         drawCoverStroke(canvas)
+    }
+
+    private fun drawRealisticEffect(canvas: Canvas) {
+        if (width <= 0 || height <= 0) return
+        
+        val spineWidth = width * 0.04f // 书脊宽度
+        val pageEdgeHeight = height * 0.02f // 书页边缘高度
+        
+        // 书脊阴影（左侧）
+        val spineShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(40, 0, 0, 0)
+            maskFilter = android.graphics.BlurMaskFilter(spineWidth * 0.8f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        
+        // 3D阴影（底部和右侧）
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(50, 0, 0, 0)
+            maskFilter = android.graphics.BlurMaskFilter(height * 0.08f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        
+        // 书脊效果（左侧渐变）
+        val spinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(20, 0, 0, 0)
+        }
+        
+        // 书页边缘效果（底部）
+        val pageEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(30, 255, 255, 255)
+        }
+        
+        // 绘制3D阴影（底部和右侧）
+        val shadowRect = RectF(
+            spineWidth,
+            pageEdgeHeight,
+            width + spineWidth,
+            height + pageEdgeHeight
+        )
+        canvas.drawRoundRect(shadowRect, coverRadiusPx, coverRadiusPx, shadowPaint)
+        
+        // 绘制书脊阴影（左侧）
+        val spineShadowRect = RectF(
+            0f,
+            0f,
+            spineWidth * 2,
+            height.toFloat()
+        )
+        canvas.drawRoundRect(spineShadowRect, coverRadiusPx, coverRadiusPx, spineShadowPaint)
+        
+        // 绘制书脊效果（左侧渐变）
+        val spineRect = RectF(
+            0f,
+            0f,
+            spineWidth,
+            height.toFloat()
+        )
+        canvas.drawRect(spineRect, spinePaint)
+        
+        // 绘制书页边缘效果（底部）
+        val pageEdgeRect = RectF(
+            spineWidth,
+            height - pageEdgeHeight,
+            width.toFloat(),
+            height.toFloat()
+        )
+        canvas.drawRect(pageEdgeRect, pageEdgePaint)
+    }
+
+    private fun draw3dEffect(canvas: Canvas) {
+        if (width <= 0 || height <= 0) return
+        
+        val spineWidth = width * 0.05f // 书脊宽度
+        val pageEdgeHeight = height * 0.03f // 书页边缘高度
+        
+        // 书脊阴影（左侧）
+        val spineShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(60, 0, 0, 0)
+            maskFilter = android.graphics.BlurMaskFilter(spineWidth, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        
+        // 3D阴影（底部和右侧）
+        val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(80, 0, 0, 0)
+            maskFilter = android.graphics.BlurMaskFilter(height * 0.12f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        
+        // 书脊效果（左侧渐变）
+        val spinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(40, 0, 0, 0)
+        }
+        
+        // 书页边缘效果（底部）
+        val pageEdgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(50, 255, 255, 255)
+        }
+        
+        // 高光效果（顶部）
+        val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(30, 255, 255, 255)
+        }
+        
+        // 绘制3D阴影（底部和右侧）
+        val shadowRect = RectF(
+            spineWidth,
+            pageEdgeHeight,
+            width + spineWidth * 2,
+            height + pageEdgeHeight * 2
+        )
+        canvas.drawRoundRect(shadowRect, coverRadiusPx, coverRadiusPx, shadowPaint)
+        
+        // 绘制书脊阴影（左侧）
+        val spineShadowRect = RectF(
+            0f,
+            0f,
+            spineWidth * 2,
+            height.toFloat()
+        )
+        canvas.drawRoundRect(spineShadowRect, coverRadiusPx, coverRadiusPx, spineShadowPaint)
+        
+        // 绘制书脊效果（左侧渐变）
+        val spineRect = RectF(
+            0f,
+            0f,
+            spineWidth,
+            height.toFloat()
+        )
+        canvas.drawRect(spineRect, spinePaint)
+        
+        // 绘制书页边缘效果（底部）
+        val pageEdgeRect = RectF(
+            spineWidth,
+            height - pageEdgeHeight,
+            width.toFloat(),
+            height.toFloat()
+        )
+        canvas.drawRect(pageEdgeRect, pageEdgePaint)
+        
+        // 绘制高光效果（顶部）
+        val highlightRect = RectF(
+            spineWidth,
+            0f,
+            width.toFloat(),
+            pageEdgeHeight
+        )
+        canvas.drawRect(highlightRect, highlightPaint)
     }
 
     private fun drawCoverStroke(canvas: Canvas) {

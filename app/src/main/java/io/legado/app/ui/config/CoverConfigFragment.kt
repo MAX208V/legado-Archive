@@ -58,14 +58,15 @@ class CoverConfigFragment : ComposeSettingFragment() {
                                 updateBooleanSetting("loadCoverHighQuality", it)
                             }
                         ),
-                        SettingSwitchSpec(
-                            key = PreferKey.bookCoverShadow,
+                        SettingChoiceSpec(
+                            key = PreferKey.coverStyle,
                             title = getString(R.string.book_cover_shadow),
-                            summary = getString(R.string.book_cover_shadow_summary),
-                            checked = booleanSetting(PreferKey.bookCoverShadow, true),
-                            searchKeys = listOf("coverShadow", "cover_shadow", "shadow"),
-                            onCheckedChange = {
-                                updateBooleanSetting(PreferKey.bookCoverShadow, it)
+                            options = coverStyleOptions(),
+                            selectedValue = stringSetting(PreferKey.coverStyle, "simple"),
+                            summary = coverStyleLabel(stringSetting(PreferKey.coverStyle, "simple")),
+                            searchKeys = listOf("coverShadow", "cover_shadow", "shadow", "coverStyle", "cover_style"),
+                            onSelected = {
+                                updateStringSetting(PreferKey.coverStyle, it)
                             }
                         ),
                         SettingActionSpec(
@@ -117,7 +118,8 @@ class CoverConfigFragment : ComposeSettingFragment() {
             PreferKey.coverShowAuthorN,
             PreferKey.coverCollectionModeDay,
             PreferKey.coverCollectionModeNight,
-            PreferKey.bookCoverShadow -> refreshCoverCollection()
+            PreferKey.bookCoverShadow,
+            PreferKey.coverStyle -> refreshCoverCollection()
         }
     }
 
@@ -191,6 +193,25 @@ class CoverConfigFragment : ComposeSettingFragment() {
 
     private fun coverModeLabel(value: String): String {
         return coverModeOptions()
+            .firstOrNull { it.value == value }
+            ?.label
+            ?.toString()
+            .orEmpty()
+    }
+
+    private fun coverStyleOptions(): List<SettingChoiceOption> {
+        val entries = resources.getStringArray(R.array.cover_style_entries)
+        val values = resources.getStringArray(R.array.cover_style_values)
+        return values.mapIndexed { index, value ->
+            SettingChoiceOption(
+                value = value,
+                label = entries.getOrElse(index) { value }
+            )
+        }
+    }
+
+    private fun coverStyleLabel(value: String): String {
+        return coverStyleOptions()
             .firstOrNull { it.value == value }
             ?.label
             ?.toString()
