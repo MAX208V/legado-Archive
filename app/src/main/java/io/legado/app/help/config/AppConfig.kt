@@ -2185,7 +2185,7 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
         }
 
     var coverStyle: String
-        get() = appCtx.getPrefString(PreferKey.coverStyle, "simple")
+        get() = appCtx.getPrefString(PreferKey.coverStyle, "simple").orEmpty().ifEmpty { "simple" }
         set(value) {
             appCtx.putPrefString(PreferKey.coverStyle, value)
         }
