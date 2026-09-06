@@ -118,6 +118,8 @@ class CoverImageView @JvmOverloads constructor(
         setCoverStyle(CoverStyle.LIST)
     }
 
+    private var lastCoverStyleConfig: String = AppConfig.coverStyle
+
     fun setCoverStyle(style: CoverStyle) {
         val coverStyleType = when (AppConfig.coverStyle) {
             "none" -> CoverStyleType.NONE
@@ -134,7 +136,10 @@ class CoverImageView @JvmOverloads constructor(
             CoverStyleType.THREE_D -> style.elevationDp.dpToPx() * 2f
         }
         
-        if (coverStyle == style && elevation == shadowElevation) return
+        // 当 AppConfig.coverStyle 变化时，即使 style 参数没变也要刷新
+        val configChanged = lastCoverStyleConfig != AppConfig.coverStyle
+        lastCoverStyleConfig = AppConfig.coverStyle
+        if (coverStyle == style && elevation == shadowElevation && !configChanged) return
         coverStyle = style
         coverRadiusPx = style.radiusDp.dpToPx()
         coverStrokeWidthPx = style.strokeWidthDp.dpToPx()
