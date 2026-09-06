@@ -22,7 +22,9 @@ fun BookshelfComposeCover(
     fillBounds: Boolean = false,
     style: CoverImageView.CoverStyle = CoverImageView.CoverStyle.GRID
 ) {
-    val coverRequest = remember(item.coverIdentityKey()) {
+    // coverStyle 变化时也要重组，以便更新封面阴影效果
+    val coverStyleKey = AppConfig.coverStyle
+    val coverRequest = remember(item.coverIdentityKey(), coverStyleKey) {
         item.toCoverRequest()
     }
     BookCoverImage(
