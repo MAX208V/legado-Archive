@@ -25,6 +25,7 @@ object PreferKey {
     const val loadCoverHighQuality = "loadCoverHighQuality"
     const val bookCoverShadow = "bookCoverShadow"
     const val coverStyle = "coverStyle"
+    const val bookshelfCoverShape = "bookshelfCoverShape"
     const val coverShowName = "coverShowName"
     const val coverShowAuthor = "coverShowAuthor"
     const val coverShowNameN = "coverShowNameN"

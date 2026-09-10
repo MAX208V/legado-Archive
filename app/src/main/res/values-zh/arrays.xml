@@ -136,4 +136,14 @@
         <item>3d</item>
     </string-array>
 
+    <string-array name="bookshelf_cover_shape_entries">
+        <item>方形</item>
+        <item>圆角矩形</item>
+    </string-array>
+
+    <string-array name="bookshelf_cover_shape_values">
+        <item>square</item>
+        <item>rounded</item>
+    </string-array>
+
 </resources>

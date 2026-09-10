@@ -2190,6 +2190,12 @@ object AppConfig : SharedPreferences.OnSharedPreferenceChangeListener {
             appCtx.putPrefString(PreferKey.coverStyle, value)
         }
 
+    var bookshelfCoverShape: String
+        get() = appCtx.getPrefString(PreferKey.bookshelfCoverShape, "square").orEmpty().ifEmpty { "square" }
+        set(value) {
+            appCtx.putPrefString(PreferKey.bookshelfCoverShape, value)
+        }
+
     var elevation: Int
         get() = if (isEInkMode) 0 else appCtx.getPrefInt(
             PreferKey.barElevation,

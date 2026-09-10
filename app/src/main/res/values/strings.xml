@@ -1353,6 +1353,8 @@
     <string name="load_cover_high_quality_summary">Use original cover images instead of cached thumbnails</string>
     <string name="book_cover_shadow">Cover style</string>
     <string name="book_cover_shadow_summary">Select the display style for book covers</string>
+    <string name="bookshelf_cover_shape">Bookshelf cover shape</string>
+    <string name="bookshelf_cover_shape_summary">Select the shape of book covers on the bookshelf</string>
     <string name="cover_show_name">show name</string>
     <string name="cover_show_name_summary">Book title shown on cover</string>
     <string name="cover_show_author">show author</string>

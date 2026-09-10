@@ -1095,6 +1095,8 @@
     <string name="load_cover_high_quality_summary">开启后使用封面原图，关闭时优先加载缩略图</string>
     <string name="book_cover_shadow">封面样式</string>
     <string name="book_cover_shadow_summary">选择书籍封面的显示样式</string>
+    <string name="bookshelf_cover_shape">书架封面形状</string>
+    <string name="bookshelf_cover_shape_summary">选择书架上书籍封面的形状</string>
     <string name="cover_show_name">显示书名</string>
     <string name="cover_show_name_summary">封面上显示书名</string>
     <string name="cover_show_author">显示作者</string>

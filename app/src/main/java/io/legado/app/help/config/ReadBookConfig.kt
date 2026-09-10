@@ -140,10 +140,6 @@ object ReadBookConfig {
     const val PREF_ROTATION_SOURCE_PAGTHEME = "pref_rotation_source_pagtheme"
     const val PREF_ROTATION_SOURCE_VIDEO = "pref_rotation_source_video"
     const val PREF_ROTATION_SOURCE_URL = "pref_rotation_source_url"
-    const val PREF_LAYER_SOURCE_IMAGE = "pref_layer_source_image"
-    const val PREF_LAYER_SOURCE_VIDEO = "pref_layer_source_video"
-    const val PREF_LAYER_SOURCE_URL = "pref_layer_source_url"
-    const val PREF_LAYER_SOURCE_BG = "pref_layer_source_bg"
 
     /** 判断条目来源是否启用（来源开关） */
     fun rotationSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
@@ -180,24 +176,6 @@ object ReadBookConfig {
     }
 
     /** 判断条目是否匹配当前模式（isNight：当前是否为黑夜模式） */
-    /** 壁纸图层来源开关：关闭 → 该来源图层隐藏且不渲染（预置项恒显示） */
-    fun layerSourceEnabled(entry: String, prefs: android.content.SharedPreferences): Boolean {
-        // PREFAB_BG / PREFAB_ROTATION 是纯字符串标记，非 JSON
-        if (entry == io.legado.app.ui.book.read.page.WallpaperLayerType.PREFAB_BG) {
-            return prefs.getBoolean(PREF_LAYER_SOURCE_BG, false)
-        }
-        val item = io.legado.app.ui.book.read.page.WallpaperItem.fromJson(entry) ?: return true
-        val key = when (item.type) {
-            io.legado.app.ui.book.read.page.WallpaperLayerType.IMAGE,
-            io.legado.app.ui.book.read.page.WallpaperLayerType.LIVE_PHOTO -> PREF_LAYER_SOURCE_IMAGE
-            io.legado.app.ui.book.read.page.WallpaperLayerType.VIDEO -> PREF_LAYER_SOURCE_VIDEO
-            io.legado.app.ui.book.read.page.WallpaperLayerType.URL_IMAGE,
-            io.legado.app.ui.book.read.page.WallpaperLayerType.URL_RESOLVE -> PREF_LAYER_SOURCE_URL
-            else -> return true
-        }
-        return prefs.getBoolean(key, true)
-    }
-
     fun rotationEntryMatchesMode(entry: String, isNight: Boolean): Boolean {
         val mode = parseRotationEntry(entry).second
         return when (mode) {
@@ -814,19 +792,6 @@ object ReadBookConfig {
         var tipDividerColor: Int = -1,
         var headerMode: Int = 0,
         var footerMode: Int = 0,
-        // 壁纸轮换
-        var wallpaperRotationEnabled: Boolean = false,
-        var wallpaperRotationIntervalSec: Int = 60,
-        var wallpaperRotationImageList: ArrayList<String> = arrayListOf(),
-        // 壁纸图层（有序叠放，index 0 为最底层）
-        var wallpaperLayersEnabled: Boolean = false,
-        var wallpaperLayerItems: ArrayList<String> = arrayListOf(),
-        /** 默认背景图片边距（dp，四方向独立；旧 wallpaperLayerBgMargin 统一值兼容保留） */
-        var wallpaperLayerBgMargin: Int = 0,
-        var wallpaperLayerBgMarginTop: Int = 0,
-        var wallpaperLayerBgMarginRight: Int = 0,
-        var wallpaperLayerBgMarginBottom: Int = 0,
-        var wallpaperLayerBgMarginLeft: Int = 0,
         // PAG叠加动画
         var pagOverlayPath: String = "",
         var pagOverlayEnabled: Boolean = false,
@@ -1172,16 +1137,7 @@ object ReadBookConfig {
             "tipDividerColor" to tipDividerColor,
             "headerMode" to headerMode,
             "footerMode" to footerMode,
-            "wallpaperRotationEnabled" to wallpaperRotationEnabled,
-            "wallpaperRotationIntervalSec" to wallpaperRotationIntervalSec,
-            "wallpaperRotationImageList" to wallpaperRotationImageList,
-            "wallpaperLayersEnabled" to wallpaperLayersEnabled,
-            "wallpaperLayerItems" to wallpaperLayerItems,
-            "wallpaperLayerBgMargin" to wallpaperLayerBgMargin,
-            "wallpaperLayerBgMarginTop" to wallpaperLayerBgMarginTop,
-            "wallpaperLayerBgMarginRight" to wallpaperLayerBgMarginRight,
-            "wallpaperLayerBgMarginBottom" to wallpaperLayerBgMarginBottom,
-            "wallpaperLayerBgMarginLeft" to wallpaperLayerBgMarginLeft,
+
             "pagOverlayPath" to pagOverlayPath,
             "pagOverlayEnabled" to pagOverlayEnabled
         )

@@ -69,6 +69,17 @@ class CoverConfigFragment : ComposeSettingFragment() {
                                 updateStringSetting(PreferKey.coverStyle, it)
                             }
                         ),
+                        SettingChoiceSpec(
+                            key = PreferKey.bookshelfCoverShape,
+                            title = getString(R.string.bookshelf_cover_shape),
+                            options = bookshelfCoverShapeOptions(),
+                            selectedValue = stringSetting(PreferKey.bookshelfCoverShape, "square"),
+                            summary = bookshelfCoverShapeLabel(stringSetting(PreferKey.bookshelfCoverShape, "square")),
+                            searchKeys = listOf("bookshelfCoverShape", "coverShape", "square", "rounded"),
+                            onSelected = {
+                                updateStringSetting(PreferKey.bookshelfCoverShape, it)
+                            }
+                        ),
                         SettingActionSpec(
                             key = KEY_COVER_RULE,
                             title = getString(R.string.cover_rule),
@@ -212,6 +223,25 @@ class CoverConfigFragment : ComposeSettingFragment() {
 
     private fun coverStyleLabel(value: String): String {
         return coverStyleOptions()
+            .firstOrNull { it.value == value }
+            ?.label
+            ?.toString()
+            .orEmpty()
+    }
+
+    private fun bookshelfCoverShapeOptions(): List<SettingChoiceOption> {
+        val entries = resources.getStringArray(R.array.bookshelf_cover_shape_entries)
+        val values = resources.getStringArray(R.array.bookshelf_cover_shape_values)
+        return values.mapIndexed { index, value ->
+            SettingChoiceOption(
+                value = value,
+                label = entries.getOrElse(index) { value }
+            )
+        }
+    }
+
+    private fun bookshelfCoverShapeLabel(value: String): String {
+        return bookshelfCoverShapeOptions()
             .firstOrNull { it.value == value }
             ?.label
             ?.toString()

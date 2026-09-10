@@ -159,8 +159,6 @@ import io.legado.app.ui.book.read.config.TipConfigDialog.Companion.TIP_DIVIDER_C
 import io.legado.app.ui.book.read.page.ContentTextView
 import io.legado.app.ui.book.read.page.ReadView
 import io.legado.app.ui.book.read.page.LottieImageBitmapCache
-import io.legado.app.ui.book.read.page.WallpaperHost
-import io.legado.app.ui.book.read.page.WallpaperLayerType
 import io.legado.app.ui.book.read.page.delegate.ScrollPageDelegate
 import io.legado.app.ui.book.read.page.entities.BookmarkMark
 import io.legado.app.ui.book.read.page.entities.buildBookmarkMarks
@@ -461,7 +459,6 @@ class ReadBookActivity : BaseReadBookActivity(),
         binding.readAiSummaryPanel.attach(this)
         binding.readAloudPlayerPanel.attach(this, this)
         initTomato()
-        refreshWallpaperLayers()
         ReadAloudAppCapsuleHost.updateReadBookPanelActive(binding.readAloudPlayerPanel.isFullPanelActive())
         binding.readAloudPlayerPanel.post {
             consumeGlobalReadAloudPanelOpen()
@@ -756,49 +753,12 @@ class ReadBookActivity : BaseReadBookActivity(),
             consumeGlobalReadAloudPanelOpen()
         }
         startWallpaperRotation()
-        wallpaperHost?.onActivityStart()
-        // URL 图层自动刷新：进入阅读页检查距上次刷新是否超过间隔
-        checkAndRefreshUrlLayers()
-    }
-
-    /** 检查 URL 图层是否超时，超时则自动刷新所有 URL 类型条目 */
-    private fun checkAndRefreshUrlLayers() {
-        val config = ReadBookConfig.durConfig
-        val now = System.currentTimeMillis()
-        // 收集所有 URL 类型条目（轮换列表 + 壁纸图层）
-        val urls = mutableListOf<String>()
-        config.wallpaperRotationImageList.filter { it.startsWith("http") }.forEach { urls.add(it) }
-        config.wallpaperLayerItems.filter {
-            val item = io.legado.app.ui.book.read.page.WallpaperItem.fromJson(it)
-            item?.type == io.legado.app.ui.book.read.page.WallpaperLayerType.URL_IMAGE ||
-                item?.type == io.legado.app.ui.book.read.page.WallpaperLayerType.URL_RESOLVE
-        }.forEach { urls.add(it) }
-        if (urls.isEmpty()) return
-        // 按条目独立检查：仅刷新已超时的条目
-        val overdue = urls.filter { url ->
-            val interval = config.getEntryRefreshInterval(url)
-            interval > 0 && (config.getEntryRefreshTime(url) == 0L ||
-                (now - config.getEntryRefreshTime(url)) >= interval)
-        }
-        if (overdue.isEmpty()) return
-        // 记录本次刷新时间（仅更新超时条目）
-        overdue.forEach { config.setEntryRefreshTime(it, now) }
-        // 后台清 Glide 缓存（不阻塞 UI）
-        lifecycleScope.launch {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                com.bumptech.glide.Glide.get(applicationContext).clearDiskCache()
-            }
-            // 重新渲染轮换/图层
-            startWallpaperRotation()
-            refreshWallpaperLayers()
-        }
     }
 
     override fun onPause() {
         super.onPause()
         TomatoClock.pause()
         stopWallpaperRotation()
-        wallpaperHost?.onActivityStop()
         binding.readAloudPlayerPanel.setForegroundActive(false)
         autoPageStop()
         backupJob?.cancel()
@@ -2559,7 +2519,6 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         if (needBackground) {
             readView.upBg()
-            wallpaperHost?.refreshBgLayer()
         }
         if (values.contains(3)) {
             readView.upBgAlpha()
@@ -4113,8 +4072,6 @@ class ReadBookActivity : BaseReadBookActivity(),
             readView.refreshVisualStyle()
             // 日夜切换后重启壁纸轮换：按新模式的过滤结果立即刷新（免重进阅读界面）
             startWallpaperRotation()
-            // 重建壁纸图层：自定义图层按日夜模式（☀️/🌙/🌓）过滤
-            refreshWallpaperLayers()
         }
         upSystemUiVisibility()
     }
@@ -4665,51 +4622,7 @@ class ReadBookActivity : BaseReadBookActivity(),
         skipToSearch(searchResult)
     }
 
-    internal var wallpaperHost: WallpaperHost? = null
-    private var lastWallpaperOn: Boolean? = null // 壁纸开关状态缓存（页面背景透明化仅开关/主题变化时切换）
-    private var lastNightTheme: Boolean? = null // 日夜主题缓存（主题切换时刷新原有背景层）
 
-    /**
-     * 初始化/刷新壁纸图层：挂载到阅读页底层（vwRoot 索引 0，背景之上、文字之下），
-     * 支持多图层叠放（如底层视频 + 上层 PNG 镂空窗户），可调整顺序。
-     * 由首次进入阅读页与 BgTextConfigDialog 配置变更时调用。
-     */
-    internal fun refreshWallpaperLayers() {
-        val host = wallpaperHost ?: run {
-            val h = WallpaperHost(this)
-            val parent = binding.readView.wallpaperLayerParent
-            val lp = android.widget.FrameLayout.LayoutParams(
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-                android.widget.FrameLayout.LayoutParams.MATCH_PARENT
-            )
-            parent.addView(h, 0, lp)
-            wallpaperHost = h
-            h
-        }
-        // 页面背景透明化只需在「壁纸开关」或「日夜主题」状态变化时切换；
-        // 图层增删/轮换切换不重设页面背景 → 与轮换壁纸一致，杜绝整页重绘抖动
-        val on = ReadBookConfig.durConfig.wallpaperLayersEnabled
-        if (lastWallpaperOn != on) {
-            lastWallpaperOn = on
-            binding.readView.upBg()
-        } else if (lastNightTheme != AppConfig.isNightTheme) {
-            lastNightTheme = AppConfig.isNightTheme
-            binding.readView.upBg()
-            host.refreshBgLayer() // 原有背景随日/夜主题刷新
-        }
-        val rawItems = ReadBookConfig.durConfig.wallpaperLayerItems
-        // 「默认背景」现为普通图层项：来源开关开启时，以其条目加入列表（由 normalizeLayerItems 保证已插入）；
-        // 走 setLayers 统一差异逻辑，列表不变即不重建 → 不闪。仅按来源开关过滤。
-        val items = rawItems.filter {
-            ReadBookConfig.layerSourceEnabled(it, application.defaultSharedPreferences)
-        }
-        host.setLayers(items)
-    }
-
-    /** 图层视频声音开关（按 entry 定位，即时生效，不重建图层） */
-    internal fun setLayerSound(entry: String, soundOn: Boolean) {
-        wallpaperHost?.setLayerSound(entry, soundOn)
-    }
 
     private fun initTomato() {
         // 注册 app 上下文（提示音/震动）
@@ -5186,8 +5099,6 @@ class ReadBookActivity : BaseReadBookActivity(),
     }
 
     override fun onDestroy() {
-        // 壁纸图层释放（视频播放器）
-        wallpaperHost?.onDestroy()
         // 番茄钟不随阅读页销毁而停止：退出阅读页仅暂停（onPause），
         // 重新进入由 onResume 恢复；停止由用户操作或全部轮次完成触发
         if (!isChangingConfigurations) {
@@ -5538,7 +5449,6 @@ class ReadBookActivity : BaseReadBookActivity(),
         }
         refreshPagOverlay()
         binding.readView.upBg()
-        wallpaperHost?.refreshRotationLayer()
         if (needStyleRefresh) {
             binding.readView.upStyle()
         }
