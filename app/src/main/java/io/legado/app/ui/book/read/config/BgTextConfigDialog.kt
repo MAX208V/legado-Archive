@@ -1492,6 +1492,93 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         )
     }
 
+    /** 自动刷新间隔选择对话框（长按刷新按钮弹出） */
+    @Composable
+    private fun RefreshIntervalPicker(
+        currentMs: Long,
+        entryKey: String,
+        style: AppDialogStyle,
+        onDismiss: () -> Unit,
+        onConfirm: (Long) -> Unit
+    ) {
+        data class IntervalOption(val label: String, val ms: Long)
+        val options = listOf(
+            IntervalOption("1 小时", 3600_000L),
+            IntervalOption("6 小时", 6 * 3600_000L),
+            IntervalOption("12 小时", 12 * 3600_000L),
+            IntervalOption("1 天", 86400_000L),
+            IntervalOption("3 天", 3 * 86400_000L),
+            IntervalOption("7 天", 7 * 86400_000L),
+            IntervalOption("从不自动刷新", 0L)
+        )
+        var selected by remember { mutableStateOf(currentMs) }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = style.surface,
+            title = {
+                Text("URL 自动刷新间隔", color = style.primaryText, fontSize = 18.sp)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "超时后每次进入阅读页自动清缓存刷新 URL 壁纸",
+                        color = style.secondaryText,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    options.forEach { opt ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (selected == opt.ms) style.accent.copy(alpha = 0.15f)
+                                    else Color.Transparent
+                                )
+                                .clickable { selected = opt.ms }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .border(
+                                        2.dp,
+                                        if (selected == opt.ms) style.accent else style.secondaryText.copy(alpha = 0.4f),
+                                        RoundedCornerShape(9.dp)
+                                    )
+                                    .padding(3.dp)
+                            ) {
+                                if (selected == opt.ms) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(style.accent)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(opt.label, color = style.primaryText, fontSize = 15.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onConfirm(selected) }) {
+                    Text("确定", color = style.accent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("取消", color = style.secondaryText)
+                }
+            }
+        )
+    }
+
     /** 刷新轮换列表中 URL 条目：清 Glide 磁盘缓存 → 让轮换 Job 下轮切换时自动使用新内容 */
     private fun refreshUrlEntry(context: android.content.Context, entry: String) {
         val pureEntry = ReadBookConfig.parseRotationEntry(entry).first
@@ -1508,6 +1595,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
+    @Composable
     private fun PagOverlaySection(style: AppDialogStyle) {
         var pagEnabled by rememberSaveable(refreshTick) {
             mutableStateOf(ReadBookConfig.durConfig.pagOverlayEnabled)
