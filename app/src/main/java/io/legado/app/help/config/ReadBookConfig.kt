@@ -792,6 +792,10 @@ object ReadBookConfig {
         var tipDividerColor: Int = -1,
         var headerMode: Int = 0,
         var footerMode: Int = 0,
+        // 壁纸轮换
+        var wallpaperRotationEnabled: Boolean = false,
+        var wallpaperRotationIntervalSec: Int = 60,
+        var wallpaperRotationImageList: ArrayList<String> = arrayListOf(),
         // PAG叠加动画
         var pagOverlayPath: String = "",
         var pagOverlayEnabled: Boolean = false,
@@ -1137,7 +1141,9 @@ object ReadBookConfig {
             "tipDividerColor" to tipDividerColor,
             "headerMode" to headerMode,
             "footerMode" to footerMode,
-
+            "wallpaperRotationEnabled" to wallpaperRotationEnabled,
+            "wallpaperRotationIntervalSec" to wallpaperRotationIntervalSec,
+            "wallpaperRotationImageList" to wallpaperRotationImageList,
             "pagOverlayPath" to pagOverlayPath,
             "pagOverlayEnabled" to pagOverlayEnabled
         )
