@@ -1232,6 +1232,7 @@
     <string name="wallpaper_rotation">壁纸轮换</string>
     <string name="wallpaper_rotation_interval">每 %d 秒自动切换</string>
     <string name="wallpaper_rotation_interval_label">轮换间隔</string>
+    <string name="wallpaper_rotation_settings">轮换设置</string>
     <string name="select_rotation_images">选择轮换图片</string>
     <string name="pag_overlay">PAG叠加动画</string>
     <string name="select_pag_file">选择PAG文件</string>

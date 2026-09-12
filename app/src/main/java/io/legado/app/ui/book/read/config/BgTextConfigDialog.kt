@@ -353,6 +353,9 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         var entries by rememberSaveable(refreshTick) {
             mutableStateOf(ReadBookConfig.durConfig.wallpaperRotationImageList)
         }
+        var expanded by rememberSaveable(refreshTick) {
+            mutableStateOf(false)
+        }
         val presetImages = remember { requireContext().assets.list("bg")?.toList().orEmpty() }
 
         ReaderSwitchRow(
@@ -369,85 +372,112 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             refreshTick++ // 联动壁纸图层：轮换项随开关显示/隐藏
         }
         if (rotationEnabled) {
-            SliderRow(
-                title = stringResource(R.string.wallpaper_rotation_interval_label),
-                value = rotationInterval,
-                range = 15..300,
-                style = style,
-                valueText = "${rotationInterval}秒"
+            // 展开/收起设置项
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                rotationInterval = it
-                ReadBookConfig.durConfig.wallpaperRotationIntervalSec = it
-                // 立即重启轮换 Job 使新间隔生效
-                postReadConfigChanged(9)
+                Text(
+                    text = stringResource(R.string.wallpaper_rotation_settings),
+                    color = style.primaryText,
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Icon(
+                    painter = painterResource(
+                        if (expanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more
+                    ),
+                    contentDescription = null,
+                    tint = style.secondaryText,
+                    modifier = Modifier.size(18.dp)
+                )
             }
+            if (expanded) {
+                SliderRow(
+                    title = stringResource(R.string.wallpaper_rotation_interval_label),
+                    value = rotationInterval,
+                    range = 15..300,
+                    style = style,
+                    valueText = "${rotationInterval}秒"
+                ) {
+                    rotationInterval = it
+                    ReadBookConfig.durConfig.wallpaperRotationIntervalSec = it
+                    // 立即重启轮换 Job 使新间隔生效
+                    postReadConfigChanged(9)
+                }
 
-            // --- 按白天/黑夜模式轮换（默认启用，无需开关）---
-            // 列表项可设置白天☀️/黑夜🌙/都可用🌓，轮换时按当前模式过滤
+                // --- 按白天/黑夜模式轮换（默认启用，无需开关）---
+                // 列表项可设置白天☀️/黑夜🌙/都可用🌓，轮换时按当前模式过滤
 
-            // --- 四种壁纸来源（左侧开关控制该来源是否参与轮换）---
-            RotationSourceRow(
-                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_CUSTOM,
-                icon = R.drawable.ic_image,
-                text = "选择自定义壁纸",
-                count = entries.count { it.startsWith("custom:") },
-                style = style,
-                onSourceToggled = { refreshTick++ },
-                onClick = { addCustomWallpaper(entries) { entries = it } }
-            )
-            RotationSourceRow(
-                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_STYLE,
-                icon = R.drawable.ic_arrange,
-                text = "添加样式壁纸",
-                count = entries.count { it.startsWith("style:") },
-                style = style,
-                onSourceToggled = { refreshTick++ },
-                onClick = { addStyleWallpaper(entries) { entries = it } }
-            )
-            RotationSourceRow(
-                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_BUILTIN,
-                icon = R.drawable.ic_cfg_theme,
-                text = "选择内置壁纸",
-                count = entries.count { it.startsWith("asset:") || !it.contains(":") },
-                total = presetImages.size,
-                style = style,
-                onSourceToggled = { refreshTick++ },
-                onClick = { showBuiltinWallpaperDialog(presetImages, entries) { entries = it } }
-            )
-            RotationSourceRow(
-                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_PAGTHEME,
-                icon = R.drawable.ic_play_outline_24dp,
-                text = "选择PAG主题",
-                count = entries.count { it.startsWith("pagtheme:") },
-                style = style,
-                onSourceToggled = { refreshTick++ },
-                onClick = { selectPagThemeRoot() }
-            )
-            RotationSourceRow(
-                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_VIDEO,
-                icon = R.drawable.ic_play_outline_24dp,
-                text = "添加视频壁纸",
-                count = entries.count { it.startsWith("video:") },
-                style = style,
-                onSourceToggled = { refreshTick++ },
-                onClick = { selectRotationVideo.launch {
-                    mode = HandleFileContract.VIDEO
-                    title = getString(R.string.select_video)
-                } }
-            )
-            RotationSourceRow(
-                prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_URL,
-                icon = R.drawable.ic_web_outline,
-                text = "添加URL壁纸",
-                count = entries.count { it.startsWith("http") },
-                style = style,
-                onSourceToggled = { refreshTick++ },
-                onClick = { showAddRotationUrlDialog(entries) { entries = it } }
-            )
+                // --- 四种壁纸来源（左侧开关控制该来源是否参与轮换）---
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_CUSTOM,
+                    icon = R.drawable.ic_image,
+                    text = "选择自定义壁纸",
+                    count = entries.count { it.startsWith("custom:") },
+                    style = style,
+                    onSourceToggled = { refreshTick++ },
+                    onClick = { addCustomWallpaper(entries) { entries = it } }
+                )
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_STYLE,
+                    icon = R.drawable.ic_arrange,
+                    text = "添加样式壁纸",
+                    count = entries.count { it.startsWith("style:") },
+                    style = style,
+                    onSourceToggled = { refreshTick++ },
+                    onClick = { addStyleWallpaper(entries) { entries = it } }
+                )
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_BUILTIN,
+                    icon = R.drawable.ic_cfg_theme,
+                    text = "选择内置壁纸",
+                    count = entries.count { it.startsWith("asset:") || !it.contains(":") },
+                    total = presetImages.size,
+                    style = style,
+                    onSourceToggled = { refreshTick++ },
+                    onClick = { showBuiltinWallpaperDialog(presetImages, entries) { entries = it } }
+                )
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_PAGTHEME,
+                    icon = R.drawable.ic_play_outline_24dp,
+                    text = "选择PAG主题",
+                    count = entries.count { it.startsWith("pagtheme:") },
+                    style = style,
+                    onSourceToggled = { refreshTick++ },
+                    onClick = { selectPagThemeRoot() }
+                )
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_VIDEO,
+                    icon = R.drawable.ic_play_outline_24dp,
+                    text = "添加视频壁纸",
+                    count = entries.count { it.startsWith("video:") },
+                    style = style,
+                    onSourceToggled = { refreshTick++ },
+                    onClick = { selectRotationVideo.launch {
+                        mode = HandleFileContract.VIDEO
+                        title = getString(R.string.select_video)
+                    } }
+                )
+                RotationSourceRow(
+                    prefKey = ReadBookConfig.PREF_ROTATION_SOURCE_URL,
+                    icon = R.drawable.ic_web_outline,
+                    text = "添加URL壁纸",
+                    count = entries.count { it.startsWith("http") },
+                    style = style,
+                    onSourceToggled = { refreshTick++ },
+                    onClick = { showAddRotationUrlDialog(entries) { entries = it } }
+                )
 
-            // --- 当前轮换列表 ---
-            if (entries.isNotEmpty()) {
-                RotationEntryList(entries, style) { entries = it }
+                // --- 当前轮换列表 ---
+                if (entries.isNotEmpty()) {
+                    RotationEntryList(entries, style) { entries = it }
+                }
             }
         }
 
@@ -1603,8 +1633,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         ReaderSwitchRow(
             title = stringResource(R.string.pag_overlay),
             checked = pagEnabled,
-            style = style,
-            summary = if (pagPath.isNotBlank()) pagPath.substringAfterLast("/") else null
+            style = style
         ) {
             pagEnabled = it
             ReadBookConfig.durConfig.pagOverlayEnabled = it
