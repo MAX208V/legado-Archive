@@ -1235,6 +1235,9 @@
     <string name="select_rotation_images">选择轮换图片</string>
     <string name="pag_overlay">PAG叠加动画</string>
     <string name="select_pag_file">选择PAG文件</string>
+    <string name="pag_overlay_settings">动画设置</string>
+    <string name="select_pag_theme">选择PAG主题</string>
+    <string name="pag_overlay_apply_theme_bg">应用主题背景</string>
     <string name="background_image_blurring">Background image blurring</string>
     <string name="background_image_blurring_radius">Blurring radius</string>
     <string name="background_image_hint">Disabled when 0, enable range from 1 to 25\nThe greater the radius, the stronger the effect of blurring</string>

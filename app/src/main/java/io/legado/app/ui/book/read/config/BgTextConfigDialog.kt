@@ -1591,6 +1591,15 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         var pagPath by rememberSaveable(refreshTick) {
             mutableStateOf(ReadBookConfig.durConfig.pagOverlayPath)
         }
+        var themeDir by rememberSaveable(refreshTick) {
+            mutableStateOf(ReadBookConfig.durConfig.pagOverlayThemeDir)
+        }
+        var applyBg by rememberSaveable(refreshTick) {
+            mutableStateOf(ReadBookConfig.durConfig.pagOverlayThemeApplyBg)
+        }
+        var expanded by rememberSaveable(refreshTick) {
+            mutableStateOf(false)
+        }
         ReaderSwitchRow(
             title = stringResource(R.string.pag_overlay),
             checked = pagEnabled,
@@ -1602,33 +1611,98 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             if (!it) {
                 (activity as? ReadBookActivity)?.refreshPagOverlay()
             }
-            postReadConfigChanged(10)
+            postReadConfigChanged(1, 10)
         }
         if (pagEnabled) {
+            // 展开/收起设置项
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { selectPagFileAction() }
+                    .clickable { expanded = !expanded }
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(R.string.select_pag_file),
+                    text = stringResource(R.string.pag_overlay_settings),
                     color = style.primaryText,
                     fontSize = 13.sp,
                     modifier = Modifier.weight(1f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = pagPath.substringAfterLast("/").ifBlank { "未选择" },
-                    color = style.accent,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.width(100.dp)
+                Icon(
+                    painter = painterResource(
+                        if (expanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more
+                    ),
+                    contentDescription = null,
+                    tint = style.secondaryText,
+                    modifier = Modifier.size(18.dp)
                 )
+            }
+            if (expanded) {
+                // 选择PAG文件（原有功能）
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectPagFileAction() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.select_pag_file),
+                        color = style.primaryText,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = pagPath.substringAfterLast("/").ifBlank { "未选择" },
+                        color = style.accent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.width(100.dp)
+                    )
+                }
+                // 选择PAG主题（复用壁纸轮换主题列表逻辑）
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectPagThemeOverlayAction() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.select_pag_theme),
+                        color = style.primaryText,
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = themeDir.substringAfterLast("/").ifBlank { "未选择" },
+                        color = style.accent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.width(100.dp)
+                    )
+                }
+                // 应用主题背景开关（默认不应用，只应用 PAG 动画）
+                ReaderSwitchRow(
+                    title = stringResource(R.string.pag_overlay_apply_theme_bg),
+                    checked = applyBg,
+                    enabled = themeDir.isNotBlank(),
+                    style = style
+                ) {
+                    applyBg = it
+                    ReadBookConfig.durConfig.pagOverlayThemeApplyBg = it
+                    postReadConfigChanged(1, 10)
+                }
             }
         }
     }
@@ -2075,6 +2149,85 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         selectPagFile.launch {
             mode = HandleFileContract.PAG
         }
+    }
+
+    // ── PAG 主题（复用壁纸轮换主题选择逻辑，单选应用）──
+
+    private val selectPagThemeOverlayContract = registerForActivityResult(HandleFileContract()) {
+        it.uri?.let { uri ->
+            val path = uri.path ?: return@let
+            val dir = File(path)
+            // 记住根目录（与壁纸轮换共用）
+            requireContext().defaultSharedPreferences.edit()
+                .putString(PREF_PAG_THEME_ROOT, path)
+                .apply()
+            showPagThemeOverlayPicker(dir)
+        }
+    }
+
+    private fun openPagThemeRootPickerForOverlay() {
+        selectPagThemeOverlayContract.launch {
+            mode = HandleFileContract.DIR
+            title = "选择PAG主题根目录"
+        }
+    }
+
+    private fun selectPagThemeOverlayAction() {
+        val savedPath = requireContext().defaultSharedPreferences
+            .getString(PREF_PAG_THEME_ROOT, null)
+        val savedDir = savedPath?.let { File(it) }
+        if (savedDir != null && savedDir.isDirectory) {
+            showPagThemeOverlayPicker(savedDir)
+        } else {
+            openPagThemeRootPickerForOverlay()
+        }
+    }
+
+    /** 单选一个 PAG 主题应用到叠加动画（缩略图/预览/更换目录与壁纸轮换一致） */
+    private fun showPagThemeOverlayPicker(rootDir: File) {
+        if (!rootDir.isDirectory) {
+            requireContext().toastOnUi("所选目录无效：${rootDir.path}")
+            return
+        }
+        val themeDirs = rootDir.listFiles { it.isDirectory }
+            ?.sortedBy { it.name }
+            .orEmpty()
+        if (themeDirs.isEmpty()) {
+            requireContext().toastOnUi("所选目录下没有子文件夹")
+            return
+        }
+        val labels = themeDirs.map { it.name }
+        val thumbnails = themeDirs.map { dir ->
+            val thumb = themePreviewFile(dir)
+            if (thumb != null) "image:${thumb.absolutePath}" else "color:#EEEEEE"
+        }
+        val currentTheme = ReadBookConfig.durConfig.pagOverlayThemeDir
+        val checkedIndices = themeDirs.indices
+            .filter { themeDirs[it].absolutePath == currentTheme }
+            .toSet()
+        showComposeMultiChoiceDialog(
+            title = "选择PAG主题（根目录：${rootDir.name}）",
+            labels = labels,
+            checkedIndices = checkedIndices,
+            thumbnails = thumbnails,
+            actionText = "▶",
+            positiveText = getString(android.R.string.ok),
+            negativeText = getString(android.R.string.cancel),
+            extraActionText = "更换目录",
+            onExtraAction = { openPagThemeRootPickerForOverlay() },
+            onItemActionClick = { index -> pagThemePreview(themeDirs[index]) },
+            onDismissAction = { refreshTick++ },
+            onPositive = { checkedArray ->
+                // 单选语义：仅取第一个勾选的主题
+                val selected = themeDirs.indices.firstOrNull { i ->
+                    i < checkedArray.size && checkedArray[i]
+                }
+                ReadBookConfig.durConfig.pagOverlayThemeDir =
+                    selected?.let { themeDirs[it].absolutePath } ?: ""
+                refreshTick++
+                postReadConfigChanged(1, 10)
+            }
+        )
     }
 
     private fun setPagFromUri(uri: Uri) {

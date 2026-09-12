@@ -283,6 +283,16 @@ object ReadBookConfig {
                     rotationBgType!!, rotationBgStr!!
                 )
             }
+            // PAG 主题背景：启用 PAG 叠加 + 应用主题背景开关开启 + 已选主题时替换背景
+            durConfig.pagOverlayEnabled && durConfig.pagOverlayThemeApplyBg &&
+                durConfig.pagOverlayThemeDir.isNotBlank() -> {
+                val bgFile = parsePagThemeBgImage(File(durConfig.pagOverlayThemeDir))
+                if (bgFile != null) {
+                    durConfig.buildBgDrawable(width, height, 2, bgFile.absolutePath)
+                } else {
+                    durConfig.curBgDrawable(width, height)
+                }
+            }
             else -> durConfig.curBgDrawable(width, height)
         }
         if (drawable is BitmapDrawable && drawable.bitmap != null) {
@@ -817,6 +827,9 @@ object ReadBookConfig {
         // PAG叠加动画
         var pagOverlayPath: String = "",
         var pagOverlayEnabled: Boolean = false,
+        // PAG 主题（复用壁纸轮换主题目录；默认不应用主题背景，只应用 PAG 动画）
+        var pagOverlayThemeDir: String = "",
+        var pagOverlayThemeApplyBg: Boolean = false,
         // URL 图层自动刷新（按条目独立存储刷新间隔与上次刷新时间）
         var urlRefreshIntervals: HashMap<String, Long> = hashMapOf(),
         var urlRefreshTimes: HashMap<String, Long> = hashMapOf()
@@ -1163,7 +1176,9 @@ object ReadBookConfig {
             "wallpaperRotationIntervalSec" to wallpaperRotationIntervalSec,
             "wallpaperRotationImageList" to wallpaperRotationImageList,
             "pagOverlayPath" to pagOverlayPath,
-            "pagOverlayEnabled" to pagOverlayEnabled
+            "pagOverlayEnabled" to pagOverlayEnabled,
+            "pagOverlayThemeDir" to pagOverlayThemeDir,
+            "pagOverlayThemeApplyBg" to pagOverlayThemeApplyBg
         )
 
     }

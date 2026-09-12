@@ -1199,7 +1199,16 @@ class PageView(context: Context) : FrameLayout(context) {
         val config = ReadBookConfig.durConfig
         // 轮换覆盖优先，其次样式自身设置
         val pagEnabled = ReadBookConfig.rotationPagEnabled ?: config.pagOverlayEnabled
-        val pagPath = ReadBookConfig.rotationPagPath ?: config.pagOverlayPath
+        // PAG 路径优先级：轮换覆盖 > 主题目录动画 > 单个文件
+        val pagPath = ReadBookConfig.rotationPagPath ?: run {
+            val themeDir = config.pagOverlayThemeDir
+            if (themeDir.isNotBlank()) {
+                ReadBookConfig.parsePagThemePagFile(File(themeDir))?.absolutePath
+                    ?: config.pagOverlayPath
+            } else {
+                config.pagOverlayPath
+            }
+        }
         if (!pagEnabled || pagPath.isBlank()) {
             clearPagOverlay()
             return
