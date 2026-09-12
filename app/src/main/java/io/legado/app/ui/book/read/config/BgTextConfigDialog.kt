@@ -1313,22 +1313,10 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     }
 
     /** 背景图：优先 theme.json bg.image，否则扫描 jpg */
-    private fun themeBackground(dir: File): File? {
-        val cfg = ReadBookConfig.parsePagThemeConfig(dir)
-        return cfg?.bgImage
-            ?.let { File(dir, it).takeIf { f -> f.isFile } }
-            ?: dir.listFiles { it.isFile && it.extension.equals("jpg", true) }
-                ?.minByOrNull { it.name }
-    }
+    private fun themeBackground(dir: File): File? = ReadBookConfig.parsePagThemeBgImage(dir)
 
     /** PAG 动画：优先 theme.json pagLayer，否则扫描 .pag */
-    private fun themePagFile(dir: File): File? {
-        val cfg = ReadBookConfig.parsePagThemeConfig(dir)
-        return cfg?.pagLayer
-            ?.let { File(dir, it).takeIf { f -> f.isFile } }
-            ?: dir.listFiles { it.isFile && it.extension.equals("pag", true) }
-                ?.minByOrNull { it.name }
-    }
+    private fun themePagFile(dir: File): File? = ReadBookConfig.parsePagThemePagFile(dir)
 
     /** 缩略图：优先 theme.json previewImage，否则背景图 */
     private fun themePreviewFile(dir: File): File? {

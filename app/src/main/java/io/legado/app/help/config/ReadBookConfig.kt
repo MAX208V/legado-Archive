@@ -249,6 +249,24 @@ object ReadBookConfig {
             }.getOrNull()
     }
 
+    /** 解析 PAG 主题背景图：优先 theme.json bg.image，否则扫描 jpg */
+    fun parsePagThemeBgImage(dir: File): File? {
+        val cfg = parsePagThemeConfig(dir)
+        return cfg?.bgImage
+            ?.let { File(dir, it).takeIf { f -> f.isFile } }
+            ?: dir.listFiles { it.isFile && it.extension.equals("jpg", true) }
+                ?.minByOrNull { it.name }
+    }
+
+    /** 解析 PAG 主题动画文件：优先 theme.json pagLayer，否则扫描 .pag */
+    fun parsePagThemePagFile(dir: File): File? {
+        val cfg = parsePagThemeConfig(dir)
+        return cfg?.pagLayer
+            ?.let { File(dir, it).takeIf { f -> f.isFile } }
+            ?: dir.listFiles { it.isFile && it.extension.equals("pag", true) }
+                ?.minByOrNull { it.name }
+    }
+
     fun upBg(width: Int, height: Int) {
         val drawable = when {
             // 轮换条目来自样式：动态取该样式当前模式的背景（白天/黑夜自动切换）
