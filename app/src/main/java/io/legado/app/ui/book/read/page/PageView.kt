@@ -58,6 +58,7 @@ import io.legado.app.utils.decodeBase64DataUrlBytes
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.gone
 import io.legado.app.utils.SvgUtils
+import io.legado.app.help.AppLog
 import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.setOnApplyWindowInsetsListenerCompat
 import io.legado.app.utils.setTextIfNotEqual
@@ -1233,6 +1234,11 @@ class PageView(context: Context) : FrameLayout(context) {
         if (lastPagOverlayConfig == configKey && pagOverlayView?.isPlaying == true) {
             return
         }
+        AppLog.putDebug(
+            "PAG overlay apply: path=${pagPath.substringAfterLast('/')} " +
+                "interval=${intervalSec}s enabled=$pagEnabled " +
+                "prev=$lastPagOverlayConfig new=$configKey"
+        )
         // 取消上一次的间隔重启回调
         pagOverlayRestartRunnable?.let { pagOverlayHandler.removeCallbacks(it) }
         pagOverlayRestartRunnable = null

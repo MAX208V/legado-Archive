@@ -2473,6 +2473,12 @@ class ReadBookActivity : BaseReadBookActivity(),
         if (values.contains(0)) {
             upSystemUiVisibility()
         }
+        // PAG叠加动画/壁纸轮换配置变更时刷新（EPUB 内核模式同样需要，
+        // 否则 handleReadConfigUpdate 提前 return 导致 PAG 间隔等修改不生效）
+        if (values.any { it == 9 || it == 10 }) {
+            startWallpaperRotation()
+            refreshPagOverlay()
+        }
         if (values.any { it == 8 || it == 10 }) {
             ChapterProvider.upStyle()
         }

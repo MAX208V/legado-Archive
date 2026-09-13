@@ -1865,8 +1865,21 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     range = 0..60,
                     style = style,
                     valueText = if (pagInterval == 0) "无缝循环" else "${pagInterval}秒",
-                    onValueChange = { pagInterval = it },
+                    onValueChange = { newValue ->
+                        pagInterval = newValue
+                        // 拖动中同步内存值（不触发播放刷新），即使松手事件异常丢失，
+                        // 下一次任何 refreshPagOverlay 也会按新值重启播放
+                        if (rotationPagActive) {
+                            ReadBookConfig.durConfig.setPagPlayInterval(
+                                currentRotationEntry ?: "",
+                                newValue * 1000L
+                            )
+                        } else {
+                            ReadBookConfig.durConfig.pagOverlayIntervalSec = newValue
+                        }
+                    },
                     onValueChangeFinished = {
+                        // 松手时持久化最终值并刷新播放（间隔立即生效）
                         if (rotationPagActive) {
                             ReadBookConfig.durConfig.setPagPlayInterval(
                                 currentRotationEntry ?: "",
