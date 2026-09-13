@@ -157,6 +157,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
     private var refreshTick by mutableIntStateOf(0)
     private val showRefreshIntervalDialog = mutableStateOf(false)
     private val refreshIntervalEntryKey = mutableStateOf("")
+    private val showPagIntervalDialog = mutableStateOf(false)
+    private val pagIntervalEntryKey = mutableStateOf("")
     private var pendingSelfConfigEvents = 0
 
     private val selectBgImage = registerForActivityResult(HandleFileContract()) {
@@ -353,7 +355,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         var entries by rememberSaveable(refreshTick) {
             mutableStateOf(ReadBookConfig.durConfig.wallpaperRotationImageList)
         }
-        var expanded by rememberSaveable(refreshTick) {
+        var expanded by rememberSaveable {
             mutableStateOf(false)
         }
         val presetImages = remember { requireContext().assets.list("bg")?.toList().orEmpty() }
@@ -492,6 +494,19 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 onConfirm = { newMs ->
                     ReadBookConfig.durConfig.setEntryRefreshInterval(entryKey, newMs)
                     showRefreshIntervalDialog.value = false
+                }
+            )
+        }
+        // PAG播放间隔按钮 → 设置动画播放间隔（按条目独立存储）
+        if (showPagIntervalDialog.value) {
+            val entryKey = pagIntervalEntryKey.value
+            PagIntervalPicker(
+                currentMs = ReadBookConfig.durConfig.getPagPlayInterval(entryKey),
+                style = style,
+                onDismiss = { showPagIntervalDialog.value = false },
+                onConfirm = { newMs ->
+                    ReadBookConfig.durConfig.setPagPlayInterval(entryKey, newMs)
+                    showPagIntervalDialog.value = false
                 }
             )
         }
@@ -639,7 +654,6 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 .weight(1f)
                                 .clickable { previewRotationEntry(entry) }
                         )
-                        // 白天/黑夜模式按钮（▶ 左边，三态循环）
                         val (pureEntry, mode) = ReadBookConfig.parseRotationEntry(entry)
                         val modeIcon = when (mode) {
                             ReadBookConfig.ROTATION_MODE_NIGHT -> "🌙"
@@ -682,6 +696,28 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                                 )
                             }
                         }
+                        // PAG播放间隔按钮（仅 pagtheme 类型条目；点击设置动画播放间隔）
+                        if (pureEntry.startsWith("pagtheme:")) {
+                            val currentInterval = ReadBookConfig.durConfig.getPagPlayInterval(pureEntry)
+                            val intervalLabel = if (currentInterval <= 0) "无缝" else "${currentInterval / 1000}秒"
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable {
+                                        pagIntervalEntryKey.value = pureEntry
+                                        showPagIntervalDialog.value = true
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = intervalLabel,
+                                    color = if (currentInterval > 0) style.accent else style.secondaryText,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                        // 白天/黑夜模式按钮（▶ 左边，三态循环）
                         Box(
                             modifier = Modifier
                                 .size(30.dp)
@@ -1597,6 +1633,95 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         )
     }
 
+    /** PAG动画播放间隔选择器（秒级：0=无缝循环，>0=播一遍后等间隔秒数再重播） */
+    @Composable
+    private fun PagIntervalPicker(
+        currentMs: Long,
+        style: AppDialogStyle,
+        onDismiss: () -> Unit,
+        onConfirm: (Long) -> Unit
+    ) {
+        data class IntervalOption(val label: String, val sec: Int)
+        val options = listOf(
+            IntervalOption("无缝循环", 0),
+            IntervalOption("1 秒", 1),
+            IntervalOption("2 秒", 2),
+            IntervalOption("3 秒", 3),
+            IntervalOption("5 秒", 5),
+            IntervalOption("10 秒", 10),
+            IntervalOption("15 秒", 15),
+            IntervalOption("30 秒", 30),
+            IntervalOption("60 秒", 60)
+        )
+        val currentSec = (currentMs / 1000).toInt()
+        var selected by remember { mutableStateOf(currentSec) }
+
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            containerColor = style.surface,
+            title = {
+                Text(stringResource(R.string.pag_play_interval), color = style.primaryText, fontSize = 18.sp)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        "动画播完一遍后等待指定时间再播放下一遍",
+                        color = style.secondaryText,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    options.forEach { opt ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (selected == opt.sec) style.accent.copy(alpha = 0.15f)
+                                    else Color.Transparent
+                                )
+                                .clickable { selected = opt.sec }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .border(
+                                        2.dp,
+                                        if (selected == opt.sec) style.accent else style.secondaryText.copy(alpha = 0.4f),
+                                        RoundedCornerShape(9.dp)
+                                    )
+                                    .padding(3.dp)
+                            ) {
+                                if (selected == opt.sec) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(style.accent)
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(opt.label, color = style.primaryText, fontSize = 15.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onConfirm(selected * 1000L) }) {
+                    Text("确定", color = style.accent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismiss) {
+                    Text("取消", color = style.secondaryText)
+                }
+            }
+        )
+    }
+
     /** 刷新轮换列表中 URL 条目：清 Glide 磁盘缓存 → 让轮换 Job 下轮切换时自动使用新内容 */
     private fun refreshUrlEntry(context: android.content.Context, entry: String) {
         val pureEntry = ReadBookConfig.parseRotationEntry(entry).first
@@ -1627,7 +1752,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         var applyBg by rememberSaveable(refreshTick) {
             mutableStateOf(ReadBookConfig.durConfig.pagOverlayThemeApplyBg)
         }
-        var expanded by rememberSaveable(refreshTick) {
+        var expanded by rememberSaveable {
             mutableStateOf(false)
         }
         ReaderSwitchRow(
@@ -1721,6 +1846,22 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                         modifier = Modifier.width(100.dp)
                     )
                 }
+                // 播放间隔（0=无缝循环，>0=播一遍后等间隔秒数再重播）
+                var pagInterval by rememberSaveable(refreshTick) {
+                    mutableIntStateOf(ReadBookConfig.durConfig.pagOverlayIntervalSec)
+                }
+                SliderRow(
+                    title = stringResource(R.string.pag_play_interval),
+                    value = pagInterval,
+                    range = 0..60,
+                    style = style,
+                    valueText = if (pagInterval == 0) "无缝循环" else "${pagInterval}秒",
+                    onValueChange = { newValue ->
+                        pagInterval = newValue
+                        ReadBookConfig.durConfig.pagOverlayIntervalSec = newValue
+                        postReadConfigChanged(1, 10)
+                    }
+                )
                 // 应用主题背景开关（默认不应用，只应用 PAG 动画）
                 ReaderSwitchRow(
                     title = stringResource(R.string.pag_overlay_apply_theme_bg),
@@ -2212,7 +2353,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         }
     }
 
-    /** 单选一个 PAG 主题应用到叠加动画（缩略图/预览/更换目录与壁纸轮换一致） */
+    /** 单选一个 PAG 主题应用到叠加动画（缩略图/预览/更换目录与壁纸轮换一致，交互为单选） */
     private fun showPagThemeOverlayPicker(rootDir: File) {
         if (!rootDir.isDirectory) {
             requireContext().toastOnUi("所选目录无效：${rootDir.path}")
@@ -2243,11 +2384,12 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
             positiveText = getString(android.R.string.ok),
             negativeText = getString(android.R.string.cancel),
             extraActionText = "更换目录",
+            singleSelect = true,
             onExtraAction = { openPagThemeRootPickerForOverlay() },
             onItemActionClick = { index -> pagThemePreview(themeDirs[index]) },
             onDismissAction = { refreshTick++ },
             onPositive = { checkedArray ->
-                // 单选语义：仅取第一个勾选的主题
+                // 单选模式：仅取第一个勾选的主题
                 val selected = themeDirs.indices.firstOrNull { i ->
                     i < checkedArray.size && checkedArray[i]
                 }

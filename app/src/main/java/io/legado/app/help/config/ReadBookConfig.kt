@@ -827,12 +827,15 @@ object ReadBookConfig {
         // PAG叠加动画
         var pagOverlayPath: String = "",
         var pagOverlayEnabled: Boolean = false,
+        var pagOverlayIntervalSec: Int = 0, // PAG动画播放间隔（秒）；0 = 无缝循环
         // PAG 主题（复用壁纸轮换主题目录；默认不应用主题背景，只应用 PAG 动画）
         var pagOverlayThemeDir: String = "",
         var pagOverlayThemeApplyBg: Boolean = false,
         // URL 图层自动刷新（按条目独立存储刷新间隔与上次刷新时间）
         var urlRefreshIntervals: HashMap<String, Long> = hashMapOf(),
-        var urlRefreshTimes: HashMap<String, Long> = hashMapOf()
+        var urlRefreshTimes: HashMap<String, Long> = hashMapOf(),
+        // PAG播放间隔（按条目独立存储；毫秒；0 = 无缝循环）
+        var pagPlayIntervals: HashMap<String, Long> = hashMapOf()
     ) {
 
         @Transient
@@ -845,6 +848,15 @@ object ReadBookConfig {
         /** 设置某条目的自动刷新间隔 */
         fun setEntryRefreshInterval(entry: String, intervalMs: Long) {
             urlRefreshIntervals[entry] = intervalMs
+        }
+
+        /** 获取某条目的PAG播放间隔（毫秒）；0 = 无缝循环 */
+        fun getPagPlayInterval(entry: String): Long =
+            pagPlayIntervals[entry] ?: 0L
+
+        /** 设置某条目的PAG播放间隔 */
+        fun setPagPlayInterval(entry: String, intervalMs: Long) {
+            pagPlayIntervals[entry] = intervalMs
         }
 
         /** 获取某条目上次刷新时间戳；0 = 从未刷新 */
@@ -1177,8 +1189,10 @@ object ReadBookConfig {
             "wallpaperRotationImageList" to wallpaperRotationImageList,
             "pagOverlayPath" to pagOverlayPath,
             "pagOverlayEnabled" to pagOverlayEnabled,
+            "pagOverlayIntervalSec" to pagOverlayIntervalSec,
             "pagOverlayThemeDir" to pagOverlayThemeDir,
-            "pagOverlayThemeApplyBg" to pagOverlayThemeApplyBg
+            "pagOverlayThemeApplyBg" to pagOverlayThemeApplyBg,
+            "pagPlayIntervals" to pagPlayIntervals
         )
 
     }

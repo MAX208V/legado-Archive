@@ -1271,6 +1271,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                     List(itemLabels.size) { index -> initialChecked.getOrNull(index) ?: false }
                 }
                 val saveCheckedState = itemLabels.size <= MAX_SAVEABLE_MULTI_CHOICE_ITEMS
+                val singleSelect = args.getBoolean(ARG_SINGLE_SELECT)
                 val saveableChecked = if (saveCheckedState) {
                     rememberSaveable(itemLabels) { mutableStateOf(initialCheckedValues) }
                 } else {
@@ -1313,16 +1314,27 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                                     palette = palette,
                                     onClick = {
                                         if (index in itemLabels.indices) {
-                                            val nextChecked = !(saveableChecked?.value?.getOrNull(index)
+                                            val state = saveableChecked
+                                            val nextChecked = !(state?.value?.getOrNull(index)
                                                 ?: localChecked?.getOrNull(index)
                                                 ?: false)
-                                            val state = saveableChecked
                                             if (state != null) {
-                                                state.value = state.value.toggleAt(index, itemLabels.size)
+                                                state.value = if (singleSelect) {
+                                                    // 单选模式：只保留当前项的选择状态
+                                                    List(itemLabels.size) { i -> i == index && nextChecked }
+                                                } else {
+                                                    state.value.toggleAt(index, itemLabels.size)
+                                                }
                                             } else {
                                                 localChecked?.let { values ->
                                                     if (index in values.indices) {
-                                                        values[index] = nextChecked
+                                                        if (singleSelect) {
+                                                            for (i in values.indices) {
+                                                                values[i] = i == index && nextChecked
+                                                            }
+                                                        } else {
+                                                            values[index] = nextChecked
+                                                        }
                                                     }
                                                 }
                                             }
@@ -1414,7 +1426,8 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
             actionText: String? = null,
             onItemActionClick: ((Int) -> Unit)? = null,
             extraActionText: String? = null,
-            onExtraAction: (() -> Unit)? = null
+            onExtraAction: (() -> Unit)? = null,
+            singleSelect: Boolean = false
         ): ComposeMultiChoiceDialog {
             val safeLabels = labels.toList()
             return ComposeMultiChoiceDialog().apply {
@@ -1430,6 +1443,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
                     }
                     putString(ARG_ACTION_TEXT, actionText)
                     putString(ARG_EXTRA_ACTION_TEXT, extraActionText)
+                    putBoolean(ARG_SINGLE_SELECT, singleSelect)
                 }
                 this.onPositive = onPositive
                 this.onItemCheckedChange = onItemCheckedChange
@@ -1448,6 +1462,7 @@ class ComposeMultiChoiceDialog : ComposeDialogFragment() {
         private const val ARG_THUMBNAILS = "thumbnails"
         private const val ARG_ACTION_TEXT = "actionText"
         private const val ARG_EXTRA_ACTION_TEXT = "extraActionText"
+        private const val ARG_SINGLE_SELECT = "singleSelect"
     }
 }
 

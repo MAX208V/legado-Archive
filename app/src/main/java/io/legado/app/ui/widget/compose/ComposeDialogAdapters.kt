@@ -147,7 +147,8 @@ fun Fragment.showComposeMultiChoiceDialog(
     actionText: String? = null,
     onItemActionClick: ((Int) -> Unit)? = null,
     extraActionText: String? = null,
-    onExtraAction: (() -> Unit)? = null
+    onExtraAction: (() -> Unit)? = null,
+    singleSelect: Boolean = false
 ) {
     showDialogFragment(
         ComposeMultiChoiceDialog.create(
@@ -164,7 +165,8 @@ fun Fragment.showComposeMultiChoiceDialog(
             actionText = actionText,
             onItemActionClick = onItemActionClick,
             extraActionText = extraActionText,
-            onExtraAction = onExtraAction
+            onExtraAction = onExtraAction,
+            singleSelect = singleSelect
         )
     )
 }
@@ -400,7 +402,8 @@ fun AppCompatActivity.showComposeMultiChoiceDialog(
     negativeText: CharSequence = getString(android.R.string.cancel),
     onItemCheckedChange: ((Int, Boolean) -> Unit)? = null,
     onDismissAction: (() -> Unit)? = null,
-    onPositive: ((BooleanArray) -> Unit)? = null
+    onPositive: ((BooleanArray) -> Unit)? = null,
+    singleSelect: Boolean = false
 ) {
     showDialogFragment(
         ComposeMultiChoiceDialog.create(
@@ -412,7 +415,8 @@ fun AppCompatActivity.showComposeMultiChoiceDialog(
             negativeText = negativeText.toString(),
             onItemCheckedChange = onItemCheckedChange,
             onDismissAction = onDismissAction,
-            onPositive = onPositive
+            onPositive = onPositive,
+            singleSelect = singleSelect
         )
     )
 }

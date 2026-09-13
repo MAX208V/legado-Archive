@@ -9,6 +9,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.LayerDrawable
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -1163,6 +1165,9 @@ class PageView(context: Context) : FrameLayout(context) {
      * 避免未使用 PAG 的用户也加载 libpag 原生库（内存/启动性能）
      */
     private var pagOverlayView: org.libpag.PAGView? = null
+    private val pagOverlayHandler = Handler(Looper.getMainLooper())
+    private var pagOverlayRestartRunnable: Runnable? = null
+    private var pagOverlayEndListener: org.libpag.PAGView.PAGViewListener? = null
 
     private fun getPagOverlayView(): org.libpag.PAGView? {
         pagOverlayView?.let { return it }
@@ -1181,7 +1186,6 @@ class PageView(context: Context) : FrameLayout(context) {
             // PAG 快照层紧随其后（同一层级，截图时补画 PAG 帧）
             root.addView(PagSnapshotLayer(context), insertIndex + 1, lp)
             pagView.visibility = GONE
-            pagView.setRepeatCount(-1) // 无限循环
             // ZOOM：等比缩放填满屏幕并裁剪，适配不同屏幕大小
             pagView.setScaleMode(org.libpag.PAGScaleMode.Zoom)
             pagOverlayView = pagView
@@ -1209,6 +1213,14 @@ class PageView(context: Context) : FrameLayout(context) {
                 config.pagOverlayPath
             }
         }
+        // 取消上一次的间隔重启回调
+        pagOverlayRestartRunnable?.let { pagOverlayHandler.removeCallbacks(it) }
+        pagOverlayRestartRunnable = null
+        // 移除旧的间隔重启监听（避免每次刷新重复添加导致回调累积）
+        pagOverlayEndListener?.let { old ->
+            pagOverlayView?.removeListener(old)
+        }
+        pagOverlayEndListener = null
         if (!pagEnabled || pagPath.isBlank()) {
             clearPagOverlay()
             return
@@ -1232,7 +1244,34 @@ class PageView(context: Context) : FrameLayout(context) {
                 pagView.setPath(tempFile.absolutePath)
             }
             if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
-            pagView.play()
+            // 播放间隔：0 = 无缝循环（repeatCount=-1），>0 = 播一遍后等间隔秒数再重播
+            val intervalSec = if (ReadBookConfig.rotationPagPath != null) {
+                // 轮换条目：按条目独立间隔
+                val entry = ReadBookConfig.rotationCurrentEntry ?: ""
+                (config.getPagPlayInterval(entry) / 1000).toInt()
+            } else {
+                config.pagOverlayIntervalSec
+            }
+            if (intervalSec > 0) {
+                pagView.setRepeatCount(0) // 播一遍
+                val listener = object : org.libpag.PAGView.PAGViewListener {
+                    override fun onAnimationStart(v: org.libpag.PAGView?) {}
+                    override fun onAnimationEnd(v: org.libpag.PAGView?) {
+                        val runnable = Runnable { v?.play() }
+                        pagOverlayRestartRunnable = runnable
+                        pagOverlayHandler.postDelayed(runnable, intervalSec * 1000L)
+                    }
+                    override fun onAnimationCancel(v: org.libpag.PAGView?) {}
+                    override fun onAnimationRepeat(v: org.libpag.PAGView?) {}
+                    override fun onAnimationUpdate(v: org.libpag.PAGView?) {}
+                }
+                pagOverlayEndListener = listener
+                pagView.addListener(listener)
+                pagView.play()
+            } else {
+                pagView.setRepeatCount(-1) // 无限循环
+                pagView.play()
+            }
         } catch (e: Exception) {
             e.printOnDebug()
             pagView.visibility = GONE
@@ -1243,6 +1282,14 @@ class PageView(context: Context) : FrameLayout(context) {
      * 停止并清除 PAG 叠加动画（移除视图以释放 libpag 原生内存）
      */
     fun clearPagOverlay() {
+        // 取消间隔重启回调
+        pagOverlayRestartRunnable?.let { pagOverlayHandler.removeCallbacks(it) }
+        pagOverlayRestartRunnable = null
+        // 移除间隔重启监听，避免持有旧视图引用
+        pagOverlayEndListener?.let { old ->
+            pagOverlayView?.removeListener(old)
+        }
+        pagOverlayEndListener = null
         pagOverlayView?.let { pagView ->
             try {
                 if (pagView.isPlaying) pagView.stop()
