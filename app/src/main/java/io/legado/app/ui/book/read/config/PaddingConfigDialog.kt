@@ -50,7 +50,7 @@ import io.legado.app.R
 import io.legado.app.constant.EventBus
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.ui.widget.compose.AppDialogStyle
-import io.legado.app.ui.widget.compose.AppThemedStepperSlider
+import io.legado.app.ui.widget.compose.AppNativeSeekBar
 import io.legado.app.ui.widget.compose.ComposeDialogFragment
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
 import io.legado.app.ui.widget.compose.rememberAppDialogStyle
@@ -481,13 +481,11 @@ class PaddingConfigDialog : ComposeDialogFragment() {
         item: PaddingItem,
         style: AppDialogStyle
     ) {
-        AppThemedStepperSlider(
+        AppNativeSeekBar(
             value = item.value,
             range = item.range,
             onValueChange = item.onValueChange,
             palette = style.toMiuixPalette(),
-            trackHeight = 34.dp,
-            thumbSize = 26.dp,
             endpointWidth = 30.dp
         )
     }

@@ -49,7 +49,7 @@ import io.legado.app.lib.theme.UiCorner
 import io.legado.app.ui.widget.ModernActionPopup
 import io.legado.app.ui.widget.compose.AppSettingPalette
 import io.legado.app.ui.widget.compose.AppSettingSectionTitle
-import io.legado.app.ui.widget.compose.AppThemedStepperSlider
+import io.legado.app.ui.widget.compose.AppNativeSeekBar
 import io.legado.app.ui.widget.compose.LegadoResourceIcon
 import io.legado.app.ui.widget.compose.LegadoMiuixSwitch
 import io.legado.app.ui.widget.compose.appSettingPanelBackground
@@ -397,7 +397,7 @@ private fun SettingSliderRow(
             )
         }
         Spacer(modifier = Modifier.height(6.dp))
-        AppThemedStepperSlider(
+        AppNativeSeekBar(
             value = sliderValue,
             range = item.valueRange,
             onValueChange = { item.onValueChange(it.coerceIn(item.valueRange)) },

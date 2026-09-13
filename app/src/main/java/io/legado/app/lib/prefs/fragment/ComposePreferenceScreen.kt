@@ -64,7 +64,7 @@ import io.legado.app.lib.theme.UiCorner
 import io.legado.app.lib.theme.composeActionRadius
 import io.legado.app.ui.widget.compose.AppSettingPalette
 import io.legado.app.ui.widget.compose.AppSettingSectionTitle
-import io.legado.app.ui.widget.compose.AppThemedStepperSlider
+import io.legado.app.ui.widget.compose.AppNativeSeekBar
 import io.legado.app.ui.widget.compose.LegadoMiuixPalette
 import io.legado.app.ui.widget.compose.LegadoMiuixSwitch
 import io.legado.app.ui.widget.compose.appSettingPanelBackground
@@ -467,7 +467,7 @@ private fun SeekBarPreferenceRow(
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
-        AppThemedStepperSlider(
+        AppNativeSeekBar(
             value = sliderValue,
             range = preference.minValue..preference.maxValue,
             enabled = enabled,

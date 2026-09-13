@@ -1,7 +1,9 @@
 package io.legado.app.ui.widget.compose
 
+import android.content.res.ColorStateList
 import android.os.Build
 import android.widget.ImageView
+import android.widget.SeekBar
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -50,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -371,8 +374,12 @@ fun LegadoMiuixSlider(
     )
 }
 
+/**
+ * 原生滑条：封装 Android 原生 SeekBar（替换自绘的 AppThemedStepperSlider）。
+ * value/range 均为 Int；step>1 时拖动按 step 吸附；onValueChangeFinished 在松手时回调。
+ */
 @Composable
-fun AppThemedStepperSlider(
+fun AppNativeSeekBar(
     value: Int,
     range: IntRange,
     onValueChange: (Int) -> Unit,
@@ -380,189 +387,69 @@ fun AppThemedStepperSlider(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     step: Int = 1,
-    trackHeight: Dp = 34.dp,
-    thumbSize: Dp = 26.dp,
-    endpointWidth: Dp = 30.dp,
     onValueChangeFinished: (() -> Unit)? = null
 ) {
-    val density = LocalDensity.current
     val safeStep = step.coerceAtLeast(1)
-    val clampedValue = value.coerceIn(range)
-    val rangeSize = (range.last - range.first).coerceAtLeast(1)
-    val fraction = ((clampedValue - range.first).toFloat() / rangeSize).coerceIn(0f, 1f)
-    val latestValue by rememberUpdatedState(clampedValue)
+    val offset = range.first
+    val span = (range.last - range.first).coerceAtLeast(0)
     val latestOnValueChange by rememberUpdatedState(onValueChange)
     val latestOnValueChangeFinished by rememberUpdatedState(onValueChangeFinished)
-    val endpointWidthPx = with(density) { endpointWidth.toPx() }
-
-    BoxWithConstraints(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(trackHeight)
-    ) {
-        val widthPx = with(density) { maxWidth.toPx() }
-        val heightPx = with(density) { maxHeight.toPx() }
-        val thumbSizePx = with(density) { thumbSize.toPx() }
-        val centerStartPx = (heightPx / 2f).coerceAtMost(widthPx / 2f)
-        val centerEndPx = (widthPx - heightPx / 2f).coerceAtLeast(centerStartPx)
-        val usablePx = (centerEndPx - centerStartPx).coerceAtLeast(1f)
-        val thumbOffsetPx = (
-            centerStartPx + usablePx * fraction - thumbSizePx / 2f
-            ).roundToInt()
-
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(range, safeStep, enabled) {
-                    if (!enabled) {
-                        return@pointerInput
+    AndroidView(
+        modifier = modifier.fillMaxWidth(),
+        factory = { ctx ->
+            SeekBar(ctx).apply {
+                max = span
+                progressTintList = stateColorList(palette.accent, palette.surfaceVariant.copy(alpha = 0.5f))
+                progressBackgroundTintList = stateColorList(
+                    palette.surfaceVariant,
+                    palette.surfaceVariant.copy(alpha = 0.3f)
+                )
+                thumbTintList = stateColorList(
+                    palette.onAccent,
+                    palette.secondaryText.copy(alpha = 0.4f)
+                )
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
+                        if (!fromUser) return
+                        val stepped = if (safeStep > 1) {
+                            val aligned = offset + ((progress + safeStep / 2) / safeStep) * safeStep
+                            aligned.coerceIn(range)
+                        } else {
+                            (offset + progress).coerceIn(range)
+                        }
+                        val newProgress = (stepped - offset).coerceIn(0, seekBar.max)
+                        if (newProgress != seekBar.progress) {
+                            // 编程设置会再次触发 onProgressChanged(fromUser=false)，不会递归
+                            seekBar.progress = newProgress
+                        }
+                        latestOnValueChange(stepped)
                     }
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val width = size.width.toFloat()
-                        val centerStart = (size.height / 2f).coerceAtMost(width / 2f)
-                        val centerEnd = (width - size.height / 2f).coerceAtLeast(centerStart)
-                        val usable = (centerEnd - centerStart).coerceAtLeast(1f)
-                        val touchSlop = viewConfiguration.touchSlop
-                        var currentValue = latestValue
-                        var didChange = false
-                        var totalX = 0f
-                        var totalY = 0f
-                        var dragging = false
 
-                        fun steppedValue(rawValue: Float, atStart: Boolean, atEnd: Boolean): Int {
-                            if (atStart) return range.first
-                            if (atEnd) return range.last
-                            val stepped = range.first + (
-                                (rawValue - range.first) / safeStep
-                                ).roundToInt() * safeStep
-                            return stepped.coerceIn(range)
-                        }
+                    override fun onStartTrackingTouch(seekBar: SeekBar) {}
 
-                        fun valueForPosition(x: Float): Int {
-                            val clamped = x.coerceIn(centerStart, centerEnd)
-                            val atStart = clamped <= centerStart
-                            val atEnd = clamped >= centerEnd
-                            val rawValue = range.first + ((clamped - centerStart) / usable) *
-                                (range.last - range.first)
-                            return steppedValue(rawValue, atStart = atStart, atEnd = atEnd)
-                        }
-
-                        fun applyValue(value: Int) {
-                            val next = value.coerceIn(range)
-                            if (next != currentValue) {
-                                currentValue = next
-                                didChange = true
-                                latestOnValueChange(next)
-                            }
-                        }
-
-                        fun applyPosition(x: Float) {
-                            applyValue(valueForPosition(x))
-                        }
-
-                        while (true) {
-                            val event = awaitPointerEvent()
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) break
-                            val delta = change.positionChange()
-                            totalX += delta.x
-                            totalY += delta.y
-                            if (!dragging && abs(totalX) > touchSlop && abs(totalX) > abs(totalY)) {
-                                dragging = true
-                            }
-                            if (dragging) {
-                                applyPosition(change.position.x)
-                                change.consume()
-                            }
-                        }
-
-                        if (!dragging) {
-                            when {
-                                down.position.x <= endpointWidthPx -> {
-                                    applyValue((currentValue - safeStep).coerceIn(range))
-                                }
-
-                                down.position.x >= size.width - endpointWidthPx -> {
-                                    applyValue((currentValue + safeStep).coerceIn(range))
-                                }
-
-                                else -> applyPosition(down.position.x)
-                            }
-                        }
-
-                        if (didChange) {
-                            latestOnValueChangeFinished?.invoke()
-                        }
+                    override fun onStopTrackingTouch(seekBar: SeekBar) {
+                        latestOnValueChangeFinished?.invoke()
                     }
-                },
-            shape = CircleShape,
-            color = if (enabled) {
-                palette.surfaceVariant
-            } else {
-                palette.surfaceVariant.copy(alpha = 0.46f)
-            },
-            contentColor = palette.primaryText,
-            tonalElevation = 0.dp,
-            shadowElevation = if (enabled) 1.dp else 0.dp
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    StepperEndpointText(
-                        text = "-",
-                        enabled = enabled && clampedValue > range.first,
-                        palette = palette,
-                        modifier = Modifier.width(endpointWidth)
-                    )
-                    Spacer(modifier = Modifier.weight(1f))
-                    StepperEndpointText(
-                        text = "+",
-                        enabled = enabled && clampedValue < range.last,
-                        palette = palette,
-                        modifier = Modifier.width(endpointWidth)
-                    )
-                }
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .offset { IntOffset(thumbOffsetPx, 0) }
-                        .size(thumbSize),
-                    shape = CircleShape,
-                    color = if (enabled) palette.surface else palette.surface.copy(alpha = 0.62f),
-                    contentColor = palette.primaryText,
-                    tonalElevation = 0.dp,
-                    shadowElevation = if (enabled) 3.dp else 0.dp
-                ) {}
+                })
+            }
+        },
+        update = { seekBar ->
+            seekBar.max = span
+            seekBar.isEnabled = enabled
+            val target = (value.coerceIn(range) - offset).coerceIn(0, span)
+            // 拖动中（isPressed）不要用外部值覆盖用户手势
+            if (!seekBar.isPressed && seekBar.progress != target) {
+                seekBar.progress = target
             }
         }
-    }
+    )
 }
 
-@Composable
-private fun StepperEndpointText(
-    text: String,
-    enabled: Boolean,
-    palette: LegadoMiuixPalette,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            color = if (enabled) palette.accent else palette.secondaryText.copy(alpha = 0.36f),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1
-        )
-    }
+private fun stateColorList(enabledColor: Color, disabledColor: Color): ColorStateList {
+    return ColorStateList(
+        arrayOf(intArrayOf(android.R.attr.state_enabled), intArrayOf()),
+        intArrayOf(enabledColor.toArgb(), disabledColor.toArgb())
+    )
 }
 
 @Composable

@@ -45,7 +45,7 @@ import io.legado.app.help.config.AdvancedTitleConfig
 import io.legado.app.help.config.ReadBookConfig
 import io.legado.app.help.config.ReadTipConfig
 import io.legado.app.ui.widget.compose.AppDialogStyle
-import io.legado.app.ui.widget.compose.AppThemedStepperSlider
+import io.legado.app.ui.widget.compose.AppNativeSeekBar
 import io.legado.app.ui.widget.compose.ComposeActionListDialog
 import io.legado.app.ui.widget.compose.LegadoMiuixChoiceRow
 import io.legado.app.ui.widget.compose.toMiuixPalette
@@ -353,14 +353,11 @@ private fun TipCompactSlider(
             maxLines = 1,
             modifier = Modifier.width(32.dp)
         )
-        AppThemedStepperSlider(
+        AppNativeSeekBar(
             value = value.coerceIn(range),
             range = range,
             onValueChange = { onValueChange(it.coerceIn(range)) },
             palette = style.toMiuixPalette(),
-            trackHeight = 28.dp,
-            thumbSize = 22.dp,
-            endpointWidth = 24.dp,
             modifier = Modifier.weight(1f)
         )
     }

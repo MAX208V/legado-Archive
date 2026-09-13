@@ -92,7 +92,7 @@ import io.legado.app.ui.book.read.ReadBookActivity
 import io.legado.app.ui.file.HandleFileContract
 import androidx.compose.runtime.MutableState
 import io.legado.app.ui.widget.compose.AppDialogStyle
-import io.legado.app.ui.widget.compose.AppThemedStepperSlider
+import io.legado.app.ui.widget.compose.AppNativeSeekBar
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
 import io.legado.app.ui.widget.compose.LegadoMiuixSwitch
 import io.legado.app.ui.widget.compose.rememberAppDialogStyle
@@ -1847,8 +1847,17 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     )
                 }
                 // 播放间隔（0=无缝循环，>0=播一遍后等间隔秒数再重播）
+                // 轮换模式（当前条目带PAG）下读写该条目独立间隔，否则读写全局间隔
+                val rotationPagActive = ReadBookConfig.rotationPagPath != null
+                val currentRotationEntry = ReadBookConfig.rotationCurrentEntry
                 var pagInterval by rememberSaveable(refreshTick) {
-                    mutableIntStateOf(ReadBookConfig.durConfig.pagOverlayIntervalSec)
+                    mutableIntStateOf(
+                        if (rotationPagActive) {
+                            (ReadBookConfig.durConfig.getPagPlayInterval(currentRotationEntry ?: "") / 1000).toInt()
+                        } else {
+                            ReadBookConfig.durConfig.pagOverlayIntervalSec
+                        }
+                    )
                 }
                 SliderRow(
                     title = stringResource(R.string.pag_play_interval),
@@ -1856,9 +1865,16 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     range = 0..60,
                     style = style,
                     valueText = if (pagInterval == 0) "无缝循环" else "${pagInterval}秒",
-                    onValueChange = { newValue ->
-                        pagInterval = newValue
-                        ReadBookConfig.durConfig.pagOverlayIntervalSec = newValue
+                    onValueChange = { pagInterval = it },
+                    onValueChangeFinished = {
+                        if (rotationPagActive) {
+                            ReadBookConfig.durConfig.setPagPlayInterval(
+                                currentRotationEntry ?: "",
+                                pagInterval * 1000L
+                            )
+                        } else {
+                            ReadBookConfig.durConfig.pagOverlayIntervalSec = pagInterval
+                        }
                         postReadConfigChanged(1, 10)
                     }
                 )
@@ -2086,7 +2102,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         range: IntRange,
         style: AppDialogStyle,
         valueText: String = "$value%",
-        onValueChange: (Int) -> Unit
+        onValueChange: (Int) -> Unit,
+        onValueChangeFinished: (() -> Unit)? = null
     ) {
         Column(
             modifier = Modifier
@@ -2109,14 +2126,12 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            AppThemedStepperSlider(
+            AppNativeSeekBar(
                 value = value,
                 range = range,
                 onValueChange = onValueChange,
-                palette = style.toMiuixPalette(),
-                trackHeight = 32.dp,
-                thumbSize = 24.dp,
-                endpointWidth = 28.dp
+                onValueChangeFinished = onValueChangeFinished,
+                palette = style.toMiuixPalette()
             )
         }
     }

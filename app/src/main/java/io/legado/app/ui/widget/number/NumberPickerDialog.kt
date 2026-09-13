@@ -47,7 +47,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.legado.app.lib.theme.composeActionRadius
-import io.legado.app.ui.widget.compose.AppThemedStepperSlider
+import io.legado.app.ui.widget.compose.AppNativeSeekBar
 import io.legado.app.ui.widget.compose.LegadoMiuixPalette
 import io.legado.app.ui.widget.compose.LegadoMiuixActionButton
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
@@ -214,7 +214,7 @@ private fun NumberPickerContent(
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    AppThemedStepperSlider(
+                    AppNativeSeekBar(
                         value = currentValue.coerceIn(safeMin, safeMax),
                         range = safeMin..safeMax,
                         onValueChange = {

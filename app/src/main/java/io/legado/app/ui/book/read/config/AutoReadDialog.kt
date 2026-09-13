@@ -50,7 +50,7 @@ import io.legado.app.model.ReadBook
 import io.legado.app.service.BaseReadAloudService
 import io.legado.app.ui.book.read.BaseReadBookActivity
 import io.legado.app.ui.book.read.ReadBookActivity
-import io.legado.app.ui.widget.compose.AppThemedStepperSlider
+import io.legado.app.ui.widget.compose.AppNativeSeekBar
 import io.legado.app.ui.widget.compose.ComposeDialogFragment
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
 import io.legado.app.ui.widget.compose.LegadoMiuixPalette
@@ -252,7 +252,7 @@ private fun AutoReadContent(
                             fontWeight = FontWeight.Medium
                         )
                     }
-                    AppThemedStepperSlider(
+                    AppNativeSeekBar(
                         value = speed,
                         range = 1..120,
                         onValueChange = { value ->

@@ -1020,7 +1020,7 @@ class ComposeNumberPickerDialog : ComposeDialogFragment() {
                                     textAlign = TextAlign.Center
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                AppThemedStepperSlider(
+                                AppNativeSeekBar(
                                     value = currentValue.coerceIn(safeMin, safeMax),
                                     range = safeMin..safeMax,
                                     onValueChange = {
@@ -2041,7 +2041,7 @@ fun AppDialogSliderRow(
                 )
             }
             Spacer(modifier = Modifier.height(if (compact) 4.dp else 6.dp))
-            AppThemedStepperSlider(
+            AppNativeSeekBar(
                 value = safeValue,
                 range = range,
                 onValueChange = { onValueChange(it.coerceIn(range)) },

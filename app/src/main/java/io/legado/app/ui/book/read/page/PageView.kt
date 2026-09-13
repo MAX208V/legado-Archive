@@ -1168,6 +1168,8 @@ class PageView(context: Context) : FrameLayout(context) {
     private val pagOverlayHandler = Handler(Looper.getMainLooper())
     private var pagOverlayRestartRunnable: Runnable? = null
     private var pagOverlayEndListener: org.libpag.PAGView.PAGViewListener? = null
+    /** 最近一次应用生效的 PAG 配置（路径, 间隔毫秒）；用于判断是否需要真正重启播放 */
+    private var lastPagOverlayConfig: Pair<String, Long>? = null
 
     private fun getPagOverlayView(): org.libpag.PAGView? {
         pagOverlayView?.let { return it }
@@ -1213,6 +1215,24 @@ class PageView(context: Context) : FrameLayout(context) {
                 config.pagOverlayPath
             }
         }
+        // 播放间隔：0 = 无缝循环（repeatCount=-1），>0 = 播一遍后等间隔秒数再重播
+        // 轮换模式（当前条目带 PAG）按条目独立间隔，否则用全局间隔
+        val intervalSec = if (ReadBookConfig.rotationPagPath != null) {
+            val entry = ReadBookConfig.rotationCurrentEntry ?: ""
+            (config.getPagPlayInterval(entry) / 1000).toInt()
+        } else {
+            config.pagOverlayIntervalSec
+        }
+        if (!pagEnabled || pagPath.isBlank()) {
+            lastPagOverlayConfig = null
+            clearPagOverlay()
+            return
+        }
+        val configKey = pagPath to intervalSec * 1000L
+        // 配置未变化且正在播放：保持现状，避免无谓重启（如拖动文字阴影等滑条时反复刷新）
+        if (lastPagOverlayConfig == configKey && pagOverlayView?.isPlaying == true) {
+            return
+        }
         // 取消上一次的间隔重启回调
         pagOverlayRestartRunnable?.let { pagOverlayHandler.removeCallbacks(it) }
         pagOverlayRestartRunnable = null
@@ -1221,12 +1241,14 @@ class PageView(context: Context) : FrameLayout(context) {
             pagOverlayView?.removeListener(old)
         }
         pagOverlayEndListener = null
-        if (!pagEnabled || pagPath.isBlank()) {
-            clearPagOverlay()
-            return
-        }
+        lastPagOverlayConfig = configKey
         val pagView = getPagOverlayView() ?: return
         try {
+            // 先停止当前播放并回到首帧，确保新的循环/间隔设置立即生效（play() 对播放中的视图是空操作）
+            try {
+                if (pagView.isPlaying) pagView.stop()
+                pagView.progress = 0.0
+            } catch (_: Exception) { }
             val path = pagPath
             if (path.startsWith("file://") || path.contains(File.separator)) {
                 pagView.setPath(path)
@@ -1244,14 +1266,6 @@ class PageView(context: Context) : FrameLayout(context) {
                 pagView.setPath(tempFile.absolutePath)
             }
             if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
-            // 播放间隔：0 = 无缝循环（repeatCount=-1），>0 = 播一遍后等间隔秒数再重播
-            val intervalSec = if (ReadBookConfig.rotationPagPath != null) {
-                // 轮换条目：按条目独立间隔
-                val entry = ReadBookConfig.rotationCurrentEntry ?: ""
-                (config.getPagPlayInterval(entry) / 1000).toInt()
-            } else {
-                config.pagOverlayIntervalSec
-            }
             if (intervalSec > 0) {
                 pagView.setRepeatCount(0) // 播一遍
                 val listener = object : org.libpag.PAGView.PAGViewListener {
@@ -1282,6 +1296,7 @@ class PageView(context: Context) : FrameLayout(context) {
      * 停止并清除 PAG 叠加动画（移除视图以释放 libpag 原生内存）
      */
     fun clearPagOverlay() {
+        lastPagOverlayConfig = null
         // 取消间隔重启回调
         pagOverlayRestartRunnable?.let { pagOverlayHandler.removeCallbacks(it) }
         pagOverlayRestartRunnable = null

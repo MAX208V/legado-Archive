@@ -61,7 +61,6 @@ import io.legado.app.ui.book.read.ReadMenuButtonConfig
 import io.legado.app.ui.widget.ModernActionPopup
 import io.legado.app.ui.widget.compose.AppDialogStyle
 import io.legado.app.help.config.AppConfig
-import io.legado.app.ui.widget.compose.AppThemedStepperSlider
 import io.legado.app.ui.widget.compose.toMiuixPalette
 import io.legado.app.utils.dpToPx
 
