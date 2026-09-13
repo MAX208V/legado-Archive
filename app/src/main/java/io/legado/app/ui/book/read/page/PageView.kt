@@ -1273,7 +1273,8 @@ class PageView(context: Context) : FrameLayout(context) {
             }
             if (pagView.visibility != VISIBLE) pagView.visibility = VISIBLE
             if (intervalSec > 0) {
-                pagView.setRepeatCount(0) // 播一遍
+                // libpag 语义：repeatCount=播放总次数，默认 1=播一次，0 或负值=无限循环
+                pagView.setRepeatCount(1) // 播一遍
                 val listener = object : org.libpag.PAGView.PAGViewListener {
                     override fun onAnimationStart(v: org.libpag.PAGView?) {}
                     override fun onAnimationEnd(v: org.libpag.PAGView?) {
@@ -1289,6 +1290,7 @@ class PageView(context: Context) : FrameLayout(context) {
                 pagView.addListener(listener)
                 pagView.play()
             } else {
+                // libpag 语义：0 或负值 = 无限循环
                 pagView.setRepeatCount(-1) // 无限循环
                 pagView.play()
             }
