@@ -485,8 +485,7 @@ class PaddingConfigDialog : ComposeDialogFragment() {
             value = item.value,
             range = item.range,
             onValueChange = item.onValueChange,
-            palette = style.toMiuixPalette(),
-            endpointWidth = 30.dp
+            palette = style.toMiuixPalette()
         )
     }
 

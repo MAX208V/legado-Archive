@@ -2102,8 +2102,8 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
         range: IntRange,
         style: AppDialogStyle,
         valueText: String = "$value%",
-        onValueChange: (Int) -> Unit,
-        onValueChangeFinished: (() -> Unit)? = null
+        onValueChangeFinished: (() -> Unit)? = null,
+        onValueChange: (Int) -> Unit
     ) {
         Column(
             modifier = Modifier
