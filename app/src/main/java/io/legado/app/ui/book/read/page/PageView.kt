@@ -58,7 +58,7 @@ import io.legado.app.utils.decodeBase64DataUrlBytes
 import io.legado.app.utils.dpToPx
 import io.legado.app.utils.gone
 import io.legado.app.utils.SvgUtils
-import io.legado.app.help.AppLog
+import io.legado.app.constant.AppLog
 import io.legado.app.utils.printOnDebug
 import io.legado.app.utils.setOnApplyWindowInsetsListenerCompat
 import io.legado.app.utils.setTextIfNotEqual
