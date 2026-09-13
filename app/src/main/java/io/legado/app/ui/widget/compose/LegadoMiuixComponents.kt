@@ -150,6 +150,72 @@ private fun canUseRealMiuix(): Boolean {
     return Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
 }
 
+/**
+ * 原生开关：封装 Android 原生 android.widget.Switch（横竖皆走原生样式，禁用 MIUix 排除浮层）。
+ * 签名保持与原 LegadoMiuixSwitch 一致，所有调用点自动受益；禁用时不额外加阴影。
+ * tint 使用 state_checked/state_enabled 两层过滤，保证禁用状态的颜色衰减由我们控制。
+ */
+@Composable
+fun AppNativeSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    palette: LegadoMiuixPalette,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val latestOnCheckedChange by rememberUpdatedState(onCheckedChange)
+    val thumbColors = remember(palette) {
+        ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_enabled, android.R.attr.state_checked),
+                intArrayOf(android.R.attr.state_enabled, -android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_enabled, android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_enabled, -android.R.attr.state_checked)
+            ),
+            intArrayOf(
+                palette.onAccent.toArgb(),
+                (palette.primaryText.copy(alpha = 0.52f)).toArgb(),
+                palette.onAccent.copy(alpha = 0.42f).toArgb(),
+                palette.primaryText.copy(alpha = 0.26f).toArgb()
+            )
+        )
+    }
+    val trackColors = remember(palette) {
+        ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_enabled, android.R.attr.state_checked),
+                intArrayOf(android.R.attr.state_enabled, -android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_enabled, android.R.attr.state_checked),
+                intArrayOf(-android.R.attr.state_enabled, -android.R.attr.state_checked)
+            ),
+            intArrayOf(
+                palette.accent.toArgb(),
+                (palette.surfaceVariant.copy(alpha = 0.62f)).toArgb(),
+                palette.accent.copy(alpha = 0.26f).toArgb(),
+                palette.surfaceVariant.copy(alpha = 0.28f).toArgb()
+            )
+        )
+    }
+    val textColor = remember(palette) { palette.primaryText.toArgb() }
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            android.widget.Switch(ctx).apply {
+                setOnCheckedChangeListener { _, isChecked ->
+                    latestOnCheckedChange(isChecked)
+                }
+            }
+        },
+        update = { sw ->
+            sw.isEnabled = enabled
+            sw.setTextColor(textColor)
+            sw.thumbTintList = thumbColors
+            sw.trackTintList = trackColors
+            if (sw.isChecked != checked) sw.isChecked = checked
+        }
+    )
+}
+
 @Composable
 fun LegadoMiuixCard(
     modifier: Modifier = Modifier,
@@ -268,6 +334,7 @@ fun LegadoMiuixActionButton(
     }
 }
 
+// 所有开关统一走 AppNativeSwitch（android.widget.Switch 原生外观）；保留 LegadoMiuixSwitch 签名兼容
 @Composable
 fun LegadoMiuixSwitch(
     checked: Boolean,
@@ -276,45 +343,12 @@ fun LegadoMiuixSwitch(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    val switchModifier = modifier.shadow(
-        elevation = if (enabled) 3.dp else 1.dp,
-        shape = RoundedCornerShape(50),
-        clip = false
-    )
-    if (canUseRealMiuix()) {
-        MiuixSwitch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled,
-            modifier = switchModifier,
-            colors = MiuixSwitchDefaults.switchColors(
-                checkedThumbColor = palette.onAccent,
-                uncheckedThumbColor = palette.secondaryText.copy(alpha = 0.72f),
-                disabledCheckedThumbColor = palette.onAccent.copy(alpha = 0.42f),
-                disabledUncheckedThumbColor = palette.secondaryText.copy(alpha = 0.32f),
-                checkedTrackColor = palette.accent,
-                uncheckedTrackColor = palette.surfaceVariant,
-                disabledCheckedTrackColor = palette.accent.copy(alpha = 0.24f),
-                disabledUncheckedTrackColor = palette.surfaceVariant.copy(alpha = 0.46f)
-            )
-        )
-        return
-    }
-    Switch(
+    AppNativeSwitch(
         checked = checked,
         onCheckedChange = onCheckedChange,
-        enabled = enabled,
-        modifier = switchModifier,
-        colors = SwitchDefaults.colors(
-            checkedThumbColor = palette.onAccent,
-            uncheckedThumbColor = palette.secondaryText.copy(alpha = 0.72f),
-            disabledCheckedThumbColor = palette.onAccent.copy(alpha = 0.42f),
-            disabledUncheckedThumbColor = palette.secondaryText.copy(alpha = 0.32f),
-            checkedTrackColor = palette.accent,
-            uncheckedTrackColor = palette.surfaceVariant,
-            disabledCheckedTrackColor = palette.accent.copy(alpha = 0.24f),
-            disabledUncheckedTrackColor = palette.surfaceVariant.copy(alpha = 0.46f)
-        )
+        palette = palette,
+        modifier = modifier,
+        enabled = enabled
     )
 }
 

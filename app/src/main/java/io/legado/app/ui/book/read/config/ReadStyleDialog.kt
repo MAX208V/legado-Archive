@@ -585,7 +585,9 @@ class ReadStyleDialog : ReaderBottomSheetComposeDialogFragment(),
         val oldIndex = ReadBookConfig.styleSelect
         if (index != oldIndex) {
             ReadBookConfig.styleSelect = index
-            postEvent(EventBus.UP_CONFIG, arrayListOf(1, 2, 5))
+            // 1 背景 2 样式/字体 5 重排；9 壁纸轮换 10-PAG/字体色重排——必须包含 9，
+            // 否则 startWallpaperRotation 不执行，切换样式后壁纸轮换开关状态不立即生效（问题1）
+            postEvent(EventBus.UP_CONFIG, arrayListOf(1, 2, 5, 9))
             if (AppConfig.readBarStyleFollowPage) {
                 postEvent(EventBus.UPDATE_READ_ACTION_BAR, true)
             }

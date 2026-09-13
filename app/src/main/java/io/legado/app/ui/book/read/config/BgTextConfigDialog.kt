@@ -494,6 +494,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 onConfirm = { newMs ->
                     ReadBookConfig.durConfig.setEntryRefreshInterval(entryKey, newMs)
                     showRefreshIntervalDialog.value = false
+                    postReadConfigChanged(9)
                 }
             )
         }
@@ -507,6 +508,7 @@ class BgTextConfigDialog : BaseDialogFragment(0) {
                 onConfirm = { newMs ->
                     ReadBookConfig.durConfig.setPagPlayInterval(entryKey, newMs)
                     showPagIntervalDialog.value = false
+                    postReadConfigChanged(9, 10)
                 }
             )
         }

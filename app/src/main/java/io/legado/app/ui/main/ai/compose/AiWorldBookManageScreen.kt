@@ -30,7 +30,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -63,6 +62,7 @@ import io.legado.app.ui.main.ai.AiWorldBookEntry
 import io.legado.app.ui.widget.compose.LegadoMiuixActionRow
 import io.legado.app.ui.widget.compose.LegadoMiuixCard
 import io.legado.app.ui.widget.compose.LegadoMiuixPalette
+import io.legado.app.ui.widget.compose.AppNativeSwitch
 import io.legado.app.ui.widget.compose.LegadoMiuixSelectField
 import io.legado.app.utils.postEvent
 import io.legado.app.utils.toastOnUi
@@ -596,7 +596,7 @@ private fun WorldBookCard(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Switch(checked = book.isGloballyEnabled(), onCheckedChange = { onToggle() })
+            AppNativeSwitch(checked = book.isGloballyEnabled(), onCheckedChange = { onToggle() }, palette = style.toWorldBookMiuixPalette())
         }
         Row(
             modifier = Modifier
@@ -673,7 +673,7 @@ private fun EntryRow(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Switch(checked = entry.enabled, onCheckedChange = { onToggle() })
+            AppNativeSwitch(checked = entry.enabled, onCheckedChange = { onToggle() }, palette = style.toWorldBookMiuixPalette())
         }
         Row(
             modifier = Modifier
@@ -1026,7 +1026,7 @@ private fun LabeledSwitch(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, color = style.colors.primaryText, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        AppNativeSwitch(checked = checked, onCheckedChange = onCheckedChange, palette = style.toWorldBookMiuixPalette())
     }
 }
 
