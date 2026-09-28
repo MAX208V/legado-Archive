@@ -2306,4 +2306,8 @@ bookUrl：%7$s
     <string name="shibboleth_invalid">口令格式无效</string>
     <string name="shibboleth_expired">口令已过期</string>
     <string name="shibboleth_import_confirm">口令将从网络下载配置，请确认来源可信后继续。</string>
+    <string name="direct_link_upload_config">直链上传配置</string>
+    <string name="summary">注释</string>
+    <string name="is_compress">是否压缩</string>
+    <string name="test">测试</string>
 </resources>

@@ -2530,4 +2530,8 @@ Selected text or question:
     <string name="shibboleth_invalid">Invalid import code</string>
     <string name="shibboleth_expired">This import code has expired</string>
     <string name="shibboleth_import_confirm">The import code will download configuration from the Internet. Continue only if you trust its source.</string>
+    <string name="direct_link_upload_config">Direct link upload configuration</string>
+    <string name="summary">summary</string>
+    <string name="is_compress">Compressed or not</string>
+    <string name="test">Test</string>
 </resources>

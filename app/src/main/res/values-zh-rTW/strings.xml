@@ -1230,4 +1230,8 @@
     <string name="bottom_bar_items_manage">底欄按鈕管理</string>
     <string name="bottom_bar_item_locked">始終顯示</string>
     <string name="bottom_bar_item_hidden">已隱藏</string>
+    <string name="direct_link_upload_config">直鏈上傳配置</string>
+    <string name="summary">注釋</string>
+    <string name="is_compress">是否压缩</string>
+    <string name="test">测试</string>
 </resources>
